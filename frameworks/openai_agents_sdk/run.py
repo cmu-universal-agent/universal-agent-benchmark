@@ -14,6 +14,8 @@ sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
 from adapter.schemas import AgentRunResult, BenchmarkTask
+from verticals.ecommerce_trend_research import tools as ecommerce_tools
+from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "openai_agents_sdk"
@@ -26,6 +28,7 @@ os.environ["OPENAI_AGENTS_DISABLE_TRACING"] = "1"
 from agents import (
     Agent,
     Runner,
+    function_tool,
     set_default_openai_api,
     set_default_openai_client,
     set_tracing_disabled,
@@ -48,7 +51,26 @@ set_default_openai_client(
 set_tracing_disabled(True)
 
 
-async def _run_agent(prompt: str) -> str:
+@function_tool
+def search_literature(pubmed_id: str) -> str:
+    """Look up the research abstract for a given PubMed ID."""
+    return medical_tools.search_literature(pubmed_id)
+
+
+@function_tool
+def get_review_history(parent_asin: str) -> str:
+    """Look up the yearly review-count and average-rating history for a product."""
+    return ecommerce_tools.get_review_history(parent_asin)
+
+
+TOOLS_BY_VERTICAL = {
+    "medical_diagnostic": [search_literature],
+    "ecommerce_trend_research": [get_review_history],
+}
+
+
+async def _run_agent(prompt: str, vertical: str) -> str:
+    tools = TOOLS_BY_VERTICAL.get(vertical, [])
     agent = Agent(
         name="OpenAI Smoke Test Agent",
         instructions=(
@@ -57,6 +79,7 @@ async def _run_agent(prompt: str) -> str:
             "Do not add markdown."
         ),
         model=model,
+        tools=tools,
     )
     result = await Runner.run(agent, prompt)
     return result.final_output
@@ -64,8 +87,10 @@ async def _run_agent(prompt: str) -> str:
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
     start = time.perf_counter()
+    medical_tools.reset_call_log()
+    ecommerce_tools.reset_call_log()
     try:
-        final_output = asyncio.run(_run_agent(task.prompt))
+        final_output = asyncio.run(_run_agent(task.prompt, task.vertical))
         return AgentRunResult(
             task_id=task.task_id,
             framework=FRAMEWORK_NAME,
@@ -73,6 +98,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
             final_output=final_output,
             latency_seconds=time.perf_counter() - start,
             success=True,
+            tool_call_count=len(medical_tools.call_log) + len(ecommerce_tools.call_log),
         )
     except Exception as exc:
         return AgentRunResult(

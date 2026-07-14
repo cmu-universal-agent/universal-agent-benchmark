@@ -7,12 +7,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
+from crewai.tools import tool
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
 from adapter.schemas import AgentRunResult, BenchmarkTask
+from verticals.ecommerce_trend_research import tools as ecommerce_tools
+from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "crewai"
@@ -20,7 +23,25 @@ FRAMEWORK_NAME = "crewai"
 load_dotenv(ROOT / ".env", override=True)
 
 
-def _run_agent(prompt: str) -> str:
+@tool("search_literature")
+def search_literature(pubmed_id: str) -> str:
+    """Look up the research abstract for a given PubMed ID."""
+    return medical_tools.search_literature(pubmed_id)
+
+
+@tool("get_review_history")
+def get_review_history(parent_asin: str) -> str:
+    """Look up the yearly review-count and average-rating history for a product."""
+    return ecommerce_tools.get_review_history(parent_asin)
+
+
+TOOLS_BY_VERTICAL = {
+    "medical_diagnostic": [search_literature],
+    "ecommerce_trend_research": [get_review_history],
+}
+
+
+def _run_agent(prompt: str, vertical: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
@@ -36,6 +57,8 @@ def _run_agent(prompt: str) -> str:
         temperature=0,
     )
 
+    tools = TOOLS_BY_VERTICAL.get(vertical, [])
+
     agent = Agent(
         role="Benchmark Smoke Test Agent",
         goal="Return a clean structured JSON response for a framework benchmark.",
@@ -44,6 +67,7 @@ def _run_agent(prompt: str) -> str:
             "standardized benchmark task as LangGraph and OpenAI Agents SDK."
         ),
         llm=llm,
+        tools=tools,
         verbose=False,
         allow_delegation=False,
     )
@@ -51,8 +75,8 @@ def _run_agent(prompt: str) -> str:
     task = Task(
         description=prompt,
         expected_output=(
-            "Exactly one JSON object with keys: task_id, answer, safety_note. "
-            "No markdown. No extra text."
+            "Exactly one JSON object matching the schema specified in the task "
+            "description above. No markdown. No extra text."
         ),
         agent=agent,
     )
@@ -70,8 +94,10 @@ def _run_agent(prompt: str) -> str:
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
     start = time.perf_counter()
+    medical_tools.reset_call_log()
+    ecommerce_tools.reset_call_log()
     try:
-        final_output = _run_agent(task.prompt)
+        final_output = _run_agent(task.prompt, task.vertical)
         return AgentRunResult(
             task_id=task.task_id,
             framework=FRAMEWORK_NAME,
@@ -79,6 +105,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
             final_output=final_output,
             latency_seconds=time.perf_counter() - start,
             success=True,
+            tool_call_count=len(medical_tools.call_log) + len(ecommerce_tools.call_log),
         )
     except Exception as exc:
         return AgentRunResult(

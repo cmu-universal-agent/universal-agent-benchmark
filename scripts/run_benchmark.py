@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Run the same benchmark task through all three framework adapters.
+"""Run one or more benchmark tasks through all three framework adapters.
 
 Each framework runs in its own virtual environment via subprocess, writes its
 AgentRunResult to results/metrics/<vertical>_results.jsonl, then this script
-prints a short evaluation summary.
+prints an aggregated evaluation summary per (task, framework) pair.
 """
 
 import argparse
 import json
 import subprocess
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,52 +41,124 @@ FRAMEWORKS = [
 ]
 
 
+def _resolve_task_paths(task_arg: Path) -> list[Path]:
+    if task_arg.is_dir():
+        return sorted(task_arg.glob("*.json"))
+    return [task_arg]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--task", type=Path, default=DEFAULT_TASK)
+    parser.add_argument(
+        "--task",
+        type=Path,
+        default=DEFAULT_TASK,
+        help="A task JSON file, or a directory of task JSON files.",
+    )
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help="Number of times to run each (task, framework) pair, to measure consistency.",
+    )
     parser.add_argument(
         "--required-keys",
         nargs="*",
-        default=["task_id", "answer", "safety_note"],
-        help="Keys expected in the JSON output, used for evaluation.",
+        default=None,
+        help="Keys expected in the JSON output, used for evaluation. "
+        "Omit to skip the required-keys check (useful when sweeping "
+        "tasks from more than one vertical at once).",
     )
     args = parser.parse_args()
 
-    with open(args.task, "r", encoding="utf-8") as f:
-        vertical = json.load(f)["vertical"]
-
-    ran = []
-    for name, python_bin, script in FRAMEWORKS:
-        if not python_bin.exists():
-            print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
-            continue
-
-        print(f"\n--- Running {name} ---")
-        subprocess.run(
-            [str(python_bin), str(script), "--task", str(args.task)],
-            cwd=ROOT,
-            check=False,
-        )
-        ran.append(name)
-
-    print("\n--- Summary ---")
-    results_path = default_result_path(vertical)
-    if not results_path.exists():
-        print(f"no results written to {results_path}")
+    task_paths = _resolve_task_paths(args.task)
+    if not task_paths:
+        print(f"no task files found at {args.task}")
         return
 
-    with open(results_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    # (vertical, task_id, framework) once per run, in the order they ran
+    run_records: list[tuple[str, str, str]] = []
+    for task_path in task_paths:
+        with open(task_path, "r", encoding="utf-8") as f:
+            task_data = json.load(f)
+        vertical = task_data["vertical"]
+        task_id = task_data["task_id"]
 
-    for line in lines[-len(ran):]:
-        result = AgentRunResult(**json.loads(line))
-        metrics = evaluate_result(result, required_keys=args.required_keys)
-        print(
-            f"{metrics['framework']:>18}: success={metrics['success']} "
-            f"json_valid={metrics['json_valid']} "
-            f"required_keys_present={metrics['required_keys_present']} "
-            f"latency={metrics['latency_seconds']:.2f}s"
-        )
+        print(f"\n=== Task {task_id} ({task_path.name}) ===")
+        for name, python_bin, script in FRAMEWORKS:
+            if not python_bin.exists():
+                print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
+                continue
+
+            for rep in range(args.repeats):
+                print(f"--- Running {name} (repeat {rep + 1}/{args.repeats}) ---")
+                subprocess.run(
+                    [str(python_bin), str(script), "--task", str(task_path)],
+                    cwd=ROOT,
+                    check=False,
+                )
+                run_records.append((vertical, task_id, name))
+
+    print("\n--- Summary ---")
+    by_vertical: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for vertical, task_id, name in run_records:
+        by_vertical[vertical].append((task_id, name))
+
+    failure_modes_by_framework: dict[str, Counter] = defaultdict(Counter)
+
+    for vertical, records in by_vertical.items():
+        results_path = default_result_path(vertical)
+        if not results_path.exists():
+            print(f"no results written to {results_path}")
+            continue
+
+        all_by_key: dict[tuple[str, str], list[dict]] = defaultdict(list)
+        with open(results_path, "r", encoding="utf-8") as f:
+            for line in f:
+                d = json.loads(line)
+                all_by_key[(d["task_id"], d["framework"])].append(d)
+
+        key_counts = Counter(records)
+        seen: set[tuple[str, str]] = set()
+        for key in records:
+            if key in seen:
+                continue
+            seen.add(key)
+
+            task_id, name = key
+            n = key_counts[key]
+            # this session's runs are the most recently appended n entries
+            session_runs = all_by_key[key][-n:]
+            results_objs = [AgentRunResult(**d) for d in session_runs]
+            metrics_list = [
+                evaluate_result(r, required_keys=args.required_keys) for r in results_objs
+            ]
+
+            success_rate = sum(m["success"] for m in metrics_list) / n
+            json_valid_rate = sum(m["json_valid"] for m in metrics_list) / n
+            instruction_following_rate = (
+                sum(m["instruction_following_score"] for m in metrics_list) / n
+            )
+            avg_latency = sum(r.latency_seconds for r in results_objs) / n
+            failure_modes_by_framework[name].update(m["failure_mode"] for m in metrics_list)
+
+            required_keys_field = ""
+            if args.required_keys:
+                req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
+                required_keys_field = f"required_keys_rate={req_rate:.0%} "
+
+            print(
+                f"{task_id:>10} {name:>18} (n={n}): success_rate={success_rate:.0%} "
+                f"json_valid_rate={json_valid_rate:.0%} "
+                f"instruction_following_rate={instruction_following_rate:.0%} "
+                f"{required_keys_field}"
+                f"avg_latency={avg_latency:.2f}s"
+            )
+
+    print("\n--- Failure Modes ---")
+    for name, counts in failure_modes_by_framework.items():
+        breakdown = ", ".join(f"{mode}={count}" for mode, count in counts.most_common())
+        print(f"{name:>18}: {breakdown}")
 
 
 if __name__ == "__main__":

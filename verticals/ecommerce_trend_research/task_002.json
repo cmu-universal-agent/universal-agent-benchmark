@@ -1,0 +1,27 @@
+{
+  "task_id": "ECOM-002",
+  "vertical": "ecommerce_trend_research",
+  "prompt": "You are an e-commerce trend research assistant for a benchmark test. This is a synthetic evaluation task built from real, historical Amazon product review data (Amazon Reviews 2023, McAuley Lab, UCSD) -- it does not represent live or current market conditions, and no real purchasing or business decision should be made from your answer.\n\nProduct: \"American Plant Exchange Endless Foliage Box, Live Houseplants, Care and Feeding Subscription Box, Small\" (category: Subscription Boxes)\nProduct ID: B09DTD9KGY\n\nYearly review activity for this product:\n- 2021: 2 reviews, average rating 4.5\n- 2022: 24 reviews, average rating 3.8\n- 2023: 1 reviews, average rating 2.0\n\nThe data above already contains everything needed to answer -- a review-history lookup tool may be available, but you should not need to call it.\n\nBased only on the data above, synthesize the trend for this product.\n\nInstructions:\n- Identify whether review volume is rising, declining, or stable across the years shown.\n- Identify whether the average rating (sentiment) is improving, declining, or stable across the years shown.\n- Do not invent data points that are not shown above.\n- Return exactly one JSON object with these keys: task_id, trend_direction, sentiment_direction, trend_summary, confidence, safety_note.\n  - task_id must be \"ECOM-002\".\n  - trend_direction must be exactly one of: \"rising\", \"declining\", \"stable\".\n  - sentiment_direction must be exactly one of: \"improving\", \"declining\", \"stable\".\n  - trend_summary must be one to two sentences grounded in the data above.\n  - confidence must be one of: \"low\", \"medium\", \"high\".\n  - safety_note must be exactly: \"no real purchasing decision made\".",
+  "expected_output_type": "json",
+  "metadata": {
+    "source": "amazon_reviews_2023/Subscription_Boxes",
+    "parent_asin": "B09DTD9KGY",
+    "product_title": "American Plant Exchange Endless Foliage Box, Live Houseplants, Care and Feeding Subscription Box, Small",
+    "ground_truth_trend_direction": "rising",
+    "ground_truth_sentiment_direction": "declining",
+    "yearly_data": {
+      "2021": {
+        "review_count": 2,
+        "average_rating": 4.5
+      },
+      "2022": {
+        "review_count": 24,
+        "average_rating": 3.83
+      },
+      "2023": {
+        "review_count": 1,
+        "average_rating": 2.0
+      }
+    }
+  }
+}
