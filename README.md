@@ -65,3 +65,19 @@ source .venv-crewai/bin/activate
 python frameworks/crewai_agent/run.py
 deactivate
 ```
+
+## 4. Run the shared adapter benchmark
+
+Run the same task through all three frameworks and get a comparison summary:
+
+```bash
+python3 scripts/run_benchmark.py
+```
+
+Point it at a different task file:
+
+```bash
+python3 scripts/run_benchmark.py --task verticals/smoke_test/task_001.json
+```
+
+Each framework's result is appended to `results/metrics/<vertical>_results.jsonl` as a standardized `AgentRunResult` (see `adapter/schemas.py`).

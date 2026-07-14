@@ -1,13 +1,22 @@
+import argparse
 import asyncio
 import json
 import os
+import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from adapter.result_writer import append_result
+from adapter.schemas import AgentRunResult, BenchmarkTask
+
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
+FRAMEWORK_NAME = "openai_agents_sdk"
 
 load_dotenv(ROOT / ".env", override=True)
 
@@ -39,10 +48,7 @@ set_default_openai_client(
 set_tracing_disabled(True)
 
 
-async def main():
-    with open(TASK_PATH, "r", encoding="utf-8") as f:
-        task = json.load(f)
-
+async def _run_agent(prompt: str) -> str:
     agent = Agent(
         name="OpenAI Smoke Test Agent",
         instructions=(
@@ -52,12 +58,59 @@ async def main():
         ),
         model=model,
     )
+    result = await Runner.run(agent, prompt)
+    return result.final_output
 
-    result = await Runner.run(agent, task["prompt"])
 
-    print("\n=== OpenAI Agents SDK Result ===")
-    print(result.final_output)
+def run_task(task: BenchmarkTask) -> AgentRunResult:
+    start = time.perf_counter()
+    try:
+        final_output = asyncio.run(_run_agent(task.prompt))
+        return AgentRunResult(
+            task_id=task.task_id,
+            framework=FRAMEWORK_NAME,
+            vertical=task.vertical,
+            final_output=final_output,
+            latency_seconds=time.perf_counter() - start,
+            success=True,
+        )
+    except Exception as exc:
+        return AgentRunResult(
+            task_id=task.task_id,
+            framework=FRAMEWORK_NAME,
+            vertical=task.vertical,
+            final_output="",
+            latency_seconds=time.perf_counter() - start,
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+def _load_task(task_path: Path) -> BenchmarkTask:
+    with open(task_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return BenchmarkTask(
+        task_id=data["task_id"],
+        vertical=data["vertical"],
+        prompt=data["prompt"],
+        expected_output_type=data.get("expected_output_type", "json"),
+        metadata=data.get("metadata", {}),
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task", type=Path, default=TASK_PATH)
+    args = parser.parse_args()
+
+    task = _load_task(args.task)
+    result = run_task(task)
+    append_result(result)
+
+    print(f"\n=== {FRAMEWORK_NAME} Result ===")
+    print(f"success={result.success} latency={result.latency_seconds:.2f}s")
+    print(result.final_output or result.error)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

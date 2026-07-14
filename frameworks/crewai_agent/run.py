@@ -1,21 +1,26 @@
+import argparse
 import json
 import os
+import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
 
-
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from adapter.result_writer import append_result
+from adapter.schemas import AgentRunResult, BenchmarkTask
+
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
+FRAMEWORK_NAME = "crewai"
 
 load_dotenv(ROOT / ".env", override=True)
 
 
-def main():
-    with open(TASK_PATH, "r", encoding="utf-8") as f:
-        task_data = json.load(f)
-
+def _run_agent(prompt: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
@@ -44,7 +49,7 @@ def main():
     )
 
     task = Task(
-        description=task_data["prompt"],
+        description=prompt,
         expected_output=(
             "Exactly one JSON object with keys: task_id, answer, safety_note. "
             "No markdown. No extra text."
@@ -60,9 +65,57 @@ def main():
     )
 
     result = crew.kickoff()
+    return str(result)
 
-    print("\n=== CrewAI Result ===")
-    print(result)
+
+def run_task(task: BenchmarkTask) -> AgentRunResult:
+    start = time.perf_counter()
+    try:
+        final_output = _run_agent(task.prompt)
+        return AgentRunResult(
+            task_id=task.task_id,
+            framework=FRAMEWORK_NAME,
+            vertical=task.vertical,
+            final_output=final_output,
+            latency_seconds=time.perf_counter() - start,
+            success=True,
+        )
+    except Exception as exc:
+        return AgentRunResult(
+            task_id=task.task_id,
+            framework=FRAMEWORK_NAME,
+            vertical=task.vertical,
+            final_output="",
+            latency_seconds=time.perf_counter() - start,
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+def _load_task(task_path: Path) -> BenchmarkTask:
+    with open(task_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return BenchmarkTask(
+        task_id=data["task_id"],
+        vertical=data["vertical"],
+        prompt=data["prompt"],
+        expected_output_type=data.get("expected_output_type", "json"),
+        metadata=data.get("metadata", {}),
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task", type=Path, default=TASK_PATH)
+    args = parser.parse_args()
+
+    task = _load_task(args.task)
+    result = run_task(task)
+    append_result(result)
+
+    print(f"\n=== {FRAMEWORK_NAME} Result ===")
+    print(f"success={result.success} latency={result.latency_seconds:.2f}s")
+    print(result.final_output or result.error)
 
 
 if __name__ == "__main__":
