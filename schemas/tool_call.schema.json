@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/tool_call.schema.json",
+  "title": "Benchmark Tool Call Record",
+  "description": "Normalized record of one tool call made during a benchmark run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_call_id",
+    "run_id",
+    "sequence_index",
+    "tool_name",
+    "arguments",
+    "was_allowed",
+    "arguments_valid",
+    "started_at",
+    "completed_at",
+    "latency_ms",
+    "outcome",
+    "result",
+    "error"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "tool_call_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"
+    },
+    "sequence_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tool_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "arguments": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "was_allowed": {
+      "type": "boolean",
+      "description": "Whether the tool name was listed in the benchmark case's allowed_tools field."
+    },
+    "arguments_valid": {
+      "type": "boolean",
+      "description": "Whether the tool arguments passed the tool's input validation."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "timeout",
+        "rejected"
+      ]
+    },
+    "result": {
+      "description": "Raw normalized tool result. May be null when the call failed or was rejected."
+    },
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/errorRecord"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {"const": "success"}
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "error": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {"$ref": "#/$defs/errorRecord"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "errorRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error_type",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

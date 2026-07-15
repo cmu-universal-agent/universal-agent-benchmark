@@ -1,0 +1,179 @@
+"""Shared runtime metadata and AgentRunResult construction.
+
+Framework adapters use this module so model identity, framework version,
+timestamps, raw output, and tool traces are recorded the same way for every
+run. It deliberately leaves token counts as null until an adapter can obtain
+provider-reported usage rather than estimating it inconsistently.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any
+
+from adapter.schemas import AgentRunResult, BenchmarkTask
+
+
+ADAPTER_VERSION = "0.2.0"
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _optional_int(name: str) -> int | None:
+    value = os.getenv(name)
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+def _optional_float(name: str, default: float | None = None) -> float | None:
+    value = os.getenv(name)
+    if value in (None, ""):
+        return default
+    return float(value)
+
+
+def _package_version(package_name: str) -> str | None:
+    try:
+        return version(package_name)
+    except PackageNotFoundError:
+        return None
+
+
+@dataclass(frozen=True)
+class RunContext:
+    run_id: str
+    experiment_id: str
+    framework: str
+    framework_version: str | None
+    model_provider: str
+    model_name: str
+    model_version: str | None
+    temperature: float | None
+    max_output_tokens: int | None
+    seed: int | None
+    started_at: str
+    started_perf_counter: float
+
+
+def begin_run(framework: str, package_name: str) -> RunContext:
+    """Capture configuration at execution time, never during report generation."""
+    started_at = _utc_now()
+    run_id = f"run-{uuid.uuid4().hex}"
+    experiment_id = os.getenv("BENCHMARK_EXPERIMENT_ID") or f"manual-{run_id}"
+    return RunContext(
+        run_id=run_id,
+        experiment_id=experiment_id,
+        framework=framework,
+        framework_version=_package_version(package_name),
+        model_provider=os.getenv("OPENAI_MODEL_PROVIDER", "openai"),
+        model_name=os.getenv("OPENAI_MODEL", "unknown"),
+        model_version=os.getenv("OPENAI_MODEL_VERSION") or None,
+        temperature=_optional_float("OPENAI_TEMPERATURE", 0.0),
+        max_output_tokens=_optional_int("OPENAI_MAX_OUTPUT_TOKENS"),
+        seed=_optional_int("OPENAI_SEED"),
+        started_at=started_at,
+        started_perf_counter=time.perf_counter(),
+    )
+
+
+def normalize_tool_calls(
+    raw_logs: list[Any],
+    run_id: str,
+) -> list[dict[str, Any]]:
+    """Convert shared mock-tool logs into the common tool-call shape.
+
+    Legacy string-only logs remain readable so the adapters do not fail if an
+    older tool module is used during migration.
+    """
+    normalized: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_logs):
+        if isinstance(raw, dict):
+            row = dict(raw)
+        else:
+            row = {
+                "tool_name": "unknown",
+                "arguments": {"legacy_value": raw},
+                "was_allowed": True,
+                "arguments_valid": True,
+                "started_at": None,
+                "completed_at": None,
+                "latency_ms": 0,
+                "outcome": "success",
+                "result": None,
+                "error": None,
+            }
+        row.setdefault("schema_version", "1.0")
+        row.setdefault("tool_call_id", f"tool-{uuid.uuid4().hex}")
+        row["run_id"] = run_id
+        row["sequence_index"] = index
+        normalized.append(row)
+    return normalized
+
+
+def finish_run(
+    context: RunContext,
+    task: BenchmarkTask,
+    *,
+    final_output: str,
+    success: bool,
+    error: str | None = None,
+    raw_tool_logs: list[Any] | None = None,
+    token_usage: dict[str, int | None] | None = None,
+) -> AgentRunResult:
+    """Build the same result envelope for every framework adapter."""
+    raw_output = str(final_output or "")
+    completed_at = _utc_now()
+    tool_calls = normalize_tool_calls(raw_tool_logs or [], context.run_id)
+
+    # Parse only for diagnostic metadata. Full task-specific JSON Schema
+    # validation will be added after the schema field review is frozen.
+    parsed_output: Any = None
+    try:
+        parsed_output = json.loads(raw_output)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    usage = token_usage or {
+        "input_tokens": None,
+        "output_tokens": None,
+        "total_tokens": None,
+    }
+
+    return AgentRunResult(
+        task_id=task.task_id,
+        framework=context.framework,
+        vertical=task.vertical,
+        final_output=raw_output,
+        latency_seconds=time.perf_counter() - context.started_perf_counter,
+        success=success,
+        error=error,
+        tool_call_count=len(tool_calls),
+        raw_metadata={
+            "adapter_version": ADAPTER_VERSION,
+            "json_parse_valid": isinstance(parsed_output, dict),
+        },
+        run_id=context.run_id,
+        experiment_id=context.experiment_id,
+        framework_version=context.framework_version,
+        model_provider=context.model_provider,
+        model_name=context.model_name,
+        model_version=context.model_version,
+        temperature=context.temperature,
+        max_output_tokens=context.max_output_tokens,
+        seed=context.seed,
+        prompt_version=str(task.metadata.get("prompt_version", "legacy_prompt_v1")),
+        started_at=context.started_at,
+        completed_at=completed_at,
+        raw_output=raw_output,
+        tool_calls=tool_calls,
+        token_usage=usage,
+    )

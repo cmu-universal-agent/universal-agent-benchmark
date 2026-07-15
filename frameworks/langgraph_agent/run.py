@@ -1,9 +1,7 @@
 import argparse
-import json
 import operator
 import os
 import sys
-import time
 from pathlib import Path
 from typing import Annotated
 
@@ -19,14 +17,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
+from adapter.runtime import begin_run, finish_run
 from adapter.schemas import AgentRunResult, BenchmarkTask
+from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
 from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "langgraph"
 
-load_dotenv(ROOT / ".env", override=True)
+load_dotenv(ROOT / ".env", override=False)
 
 
 class MessagesState(TypedDict):
@@ -46,12 +46,22 @@ def get_review_history(parent_asin: str) -> str:
 
 
 TOOLS_BY_VERTICAL = {
-    "medical_diagnostic": [search_literature],
-    "ecommerce_trend_research": [get_review_history],
+    "medical_diagnostic": {"search_literature": search_literature},
+    "ecommerce_trend_research": {"get_review_history": get_review_history},
 }
 
 
-def _run_agent(prompt: str, vertical: str) -> str:
+def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
+    available = TOOLS_BY_VERTICAL.get(vertical, {})
+    if allowed_tools is None:
+        return list(available.values())
+    allowed = set(allowed_tools)
+    return [tool_value for name, tool_value in available.items() if name in allowed]
+
+
+def _run_agent(
+    prompt: str, vertical: str, allowed_tools: list[str] | None = None
+) -> str:
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
@@ -63,7 +73,7 @@ def _run_agent(prompt: str, vertical: str) -> str:
         temperature=0,
     )
 
-    tools = TOOLS_BY_VERTICAL.get(vertical, [])
+    tools = _select_tools(vertical, allowed_tools)
     use_tools = bool(tools)
     llm_bound = llm.bind_tools(tools) if use_tools else llm
 
@@ -100,42 +110,27 @@ def _run_agent(prompt: str, vertical: str) -> str:
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    start = time.perf_counter()
+    context = begin_run(FRAMEWORK_NAME, "langgraph")
     medical_tools.reset_call_log()
     ecommerce_tools.reset_call_log()
     try:
-        final_output = _run_agent(task.prompt, task.vertical)
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
+        final_output = _run_agent(task.prompt, task.vertical, task.allowed_tools)
+        return finish_run(
+            context,
+            task,
             final_output=final_output,
-            latency_seconds=time.perf_counter() - start,
             success=True,
-            tool_call_count=len(medical_tools.call_log) + len(ecommerce_tools.call_log),
+            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
         )
     except Exception as exc:
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
+        return finish_run(
+            context,
+            task,
             final_output="",
-            latency_seconds=time.perf_counter() - start,
             success=False,
             error=f"{type(exc).__name__}: {exc}",
+            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
         )
-
-
-def _load_task(task_path: Path) -> BenchmarkTask:
-    with open(task_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return BenchmarkTask(
-        task_id=data["task_id"],
-        vertical=data["vertical"],
-        prompt=data["prompt"],
-        expected_output_type=data.get("expected_output_type", "json"),
-        metadata=data.get("metadata", {}),
-    )
 
 
 def main():
@@ -143,7 +138,7 @@ def main():
     parser.add_argument("--task", type=Path, default=TASK_PATH)
     args = parser.parse_args()
 
-    task = _load_task(args.task)
+    task = load_task(args.task)
     result = run_task(task)
     append_result(result)
 

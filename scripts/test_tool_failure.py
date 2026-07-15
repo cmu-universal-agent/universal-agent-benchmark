@@ -15,7 +15,9 @@ venv, since the frameworks are not co-installed in one environment:
 
 import argparse
 import importlib
+import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +94,8 @@ def main():
             print(f"success={result.success} tool_call_count={result.tool_call_count}")
             print(f"error={result.error}")
             print(f"final_output={result.final_output!r}")
+            print(f"model={result.model_name} run_id={result.run_id}")
+            print(f"tool_calls={json.dumps(result.tool_calls, ensure_ascii=False)}")
         except Exception as exc:
             print(f"CRASHED -- run_task raised instead of catching: {type(exc).__name__}: {exc}")
         finally:

@@ -86,13 +86,20 @@ def _sample_ids(dataset: dict, per_label: dict[str, int], seed: int) -> list[str
     return chosen
 
 
-def build_tasks(seed: int, refresh: bool) -> list[Path]:
+def build_tasks(seed: int, refresh: bool, overwrite: bool = False) -> list[Path]:
+    existing = sorted(OUTPUT_DIR.glob("task_*.json"))
+    if existing and not overwrite:
+        raise FileExistsError(
+            f"{len(existing)} task files already exist in {OUTPUT_DIR}. "
+            "Use --overwrite only after backing them up or confirming replacement."
+        )
+
     dataset = _load_dataset(refresh)
     per_label = {"yes": 4, "no": 4, "maybe": 2}
     pmids = _sample_ids(dataset, per_label, seed)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for stale in OUTPUT_DIR.glob("task_*.json"):
+    for stale in existing:
         stale.unlink()
 
     written = []
@@ -133,9 +140,26 @@ def main():
         action="store_true",
         help="Re-download the dataset even if a local cache exists.",
     )
+    parser.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="Download/read the dataset cache without changing task files.",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Explicitly replace existing task_*.json files.",
+    )
     args = parser.parse_args()
 
-    written = build_tasks(seed=args.seed, refresh=args.refresh)
+    if args.cache_only:
+        dataset = _load_dataset(args.refresh)
+        print(f"cache ready: {CACHE_PATH.relative_to(ROOT)} ({len(dataset)} records)")
+        return
+
+    written = build_tasks(
+        seed=args.seed, refresh=args.refresh, overwrite=args.overwrite
+    )
     for path in written:
         print(f"wrote {path.relative_to(ROOT)}")
 

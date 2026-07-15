@@ -8,8 +8,10 @@ prints an aggregated evaluation summary per (task, framework) pair.
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -19,23 +21,33 @@ sys.path.insert(0, str(ROOT))
 from adapter.evaluator import evaluate_result
 from adapter.result_writer import default_result_path
 from adapter.schemas import AgentRunResult
+from adapter.task_loader import load_task
 
 DEFAULT_TASK = ROOT / "verticals" / "smoke_test" / "task_001.json"
+
+
+def _venv_python(venv_name: str) -> Path:
+    """Return the platform-specific Python path for a local virtual environment."""
+    venv_root = ROOT / venv_name
+    windows_python = venv_root / "Scripts" / "python.exe"
+    posix_python = venv_root / "bin" / "python"
+    return windows_python if windows_python.exists() else posix_python
+
 
 FRAMEWORKS = [
     (
         "openai_agents_sdk",
-        ROOT / ".venv-openai" / "bin" / "python",
+        _venv_python(".venv-openai"),
         ROOT / "frameworks" / "openai_agents_sdk" / "run.py",
     ),
     (
         "langgraph",
-        ROOT / ".venv-langgraph" / "bin" / "python",
+        _venv_python(".venv-langgraph"),
         ROOT / "frameworks" / "langgraph_agent" / "run.py",
     ),
     (
         "crewai",
-        ROOT / ".venv-crewai" / "bin" / "python",
+        _venv_python(".venv-crewai"),
         ROOT / "frameworks" / "crewai_agent" / "run.py",
     ),
 ]
@@ -56,6 +68,16 @@ def main():
         help="A task JSON file, or a directory of task JSON files.",
     )
     parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name for this benchmark session. Overrides OPENAI_MODEL from .env.",
+    )
+    parser.add_argument(
+        "--experiment-id",
+        default=None,
+        help="Stable ID grouping all runs in this invocation. Generated when omitted.",
+    )
+    parser.add_argument(
         "--repeats",
         type=int,
         default=1,
@@ -71,6 +93,15 @@ def main():
     )
     args = parser.parse_args()
 
+    experiment_id = args.experiment_id or f"exp-{uuid.uuid4().hex}"
+    child_env = os.environ.copy()
+    child_env["BENCHMARK_EXPERIMENT_ID"] = experiment_id
+    if args.model:
+        child_env["OPENAI_MODEL"] = args.model
+
+    configured_model = child_env.get("OPENAI_MODEL", "from-.env")
+    print(f"experiment_id={experiment_id} model={configured_model}")
+
     task_paths = _resolve_task_paths(args.task)
     if not task_paths:
         print(f"no task files found at {args.task}")
@@ -79,10 +110,9 @@ def main():
     # (vertical, task_id, framework) once per run, in the order they ran
     run_records: list[tuple[str, str, str]] = []
     for task_path in task_paths:
-        with open(task_path, "r", encoding="utf-8") as f:
-            task_data = json.load(f)
-        vertical = task_data["vertical"]
-        task_id = task_data["task_id"]
+        task = load_task(task_path)
+        vertical = task.vertical
+        task_id = task.task_id
 
         print(f"\n=== Task {task_id} ({task_path.name}) ===")
         for name, python_bin, script in FRAMEWORKS:
@@ -96,6 +126,7 @@ def main():
                     [str(python_bin), str(script), "--task", str(task_path)],
                     cwd=ROOT,
                     check=False,
+                    env=child_env,
                 )
                 run_records.append((vertical, task_id, name))
 

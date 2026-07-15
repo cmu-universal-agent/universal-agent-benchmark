@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/benchmark_case.schema.json",
+  "title": "Universal Agent Benchmark Case",
+  "description": "Schema for an agent-visible benchmark case. Ground-truth answers and evaluator rubrics must be stored separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_id",
+    "vertical",
+    "input",
+    "allowed_tools",
+    "stress_type",
+    "metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,63}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{0,31}$"
+    },
+    "vertical": {
+      "type": "string",
+      "enum": ["healthcare", "ecommerce", "smoke_test"]
+    },
+    "input": {
+      "$ref": "#/$defs/agentInput"
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+      },
+      "uniqueItems": true,
+      "maxItems": 32
+    },
+    "stress_type": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "ambiguous_input",
+        "missing_information",
+        "conflicting_evidence",
+        "tool_failure",
+        "long_context",
+        "policy_or_safety_trap",
+        "repeated_run"
+      ]
+    },
+    "metadata": {
+      "$ref": "#/$defs/caseMetadata"
+    }
+  },
+  "$defs": {
+    "agentInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instruction", "data"],
+      "properties": {
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "data": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": true
+        },
+        "source_documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceDocument"
+          },
+          "maxItems": 100
+        }
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "content"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "caseMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset", "split", "difficulty", "language"],
+      "properties": {
+        "dataset": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "source_record_id": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "split": {
+          "type": "string",
+          "enum": ["development", "pilot", "validation", "test"]
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["easy", "medium", "hard"]
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "uniqueItems": true,
+          "maxItems": 32
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "case_id": "H1-001",
+      "task_id": "H1",
+      "vertical": "healthcare",
+      "input": {
+        "instruction": "Answer yes, no, or maybe using only the supplied evidence.",
+        "data": {
+          "question": "Does the intervention improve the reported outcome?"
+        },
+        "source_documents": [
+          {
+            "source_id": "source_1",
+            "title": "Study abstract",
+            "content": "The supplied abstract text goes here."
+          }
+        ]
+      },
+      "allowed_tools": [],
+      "stress_type": "standard",
+      "metadata": {
+        "dataset": "PubMedQA",
+        "source_record_id": "example-record-001",
+        "split": "pilot",
+        "difficulty": "medium",
+        "language": "en",
+        "tags": ["evidence_based_qa"]
+      }
+    }
+  ]
+}
