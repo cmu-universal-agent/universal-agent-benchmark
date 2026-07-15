@@ -3,12 +3,22 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-from crewai import Agent, Task, Crew, Process, LLM
-from crewai.tools import tool
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv
+
+# CrewAI resolves its storage directory while the package is imported. Load
+# local configuration first and keep its writable state inside the project so
+# the adapter also works in sandboxed runners that cannot write to AppData.
+load_dotenv(ROOT / ".env", override=False)
+storage_dir = Path(os.getenv("CREWAI_STORAGE_DIR", ".crewai"))
+if not storage_dir.is_absolute():
+    storage_dir = ROOT / storage_dir
+os.environ["CREWAI_STORAGE_DIR"] = str(storage_dir.resolve())
+
+from crewai import Agent, Crew, LLM, Process, Task
+from crewai.tools import tool
 
 from adapter.result_writer import append_result
 from adapter.runtime import begin_run, finish_run
@@ -19,8 +29,6 @@ from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "crewai"
-
-load_dotenv(ROOT / ".env", override=False)
 
 
 @tool("search_literature")

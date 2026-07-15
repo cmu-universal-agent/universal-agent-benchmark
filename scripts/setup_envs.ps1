@@ -1,7 +1,30 @@
+param(
+    [string]$PythonExecutable = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+
+if ($PythonExecutable) {
+    if (-not (Test-Path -LiteralPath $PythonExecutable)) {
+        throw "Python executable not found: $PythonExecutable"
+    }
+    $pythonCommand = $PythonExecutable
+    $pythonPrefixArgs = @()
+}
+elseif (Get-Command py -ErrorAction SilentlyContinue) {
+    $pythonCommand = "py"
+    $pythonPrefixArgs = @("-3")
+}
+elseif (Get-Command python -ErrorAction SilentlyContinue) {
+    $pythonCommand = "python"
+    $pythonPrefixArgs = @()
+}
+else {
+    throw "No Python interpreter found. Pass -PythonExecutable with a Python 3 path."
+}
 
 function Setup-Environment {
     param(
@@ -10,7 +33,7 @@ function Setup-Environment {
     )
 
     Write-Host "Creating $Name..."
-    py -3 -m venv $Name
+    & $pythonCommand @pythonPrefixArgs -m venv $Name
     & ".\$Name\Scripts\python.exe" -m pip install -r $Requirements
 }
 

@@ -1,5 +1,6 @@
 .env
 .venv*
+.crewai/
 __pycache__/
 *.pyc
 .DS_Store
