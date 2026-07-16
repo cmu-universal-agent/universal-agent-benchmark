@@ -101,7 +101,9 @@
         },
         "content": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "Agent-visible source content. Aggregate source length is enforced separately: 50,000 characters for ordinary cases and 100,000 when stress_type is long_context."
         },
         "published_at": {
           "type": "string",
@@ -123,13 +125,27 @@
           "type": "string",
           "maxLength": 200
         },
+        "source_split": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Optional split label from the original source dataset. This is provenance only and is separate from the locked benchmark split."
+        },
         "split": {
           "type": "string",
-          "enum": ["development", "pilot", "validation", "test"]
+          "enum": ["development", "pilot", "validation", "test"],
+          "description": "Locked benchmark split. Generate deterministically and record source IDs in a version-controlled split manifest."
         },
         "difficulty": {
           "type": "string",
-          "enum": ["easy", "medium", "hard"]
+          "enum": ["easy", "medium", "hard"],
+          "description": "Assigned from a versioned complexity rule, not inferred from stress_type."
+        },
+        "difficulty_rule_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Optional version of the deterministic difficulty-assignment rule."
         },
         "language": {
           "type": "string",
@@ -176,8 +192,10 @@
       "metadata": {
         "dataset": "PubMedQA",
         "source_record_id": "example-record-001",
+        "source_split": "test",
         "split": "pilot",
         "difficulty": "medium",
+        "difficulty_rule_version": "complexity-v1-draft",
         "language": "en",
         "tags": ["evidence_based_qa"]
       }

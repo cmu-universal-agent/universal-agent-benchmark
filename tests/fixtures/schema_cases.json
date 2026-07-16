@@ -1,0 +1,368 @@
+{
+  "schema_version": "1.0",
+  "description": "Synthetic contract fixtures only. These are not benchmark data or benchmark results.",
+  "fixtures": [
+    {
+      "name": "valid_benchmark_case",
+      "schema": "benchmark_case.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0",
+        "case_id": "H1-FIXTURE-001",
+        "task_id": "H1",
+        "vertical": "healthcare",
+        "input": {
+          "instruction": "Answer using only the synthetic source.",
+          "data": {"question": "Is the synthetic intervention supported?"},
+          "source_documents": [
+            {"source_id": "synthetic-source-1", "content": "Synthetic evidence for schema validation."}
+          ]
+        },
+        "allowed_tools": [],
+        "stress_type": "standard",
+        "metadata": {
+          "dataset": "synthetic_contract_fixture",
+          "source_record_id": "synthetic-h1-001",
+          "source_split": "fixture",
+          "split": "development",
+          "difficulty": "easy",
+          "difficulty_rule_version": "fixture-rule-v1",
+          "language": "en",
+          "tags": ["synthetic", "not_benchmark_data"]
+        }
+      }
+    },
+    {
+      "name": "valid_ecommerce_benchmark_case",
+      "schema": "benchmark_case.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0",
+        "case_id": "E1-FIXTURE-001",
+        "task_id": "E1",
+        "vertical": "ecommerce",
+        "input": {
+          "instruction": "Describe the trend in the synthetic series.",
+          "data": {"yearly_counts": {"2024": 10, "2025": 15}}
+        },
+        "allowed_tools": [],
+        "stress_type": "standard",
+        "metadata": {
+          "dataset": "synthetic_contract_fixture",
+          "source_record_id": "synthetic-e1-001",
+          "source_split": "fixture",
+          "split": "development",
+          "difficulty": "easy",
+          "difficulty_rule_version": "fixture-rule-v1",
+          "language": "en",
+          "tags": ["synthetic", "not_benchmark_data"]
+        }
+      }
+    },
+    {
+      "name": "valid_h1_output",
+      "schema": "medical_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "H1-FIXTURE-001", "task_id": "H1",
+        "result": {"decision": "yes"}, "explanation": "The synthetic evidence supports yes.",
+        "evidence_ids": ["synthetic-source-1"], "confidence": 0.8,
+        "safety": {"safety_flag": false, "recommend_professional_care": false, "safety_note": "No material medical risk is present in this synthetic case."}
+      }
+    },
+    {
+      "name": "valid_h2_output",
+      "schema": "medical_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "H2-FIXTURE-001", "task_id": "H2",
+        "result": {"urgency": "urgent", "recommended_action": "Seek prompt professional assessment."},
+        "explanation": "The synthetic symptom pattern requires prompt assessment.",
+        "evidence_ids": [], "confidence": 0.7,
+        "safety": {"safety_flag": true, "recommend_professional_care": true, "safety_note": "Prompt professional care is recommended."}
+      }
+    },
+    {
+      "name": "valid_h4_output",
+      "schema": "medical_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "H4-FIXTURE-001", "task_id": "H4",
+        "result": {"symptoms": ["synthetic cough"], "history": [], "risks": [], "next_steps": ["routine follow-up"]},
+        "explanation": "Concise synthetic clinical summary.", "evidence_ids": [], "confidence": 0.75,
+        "safety": {"safety_flag": false, "recommend_professional_care": true, "safety_note": "Routine follow-up may be appropriate."}
+      }
+    },
+    {
+      "name": "valid_h5_output",
+      "schema": "medical_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "H5-FIXTURE-001", "task_id": "H5",
+        "result": {"boundary_action": "refuse", "response": "I cannot provide unsafe instructions.", "safer_alternative": "I can provide general safety information."},
+        "explanation": "The unsafe request is refused with a safer alternative.", "evidence_ids": [], "confidence": 0.95,
+        "safety": {"safety_flag": true, "recommend_professional_care": false, "safety_note": "The request contains material risk and was not fulfilled."}
+      }
+    },
+    {
+      "name": "valid_e1_output",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "E1-FIXTURE-001", "task_id": "E1",
+        "result": {"trend_direction": "increasing", "key_trends": ["Synthetic review volume increased."]},
+        "explanation": "The synthetic time series increases.", "evidence_ids": ["synthetic-review-series"],
+        "confidence": 0.9, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "valid_e2_output",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "E2-FIXTURE-001", "task_id": "E2",
+        "result": {"recommendations": [{"product_id": "synthetic-product-1", "rank": 1, "rationale": "Matches the synthetic constraints."}], "constraints_satisfied": true},
+        "explanation": "The top item matches all supplied constraints.", "evidence_ids": [],
+        "confidence": 0.8, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "valid_e3_output",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "E3-FIXTURE-001", "task_id": "E3",
+        "result": {"decision": "refund_allowed", "policy_reason": "The synthetic order satisfies the supplied refund policy."},
+        "explanation": "The decision follows the supplied synthetic policy.", "evidence_ids": [],
+        "confidence": 0.85, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "valid_e5_output",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "case_id": "E5-FIXTURE-001", "task_id": "E5",
+        "result": {
+          "resolution_status": "resolved",
+          "customer_message": "A synthetic refund was initiated.",
+          "final_state": {"action_taken": "refund", "order_status": "refund_pending", "refund_amount": 25.0, "refund_currency": "USD"}
+        },
+        "explanation": "The reported state matches the synthetic simulator fixture.", "evidence_ids": [],
+        "confidence": 0.9, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "valid_successful_tool_call",
+      "schema": "tool_call.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "tool_call_id": "tool-call-001", "run_id": "run-fixture-001",
+        "sequence_index": 0, "retry_of": null, "tool_name": "synthetic_lookup",
+        "arguments": {"record_id": "synthetic-1"}, "was_allowed": true, "arguments_valid": true,
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00.010Z",
+        "latency_ms": 10, "outcome": "success", "result": {"ok": true},
+        "result_truncated": false, "result_bytes": 11, "result_sha256": null, "error": null
+      }
+    },
+    {
+      "name": "valid_failed_tool_call",
+      "schema": "tool_call.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "tool_call_id": "tool-call-002", "run_id": "run-fixture-002",
+        "sequence_index": 0, "retry_of": null, "tool_name": "synthetic_lookup",
+        "arguments": {}, "was_allowed": true, "arguments_valid": false,
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00.001Z",
+        "latency_ms": 1, "outcome": "rejected", "result": null,
+        "result_truncated": false, "result_bytes": 4, "result_sha256": null,
+        "error": {"error_type": "ArgumentValidationError", "message": "Synthetic required field is missing.", "retryable": true}
+      }
+    },
+    {
+      "name": "valid_successful_run_log",
+      "schema": "run_log.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "run_id": "run-fixture-001", "experiment_id": "experiment-fixture-001",
+        "case_id": "H1-FIXTURE-001", "task_id": "H1", "vertical": "healthcare",
+        "framework": {"name": "langgraph", "version": "fixture", "adapter_version": "fixture"},
+        "model": {"provider": "fixture", "name": "fixture-model", "version": null, "base_url_label": null},
+        "generation_config": {"temperature": 0, "max_output_tokens": null, "seed": null},
+        "prompt_version": "fixture-v1", "case_schema_version": "1.0", "output_schema_version": "1.0",
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00.100Z", "latency_ms": 100,
+        "status": "success", "raw_output": "{\"task_id\":\"H1\"}", "parsed_output": {"task_id": "H1"},
+        "output_schema_valid": true,
+        "repair": {"attempted": false, "succeeded": null, "repaired_output": null, "changes": []},
+        "tool_calls": [
+          {
+            "schema_version": "1.0", "tool_call_id": "tool-call-001", "run_id": "run-fixture-001",
+            "sequence_index": 0, "retry_of": null, "tool_name": "synthetic_lookup",
+            "arguments": {"record_id": "synthetic-1"}, "was_allowed": true, "arguments_valid": true,
+            "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00.010Z",
+            "latency_ms": 10, "outcome": "success", "result": {"ok": true},
+            "result_truncated": false, "result_bytes": 11, "result_sha256": null, "error": null
+          }
+        ], "token_usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        "estimated_cost": {"amount": null, "currency": "USD", "pricing_table_version": null, "pricing_source": null, "calculated_at": null},
+        "error": null
+      }
+    },
+    {
+      "name": "valid_failed_run_log",
+      "schema": "run_log.schema.json",
+      "expected_valid": true,
+      "document": {
+        "schema_version": "1.0", "run_id": "run-fixture-002", "experiment_id": "experiment-fixture-001",
+        "case_id": "H1-FIXTURE-002", "task_id": "H1", "vertical": "healthcare",
+        "framework": {"name": "openai_agents_sdk", "version": "fixture", "adapter_version": null},
+        "model": {"provider": "fixture", "name": "fixture-model", "version": null, "base_url_label": null},
+        "generation_config": {"temperature": 0, "max_output_tokens": null, "seed": null},
+        "prompt_version": "fixture-v1", "case_schema_version": "1.0", "output_schema_version": "1.0",
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00.050Z", "latency_ms": 50,
+        "status": "failed", "raw_output": null, "parsed_output": null, "output_schema_valid": false,
+        "repair": {"attempted": false, "succeeded": null, "repaired_output": null, "changes": []},
+        "tool_calls": [], "token_usage": {"input_tokens": null, "output_tokens": null, "total_tokens": null},
+        "estimated_cost": {"amount": null, "currency": "USD", "pricing_table_version": null, "pricing_source": null, "calculated_at": null},
+        "error": {"stage": "model_call", "error_type": "SyntheticError", "message": "Synthetic failure fixture.", "retryable": true}
+      }
+    },
+    {
+      "name": "invalid_case_missing_case_id",
+      "schema": "benchmark_case.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "task_id": "H1", "vertical": "healthcare",
+        "input": {"instruction": "Synthetic.", "data": {"value": 1}}, "allowed_tools": [], "stress_type": "standard",
+        "metadata": {"dataset": "synthetic", "split": "development", "difficulty": "easy", "language": "en"}
+      }
+    },
+    {
+      "name": "invalid_case_contains_expected",
+      "schema": "benchmark_case.schema.json",
+      "expected_valid": false,
+      "expected_validator": "additionalProperties",
+      "document": {
+        "schema_version": "1.0", "case_id": "H1-FIXTURE-003", "task_id": "H1", "vertical": "healthcare",
+        "input": {"instruction": "Synthetic.", "data": {"value": 1}}, "allowed_tools": [], "stress_type": "standard",
+        "metadata": {"dataset": "synthetic", "split": "development", "difficulty": "easy", "language": "en"},
+        "expected": "forbidden"
+      }
+    },
+    {
+      "name": "invalid_h1_decision",
+      "schema": "medical_output.schema.json",
+      "expected_valid": false,
+      "expected_validator": "enum",
+      "document": {
+        "schema_version": "1.0", "case_id": "H1-FIXTURE-004", "task_id": "H1",
+        "result": {"decision": "probably"}, "explanation": "Synthetic.", "evidence_ids": [], "confidence": 0.5,
+        "safety": {"safety_flag": false, "recommend_professional_care": false, "safety_note": "Synthetic."}
+      }
+    },
+    {
+      "name": "invalid_medical_confidence",
+      "schema": "medical_output.schema.json",
+      "expected_valid": false,
+      "expected_validator": "maximum",
+      "document": {
+        "schema_version": "1.0", "case_id": "H1-FIXTURE-005", "task_id": "H1",
+        "result": {"decision": "yes"}, "explanation": "Synthetic.", "evidence_ids": [], "confidence": 1.5,
+        "safety": {"safety_flag": false, "recommend_professional_care": false, "safety_note": "Synthetic."}
+      }
+    },
+    {
+      "name": "invalid_medical_safe_note_typo",
+      "schema": "medical_output.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "case_id": "H1-FIXTURE-006", "task_id": "H1",
+        "result": {"decision": "yes"}, "explanation": "Synthetic.", "evidence_ids": [], "confidence": 0.5,
+        "safety": {"safety_flag": false, "recommend_professional_care": false, "safe_note": "Wrong field name."}
+      }
+    },
+    {
+      "name": "invalid_ecommerce_wrong_result_shape",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "case_id": "E2-FIXTURE-002", "task_id": "E2",
+        "result": {"trend_direction": "stable", "key_trends": []}, "explanation": "Synthetic.",
+        "evidence_ids": [], "confidence": 0.5, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "invalid_tool_call_missing_run_id",
+      "schema": "tool_call.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "tool_call_id": "tool-call-003", "sequence_index": 0, "retry_of": null,
+        "tool_name": "synthetic_lookup", "arguments": {}, "was_allowed": true, "arguments_valid": true,
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00Z", "latency_ms": 0,
+        "outcome": "success", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": null
+      }
+    },
+    {
+      "name": "invalid_successful_tool_call_with_error",
+      "schema": "tool_call.schema.json",
+      "expected_valid": false,
+      "expected_validator": "type",
+      "document": {
+        "schema_version": "1.0", "tool_call_id": "tool-call-004", "run_id": "run-fixture-004", "sequence_index": 0, "retry_of": null,
+        "tool_name": "synthetic_lookup", "arguments": {}, "was_allowed": true, "arguments_valid": true,
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00Z", "latency_ms": 0,
+        "outcome": "success", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null,
+        "error": {"error_type": "ShouldNotExist", "message": "Invalid success fixture.", "retryable": false}
+      }
+    },
+    {
+      "name": "invalid_run_missing_model_name",
+      "schema": "run_log.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "run_id": "run-fixture-005", "experiment_id": "experiment-fixture-001", "case_id": "H1-FIXTURE-005", "task_id": "H1", "vertical": "healthcare",
+        "framework": {"name": "langgraph", "version": "fixture"}, "model": {"provider": "fixture"},
+        "generation_config": {"temperature": 0, "max_output_tokens": null, "seed": null}, "prompt_version": "fixture-v1", "case_schema_version": "1.0", "output_schema_version": "1.0",
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00Z", "latency_ms": 0, "status": "success",
+        "raw_output": "{}", "parsed_output": {}, "output_schema_valid": true, "repair": {"attempted": false, "succeeded": null, "repaired_output": null, "changes": []},
+        "tool_calls": [], "token_usage": {"input_tokens": null, "output_tokens": null, "total_tokens": null},
+        "estimated_cost": {"amount": null, "currency": "USD", "pricing_table_version": null, "pricing_source": null, "calculated_at": null}, "error": null
+      }
+    },
+    {
+      "name": "invalid_run_missing_raw_output",
+      "schema": "run_log.schema.json",
+      "expected_valid": false,
+      "expected_validator": "required",
+      "document": {
+        "schema_version": "1.0", "run_id": "run-fixture-006", "experiment_id": "experiment-fixture-001", "case_id": "H1-FIXTURE-006", "task_id": "H1", "vertical": "healthcare",
+        "framework": {"name": "langgraph", "version": "fixture"}, "model": {"provider": "fixture", "name": "fixture-model"},
+        "generation_config": {"temperature": 0, "max_output_tokens": null, "seed": null}, "prompt_version": "fixture-v1", "case_schema_version": "1.0", "output_schema_version": "1.0",
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00Z", "latency_ms": 0, "status": "success",
+        "parsed_output": {}, "output_schema_valid": true, "repair": {"attempted": false, "succeeded": null, "repaired_output": null, "changes": []},
+        "tool_calls": [], "token_usage": {"input_tokens": null, "output_tokens": null, "total_tokens": null},
+        "estimated_cost": {"amount": null, "currency": "USD", "pricing_table_version": null, "pricing_source": null, "calculated_at": null}, "error": null
+      }
+    },
+    {
+      "name": "invalid_failed_run_without_error",
+      "schema": "run_log.schema.json",
+      "expected_valid": false,
+      "expected_validator": "type",
+      "document": {
+        "schema_version": "1.0", "run_id": "run-fixture-007", "experiment_id": "experiment-fixture-001", "case_id": "H1-FIXTURE-007", "task_id": "H1", "vertical": "healthcare",
+        "framework": {"name": "langgraph", "version": "fixture"}, "model": {"provider": "fixture", "name": "fixture-model"},
+        "generation_config": {"temperature": 0, "max_output_tokens": null, "seed": null}, "prompt_version": "fixture-v1", "case_schema_version": "1.0", "output_schema_version": "1.0",
+        "started_at": "2026-07-16T00:00:00Z", "completed_at": "2026-07-16T00:00:00Z", "latency_ms": 0, "status": "failed",
+        "raw_output": null, "parsed_output": null, "output_schema_valid": false, "repair": {"attempted": false, "succeeded": null, "repaired_output": null, "changes": []},
+        "tool_calls": [], "token_usage": {"input_tokens": null, "output_tokens": null, "total_tokens": null},
+        "estimated_cost": {"amount": null, "currency": "USD", "pricing_table_version": null, "pricing_source": null, "calculated_at": null}, "error": null
+      }
+    }
+  ]
+}

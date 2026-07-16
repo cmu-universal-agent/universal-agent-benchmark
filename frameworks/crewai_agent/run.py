@@ -59,7 +59,7 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
 
 def _run_agent(
     prompt: str, vertical: str, allowed_tools: list[str] | None = None
-) -> str:
+) -> tuple[str, dict[str, int]]:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
@@ -107,7 +107,12 @@ def _run_agent(
     )
 
     result = crew.kickoff()
-    return str(result)
+    usage = result.token_usage
+    return str(result), {
+        "input_tokens": usage.prompt_tokens,
+        "output_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+    }
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
@@ -115,13 +120,16 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
     medical_tools.reset_call_log()
     ecommerce_tools.reset_call_log()
     try:
-        final_output = _run_agent(task.prompt, task.vertical, task.allowed_tools)
+        final_output, token_usage = _run_agent(
+            task.prompt, task.vertical, task.allowed_tools
+        )
         return finish_run(
             context,
             task,
             final_output=final_output,
             success=True,
             raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
+            token_usage=token_usage,
         )
     except Exception as exc:
         return finish_run(

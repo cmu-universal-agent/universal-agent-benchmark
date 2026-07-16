@@ -126,6 +126,9 @@ python3 scripts/generate_suitability_matrix.py  # writes results/framework_suita
 python3 scripts/test_tool_failure.py --framework <name>  # run once per venv; simulates a failing tool
 python3 scripts/test_tool_success.py --framework <name>  # run once per venv; records a successful tool trace
 python3 scripts/check_result_fields.py                   # no API calls; audits recorded field coverage
+python3 scripts/validate_contract_fixtures.py            # no API calls; validates valid/invalid schema fixtures
+python3 scripts/validate_adapter_contracts.py            # no API calls; checks legacy/v1 and normalized tool logs
+python3 scripts/validate_shared_tool_contracts.py        # no API calls; checks no-tool/success/failure traces
 ```
 
 The existing smoke test covers the no-tool scenario. Together, the smoke test,

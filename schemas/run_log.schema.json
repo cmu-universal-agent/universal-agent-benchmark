@@ -90,7 +90,8 @@
     },
     "latency_ms": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "End-to-end wall-clock time from run start through completion, including framework retries and tool calls. Do not subtract summed tool latency to infer pure model time because calls may overlap."
     },
     "status": {
       "type": "string",
@@ -277,7 +278,13 @@
     "costRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["amount", "currency"],
+      "required": [
+        "amount",
+        "currency",
+        "pricing_table_version",
+        "pricing_source",
+        "calculated_at"
+      ],
       "properties": {
         "amount": {
           "type": ["number", "null"],
@@ -286,8 +293,40 @@
         "currency": {
           "type": "string",
           "pattern": "^[A-Z]{3}$"
+        },
+        "pricing_table_version": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Version of the dated pricing table used for post-run enrichment; null until cost is calculated."
+        },
+        "pricing_source": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Stable source label or URL for the pricing data; null until cost is calculated."
+        },
+        "calculated_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "UTC timestamp of post-run cost enrichment; null until cost is calculated."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"amount": {"type": "number"}},
+            "required": ["amount"]
+          },
+          "then": {
+            "properties": {
+              "pricing_table_version": {"type": "string"},
+              "pricing_source": {"type": "string"},
+              "calculated_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      ]
     },
     "errorRecord": {
       "type": "object",

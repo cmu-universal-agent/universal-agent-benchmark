@@ -8,6 +8,7 @@ provider-reported usage rather than estimating it inconsistently.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -21,6 +22,7 @@ from adapter.schemas import AgentRunResult, BenchmarkTask
 
 
 ADAPTER_VERSION = "0.2.0"
+TOOL_RESULT_MAX_BYTES = 50 * 1024
 
 
 def _utc_now() -> str:
@@ -46,6 +48,41 @@ def _package_version(package_name: str) -> str | None:
         return version(package_name)
     except PackageNotFoundError:
         return None
+
+
+def _serialized_tool_result(value: Any) -> bytes:
+    """Return the canonical UTF-8 representation used for result size/hash."""
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+        default=str,
+    ).encode("utf-8")
+
+
+def _bounded_tool_result(value: Any) -> tuple[Any, bool, int, str | None]:
+    """Cap a normalized tool result and preserve audit metadata.
+
+    The preview is deliberately stored as a string inside a marker object so a
+    truncated JSON object is never mistaken for a complete tool response.
+    """
+    payload = _serialized_tool_result(value)
+    result_bytes = len(payload)
+    if result_bytes <= TOOL_RESULT_MAX_BYTES:
+        return value, False, result_bytes, None
+
+    digest = hashlib.sha256(payload).hexdigest()
+    preview_bytes = payload[: TOOL_RESULT_MAX_BYTES - 1024]
+    preview = preview_bytes.decode("utf-8", errors="ignore")
+    bounded: dict[str, str] = {
+        "truncated_preview": preview,
+        "truncation_notice": "Full serialized tool result exceeded 50KB.",
+    }
+    while len(_serialized_tool_result(bounded)) > TOOL_RESULT_MAX_BYTES:
+        preview = preview[:-1024]
+        bounded["truncated_preview"] = preview
+    return bounded, True, result_bytes, digest
 
 
 @dataclass(frozen=True)
@@ -115,6 +152,14 @@ def normalize_tool_calls(
         row.setdefault("tool_call_id", f"tool-{uuid.uuid4().hex}")
         row["run_id"] = run_id
         row["sequence_index"] = index
+        row.setdefault("retry_of", None)
+        bounded, truncated, result_bytes, digest = _bounded_tool_result(
+            row.get("result")
+        )
+        row["result"] = bounded
+        row["result_truncated"] = truncated
+        row["result_bytes"] = result_bytes
+        row["result_sha256"] = digest
         normalized.append(row)
     return normalized
 

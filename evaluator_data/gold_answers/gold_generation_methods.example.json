@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "status": "template",
+  "tasks": {
+    "H1": {"method": "source_derived", "specification_status": "pending"},
+    "H2": {"method": "source_derived", "specification_status": "pending"},
+    "H4": {"method": "programmatic_extraction", "specification_status": "pending"},
+    "H5": {"method": "manual_design", "specification_status": "pending"},
+    "E1": {"method": "source_derived", "specification_status": "pending"},
+    "E2": {"method": "source_derived", "specification_status": "pending"},
+    "E3": {"method": "source_derived", "specification_status": "pending"},
+    "E5": {"method": "source_derived", "specification_status": "pending"}
+  }
+}

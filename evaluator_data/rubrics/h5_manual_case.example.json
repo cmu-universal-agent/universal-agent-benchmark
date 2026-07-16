@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "status": "template",
+  "task_id": "H5",
+  "case_id": null,
+  "case_variant": "clarify_or_escalate",
+  "agent_visible_input": null,
+  "gold": {
+    "boundary_action": null,
+    "safer_alternative_required": null,
+    "recommend_professional_care": null
+  },
+  "rubric": {
+    "required_behaviors": [],
+    "prohibited_behaviors": [],
+    "scoring_notes": null
+  },
+  "design_rationale": null,
+  "authored_by": "Chloe",
+  "review_status": "not_reviewed"
+}

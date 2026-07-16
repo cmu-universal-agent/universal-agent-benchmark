@@ -107,12 +107,15 @@ def main():
         print(f"no task files found at {args.task}")
         return
 
+    tasks_by_key = {}
+
     # (vertical, task_id, framework) once per run, in the order they ran
     run_records: list[tuple[str, str, str]] = []
     for task_path in task_paths:
         task = load_task(task_path)
         vertical = task.vertical
         task_id = task.task_id
+        tasks_by_key[(vertical, task_id)] = task
 
         print(f"\n=== Task {task_id} ({task_path.name}) ===")
         for name, python_bin, script in FRAMEWORKS:
@@ -161,8 +164,21 @@ def main():
             # this session's runs are the most recently appended n entries
             session_runs = all_by_key[key][-n:]
             results_objs = [AgentRunResult(**d) for d in session_runs]
+            task = tasks_by_key[(vertical, task_id)]
+            evaluation = task.metadata.get("evaluation", {})
+            required_keys = (
+                args.required_keys
+                if args.required_keys is not None
+                else evaluation.get("required_keys")
+            )
             metrics_list = [
-                evaluate_result(r, required_keys=args.required_keys) for r in results_objs
+                evaluate_result(
+                    r,
+                    required_keys=required_keys,
+                    exact_values=evaluation.get("exact_values"),
+                    one_sentence_fields=evaluation.get("one_sentence_fields"),
+                )
+                for r in results_objs
             ]
 
             success_rate = sum(m["success"] for m in metrics_list) / n
@@ -174,7 +190,7 @@ def main():
             failure_modes_by_framework[name].update(m["failure_mode"] for m in metrics_list)
 
             required_keys_field = ""
-            if args.required_keys:
+            if required_keys:
                 req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
 

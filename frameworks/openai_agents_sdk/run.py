@@ -79,7 +79,7 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
 
 async def _run_agent(
     prompt: str, vertical: str, allowed_tools: list[str] | None = None
-) -> str:
+) -> tuple[str, dict[str, int]]:
     tools = _select_tools(vertical, allowed_tools)
     agent = Agent(
         name="OpenAI Smoke Test Agent",
@@ -92,7 +92,12 @@ async def _run_agent(
         tools=tools,
     )
     result = await Runner.run(agent, prompt)
-    return result.final_output
+    usage = result.context_wrapper.usage
+    return str(result.final_output), {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
+    }
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
@@ -100,7 +105,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
     medical_tools.reset_call_log()
     ecommerce_tools.reset_call_log()
     try:
-        final_output = asyncio.run(
+        final_output, token_usage = asyncio.run(
             _run_agent(task.prompt, task.vertical, task.allowed_tools)
         )
         return finish_run(
@@ -109,6 +114,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
             final_output=final_output,
             success=True,
             raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
+            token_usage=token_usage,
         )
     except Exception as exc:
         return finish_run(
@@ -119,6 +125,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
             error=f"{type(exc).__name__}: {exc}",
             raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
         )
+
 
 
 def main():

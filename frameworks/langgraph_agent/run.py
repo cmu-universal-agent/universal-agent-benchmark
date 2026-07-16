@@ -61,7 +61,7 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
 
 def _run_agent(
     prompt: str, vertical: str, allowed_tools: list[str] | None = None
-) -> str:
+) -> tuple[str, dict[str, int | None]]:
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
@@ -106,7 +106,16 @@ def _run_agent(
     agent_graph = graph_builder.compile()
 
     result = agent_graph.invoke({"messages": [HumanMessage(content=prompt)]})
-    return result["messages"][-1].content
+    usage_rows = [
+        message.usage_metadata
+        for message in result["messages"]
+        if getattr(message, "usage_metadata", None)
+    ]
+    token_usage = {
+        key: sum(int(row.get(key, 0) or 0) for row in usage_rows) if usage_rows else None
+        for key in ("input_tokens", "output_tokens", "total_tokens")
+    }
+    return str(result["messages"][-1].content), token_usage
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
@@ -114,13 +123,16 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
     medical_tools.reset_call_log()
     ecommerce_tools.reset_call_log()
     try:
-        final_output = _run_agent(task.prompt, task.vertical, task.allowed_tools)
+        final_output, token_usage = _run_agent(
+            task.prompt, task.vertical, task.allowed_tools
+        )
         return finish_run(
             context,
             task,
             final_output=final_output,
             success=True,
             raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
+            token_usage=token_usage,
         )
     except Exception as exc:
         return finish_run(

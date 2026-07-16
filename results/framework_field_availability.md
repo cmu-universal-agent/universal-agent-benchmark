@@ -2,7 +2,11 @@
 
 Generated from the recorded JSONL rows. `unknown` model rows are legacy development results and must not be used for model-controlled comparisons.
 
-No result rows were found.
+| Framework | Model | Rows | run_id | experiment_id | framework_version | model_provider | model_name | temperature | prompt_version | started_at | completed_at | raw_output | tool_calls | token_usage |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| crewai | gpt-4o-mini | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 3/4 | 4/4 | 4/4 |
+| langgraph | gpt-4o-mini | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 | 3/4 | 4/4 | 4/4 |
+| openai_agents_sdk | gpt-4o-mini | 7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 6/7 | 7/7 | 7/7 |
 
 ## Interpretation
 

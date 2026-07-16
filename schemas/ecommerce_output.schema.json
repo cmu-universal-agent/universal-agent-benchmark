@@ -179,11 +179,75 @@
           "maxLength": 5000
         },
         "final_state": {
-          "type": "object",
-          "description": "Agent-reported final business state. The evaluator must verify it against the actual environment state.",
-          "additionalProperties": true
+          "$ref": "#/$defs/e5FinalState"
         }
       }
+    },
+    "e5FinalState": {
+      "description": "Agent-reported final business state. The evaluator must verify it against the simulator. The final order_status enum remains simulator-owned; this draft constrains only its canonical string format.",
+      "oneOf": [
+        {"$ref": "#/$defs/e5RefundState"},
+        {"$ref": "#/$defs/e5ExchangeState"},
+        {"$ref": "#/$defs/e5ReturnState"},
+        {"$ref": "#/$defs/e5EscalationState"},
+        {"$ref": "#/$defs/e5NoActionState"}
+      ]
+    },
+    "e5RefundState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "refund_amount", "refund_currency"],
+      "properties": {
+        "action_taken": {"const": "refund"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "refund_amount": {"type": "number", "minimum": 0},
+        "refund_currency": {"type": "string", "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "e5ExchangeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "new_item_id"],
+      "properties": {
+        "action_taken": {"const": "exchange"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "new_item_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "e5ReturnState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "return_authorization_id"],
+      "properties": {
+        "action_taken": {"const": "return"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "return_authorization_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "e5EscalationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "ticket_id", "escalation_reason"],
+      "properties": {
+        "action_taken": {"const": "escalate"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "ticket_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "escalation_reason": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "e5NoActionState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status"],
+      "properties": {
+        "action_taken": {"const": "no_action"},
+        "order_status": {"$ref": "#/$defs/orderStatus"}
+      }
+    },
+    "orderStatus": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Canonical simulator-controlled order status. Replace this pattern-only draft with the confirmed simulator enum before schema freeze."
     },
     "productRecommendation": {
       "type": "object",

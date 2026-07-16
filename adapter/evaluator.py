@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 from adapter.schemas import AgentRunResult
@@ -12,6 +13,8 @@ NO_TOOL_NEEDED_VERTICALS = {"medical_diagnostic", "ecommerce_trend_research"}
 def evaluate_result(
     result: AgentRunResult,
     required_keys: list[str] | None = None,
+    exact_values: dict[str, Any] | None = None,
+    one_sentence_fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Compute simple pass/fail metrics for a single AgentRunResult."""
     parsed_output: Any = None
@@ -39,7 +42,40 @@ def evaluate_result(
     task_id_echoed_correctly = (
         json_valid and isinstance(parsed_output, dict) and parsed_output.get("task_id") == result.task_id
     )
-    instruction_checks = [no_markdown_wrapper, output_is_json_only, task_id_echoed_correctly]
+
+    exact_value_matches: dict[str, bool] = {}
+    if exact_values:
+        exact_value_matches = {
+            key: (
+                json_valid
+                and isinstance(parsed_output, dict)
+                and parsed_output.get(key) == expected
+            )
+            for key, expected in exact_values.items()
+        }
+
+    one_sentence_matches: dict[str, bool] = {}
+    if one_sentence_fields:
+        for key in one_sentence_fields:
+            value = parsed_output.get(key) if isinstance(parsed_output, dict) else None
+            # This intentionally checks a simple benchmark formatting rule,
+            # not linguistic sentence segmentation. A valid value must be a
+            # single non-empty line ending in exactly one sentence terminator.
+            terminators = re.findall(r'[.!?]+(?=["\']?(?:\s|$))', value) if isinstance(value, str) else []
+            one_sentence_matches[key] = bool(
+                isinstance(value, str)
+                and value.strip()
+                and "\n" not in value.strip()
+                and len(terminators) == 1
+            )
+
+    instruction_checks = [
+        no_markdown_wrapper,
+        output_is_json_only,
+        task_id_echoed_correctly,
+        *exact_value_matches.values(),
+        *one_sentence_matches.values(),
+    ]
     instruction_following_score = sum(instruction_checks) / len(instruction_checks)
 
     tool_overuse = None
@@ -72,6 +108,8 @@ def evaluate_result(
         "no_markdown_wrapper": no_markdown_wrapper,
         "output_is_json_only": output_is_json_only,
         "task_id_echoed_correctly": task_id_echoed_correctly,
+        "exact_value_matches": exact_value_matches,
+        "one_sentence_matches": one_sentence_matches,
         "instruction_following_score": instruction_following_score,
         "tool_call_count": result.tool_call_count,
         "tool_overuse": tool_overuse,
