@@ -33,14 +33,14 @@ the controlled pilot still depend on inputs and review from other owners.
 
 ### Chloe
 
-- Return the completed dataset/version, source ID/gold fields, transformation,
+- Return the remaining dataset/version, source ID/gold fields, transformation,
   missing/ambiguous/unmapped handling, and audit templates.
-- Finalize H2 HealthBench mapping: use `prompt_id`, confirm the raw
-  `example_tags` format, define the versioned difficulty rule, and approve the
-  first converted samples. HealthBench has no native split; engineering will
-  generate a deterministic locked benchmark split.
-- Confirm H4 extraction definitions and audit criteria for symptoms, history,
-  risks, and next steps.
+- Approve the received H2 HealthBench draft after reviewing its provisional
+  difficulty thresholds and the urgent/routine/self-care keyword subclassifier;
+  then review the first converted samples. HealthBench has no native split, so
+  engineering will generate a deterministic locked benchmark split.
+- Approve the received H4 ACI-Bench extraction and difficulty rules for
+  symptoms, history, risks, and next steps, then review generated samples.
 - Provide initial H5 clarify/escalate examples and their rubric.
 - Review 5–10 generated samples per task; no bulk manual labeling is required.
 

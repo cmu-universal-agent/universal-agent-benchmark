@@ -1,16 +1,17 @@
 # Dataset and Gold-Generation Plan
 
-Status: schema field design approved by Chloe on 2026-07-16; waiting for Chloe's
-completed dataset/gold templates. This document is not benchmark data and is
-not approval for bulk conversion.
+Status: schema field design approved by Chloe on 2026-07-16. H2 and H4 draft
+source specifications have been received; remaining task templates and formal
+approval are pending. This document is not benchmark data and is not approval
+for bulk conversion.
 
 ## Confirmed Generation Methods
 
 | Task | Gold method | Evaluation owner | Engineering owner | Current blocker |
 |---|---|---|---|---|
 | H1 | Automatically derived from public source data | Chloe confirms source semantics | Jessica implements converter | Exact dataset version/source fields |
-| H2 | Automatically derived from HealthBench rubric/theme data | Chloe confirms urgency mapping | Jessica implements converter and coverage check | Confirm raw tag format, difficulty rule, and approve draft mapping |
-| H4 | Programmatic extraction from the source clinical record | Chloe confirms extraction semantics/audit | Jessica implements extractor | Extraction rules and source format |
+| H2 | Automatically derived from HealthBench physician category plus scoped rubric rules | Chloe confirms urgency mapping | Jessica implements converter and coverage check | Approve draft difficulty thresholds and review the urgent/routine/self-care subclassification |
+| H4 | Programmatic extraction from ACI-Bench notes | Chloe confirms extraction semantics/audit | Jessica implements extractor | Approve draft extraction/difficulty rules and review generated samples |
 | H5 | Chloe manually designs `clarify` and `escalate` cases | Chloe authors gold and rubric | Jessica validates and packages cases | First reviewed cases and rubric |
 | E1 | Automatically derived from public source data | Chloe confirms trend-label semantics | Jessica implements converter | Exact aggregation/normalization rules |
 | E2 | Automatically derived from public source data | Chloe confirms recommendation gold semantics | Jessica implements converter | Candidate-set and relevance rules |
@@ -35,6 +36,11 @@ is not treated as a benchmark split. The converter omits `source_split`, uses
 `prompt_id` as the source record ID, and applies the shared deterministic
 development/pilot/validation/test split only after the mapping and difficulty
 rule are approved.
+
+The received H4 draft uses ACI-Bench's existing source splits and maps them to
+development/pilot/validation/test. The held-out test files remain locked. The
+specification is committed for review with `status: draft_pending_approval`;
+it is not yet authorization for bulk extraction.
 
 ## Implementation Sequence
 

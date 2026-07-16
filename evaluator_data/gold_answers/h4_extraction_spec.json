@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "status": "draft_pending_approval",
+  "supersedes": "earlier draft that assumed a fixed 4-section template (HISTORY OF PRESENT ILLNESS / PHYSICAL EXAM / RESULTS / ASSESSMENT AND PLAN) based on a secondary paper description. That template is only one of many; real notes vary a lot. This version is built and spot-checked directly against the uploaded aci-bench-2023.zip.",
+  "task_id": "H4",
+  "source_dataset": "ACI-Bench (challenge_data split, from the uploaded aci-bench-corpus)",
+  "source_dataset_version": "Confirmed row counts match the published splits exactly: train.csv = 67, valid.csv = 20, clinicalnlp_taskB_test1.csv = 40, clinicalnlp_taskC_test2.csv = 40, clef_taskC_test3.csv = 40.",
+  "source_files_confirmed": {
+    "note_and_dialogue_files": ["train.csv", "valid.csv", "clinicalnlp_taskB_test1.csv", "clinicalnlp_taskC_test2.csv", "clef_taskC_test3.csv"],
+    "columns": ["dataset", "encounter_id", "dialogue", "note"],
+    "metadata_files": ["train_metadata.csv", "valid_metadata.csv", "clinicalnlp_taskB_test1_metadata.csv", "clinicalnlp_taskC_test2_metadata.csv", "clef_taskC_test3_metadata.csv"],
+    "metadata_columns": ["dataset", "encounter_id", "id", "doctor_name", "patient_gender", "patient_age", "patient_firstname", "patient_familyname", "cc", "2nd_complaints"],
+    "note": "'dataset' here is a sub-source label with three values: aci, virtassist, virtscribe - these are three originally separate note-writing conventions merged into one corpus. 'encounter_id' (e.g. D2N001) is the join key between the note/dialogue file and its metadata file, and is what we should use as source_field. 'id' is a different, sub-source-internal identifier (e.g. VA049) - don't use this as the primary key. 'cc' is a short chief-complaint string and '2nd_complaints' is a semicolon-separated list of secondary conditions - both useful as cross-check signal, not primary extraction sources."
+  },
+  "source_field": "encounter_id",
+  "target_field": "result (H4: symptoms, history, risks, next_steps)",
+  "note_structure_finding": "There is no fixed section template. Across train+valid+test1+test2+test3, 30 distinct literal section header strings appear, and even within a single sub-source (e.g. 'aci') different notes use different subsets of headers. Extraction has to work off a header-alias table, not a fixed split.",
+  "header_alias_table": {
+    "chief_complaint_bucket": ["CHIEF COMPLAINT"],
+    "symptoms_bucket": ["HISTORY OF PRESENT ILLNESS", "REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS", "SUBJECTIVE"],
+    "history_bucket": ["MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY", "SOCIAL HISTORY", "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS", "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV"],
+    "exam_vitals_bucket_not_used_for_gold": ["PHYSICAL EXAM", "PHYSICAL EXAMINATION", "EXAM", "VITALS", "VITALS REVIEWED"],
+    "results_bucket": ["RESULTS", "EKG"],
+    "assessment_bucket": ["ASSESSMENT", "IMPRESSION"],
+    "plan_bucket": ["PLAN", "INSTRUCTIONS", "PROCEDURE", "ORDERS"],
+    "combined_assessment_and_plan_bucket": ["ASSESSMENT AND PLAN"]
+  },
+  "extraction_rule": {
+    "symptoms": {
+      "primary_source": "symptoms_bucket text, preferring REVIEW OF SYSTEMS/REVIEW OF SYMPTOMS when present since these are already bulleted as 'System: finding' - split directly on the bullet marker, one list item per bullet.",
+      "fallback": "When no REVIEW OF SYSTEMS/SYMPTOMS section exists, fall back to keyword-sentence extraction from HISTORY OF PRESENT ILLNESS (sentences containing symptom-descriptor words or onset/duration/severity language).",
+      "confidence": "medium-high for the ROS-bullet case (very clean), medium for the HPI-narrative fallback case"
+    },
+    "history": {
+      "primary_source": "All history_bucket sections present in the note (MEDICAL/PAST/SOCIAL/FAMILY/SURGICAL HISTORY, MEDICATIONS, ALLERGIES, etc.), plus the CHIEF COMPLAINT one-liner. Each section becomes one or more list items (split on bullet marker if bulleted, otherwise on sentence).",
+      "fallback": "When none of these separate history sections exist (some notes only have HISTORY OF PRESENT ILLNESS with history folded into the narrative), fall back to keyword-sentence extraction from HISTORY OF PRESENT ILLNESS ('history of', 'previously', 'prior', 'PMH', etc.) - same as the symptoms fallback source, a sentence can land in both lists.",
+      "confidence": "high when dedicated history sections exist, medium on the narrative fallback"
+    },
+    "risks": {
+      "primary_source_combined_assessment_and_plan": "When the note has a single 'ASSESSMENT AND PLAN' section (93 occurrences corpus-wide; verified 41/42 sampled instances use labeled sub-bullets per numbered problem), take only the 'Medical Reasoning:' labeled sub-bullet under each numbered problem as a risks entry.",
+      "primary_source_separate_assessment": "When the note has a separate 'ASSESSMENT' section (38 occurrences corpus-wide, mostly the virtscribe sub-source), this section is typically already a clean bullet list of diagnosis names with no further reasoning text - take each bullet line directly as a risks entry.",
+      "secondary_source": "RESULTS section: take sentences describing an abnormal finding (containing 'elevated', 'abnormal', 'positive', 'low', 'high' next to a lab/vital value) as additional risks entries.",
+      "fallback": "In the rare case (~2%, roughly 1 in 42 sampled) where a combined ASSESSMENT AND PLAN section has no labeled sub-bullets, fall back to keyword rule: sentences containing 'differential', 'rule out', 'concern for', 'risk of', 'possible', or a diagnosis name.",
+      "confidence": "high for the labeled-sub-bullet case and the separate-ASSESSMENT-bullet-list case (both verified against real data), medium-low for the unlabeled fallback case"
+    },
+    "next_steps": {
+      "primary_source_combined_assessment_and_plan": "Within the same 'ASSESSMENT AND PLAN' section, take the 'Medical Treatment:', 'Additional Testing:', and 'Patient Education and Counseling:' labeled sub-bullets under each numbered problem as next_steps entries.",
+      "primary_source_separate_plan": "When the note has a separate 'PLAN' section, it's free-form prose grouped by diagnosis heading - take each per-diagnosis paragraph as one next_steps entry (split into individual sentences only if the paragraph is unusually long, e.g. over ~60 words).",
+      "secondary_source": "INSTRUCTIONS, PROCEDURE, and ORDERS sections when present - each becomes a next_steps entry.",
+      "fallback": "Same action-verb keyword rule as before ('will order', 'start', 'refer', 'follow up', 'schedule', 'recommend', 'continue', etc.) for the rare unlabeled combined-section case.",
+      "confidence": "high for the labeled-sub-bullet and separate-PLAN cases, medium-high on INSTRUCTIONS/PROCEDURE/ORDERS, medium on the keyword fallback"
+    }
+  },
+  "sections_not_mapped_to_gold": "exam_vitals_bucket (PHYSICAL EXAM/EXAMINATION, EXAM, VITALS, VITALS REVIEWED) is kept as background context only, not scored against any of the four output fields.",
+  "sentence_splitting_rule": "Split section text on bullet markers ('•', '-', numbered lists) when present; otherwise split on '.', '!', '?'. Discard fragments shorter than 3 words.",
+  "empty_section_handling": "If a bucket has no matching section in a given note, the corresponding output array is empty, not omitted - matches the existing schema rule that empty arrays are allowed for H4.",
+  "unmapped_policy": "flag_for_manual_review",
+  "unmapped_policy_notes": "A note whose header set doesn't match any bucket in the alias table above for an entire required area (e.g. no chief_complaint, symptoms, history, assessment, or plan bucket found anywhere) should be flagged for manual review rather than silently producing all-empty output, since that likely means an unrecognized header string was used and the alias table needs another entry added.",
+  "known_limitations": [
+    "The header alias table was built from a real, but not exhaustive, header survey across all five ACI-Bench splits (30 distinct header strings found). If the actual conversion turns up a header string not in this table, that's a sign the table needs another entry, not a bug in the note.",
+    "The 'Medical Reasoning: / Medical Treatment: / Additional Testing: / Patient Education and Counseling:' sub-bullet split for combined ASSESSMENT AND PLAN sections has now been checked across the full 207-encounter corpus (all five splits), not just a sample: 91 of 93 occurrences (97.8%) use the labeled sub-bullet format, consistent with the earlier train+valid spot-check (97.6%). This is now a confirmed rule, not a sampled estimate.",
+    "Rare one-off headers (HIV, BIRTH HISTORY, EKG) appear only once or twice in the whole corpus and were bucketed by best guess rather than by seeing enough examples to be confident - low stakes given how rare they are, but worth a manual glance if they show up in the sampled pilot cases.",
+    "MTS-Dialog (the supplementary source mentioned in the earlier proposal) has NOT been inspected yet the way ACI-Bench just was - its section-header conventions are known to be looser, so this alias table should not be assumed to transfer directly. Needs its own inspection pass before use."
+  ],
+  "split_mapping": {
+    "status": "confirmed",
+    "decision": "Use ACI-Bench's own splits as-is, re-labeled to our metadata.split enum. Do not use MTS-Dialog at all - ACI-Bench alone (207 encounters) covers the pilot's needs.",
+    "sub_source_balance_check": "Confirmed all three sub-sources (aci/virtassist/virtscribe) appear in roughly the same proportion in every split (aci ~50-55%, virtassist ~25%, virtscribe ~20%), including the small 20-case valid split (11/5/4). No extra stratified sampling needed - the natural composition already covers all three note-writing styles.",
+    "mapping": {
+      "train.csv (n=67)": "development - used to build and debug the extraction rule",
+      "valid.csv (n=20)": "pilot - this is what tomorrow's pilot run uses",
+      "clinicalnlp_taskB_test1.csv (n=40)": "validation - used once the rule is stable, to check it generalizes",
+      "clinicalnlp_taskC_test2.csv (n=40) + clef_taskC_test3.csv (n=40)": "test - locked, held out until the main benchmark stage, nobody tunes the rule against these 80"
+    },
+    "total_cases": 207
+  },
+  "difficulty_generation_rule": {
+    "status": "draft - thresholds computed directly from the actual 207-encounter corpus (all five splits), not estimated",
+    "measured_distribution": {
+      "distinct_section_headers_per_note": {"min": 3, "p25": 6, "median": 8, "p75": 9, "max": 13},
+      "dialogue_char_length": {"min": 2938, "p25": 5064, "median": 6196, "p75": 7532, "max": 14186},
+      "numbered_problem_lists_note": "Only meaningful for the 'aci' sub-source style (61 of ~112 aci-style notes use numbered problem lists like '1. Right knee pain.'; virtassist/virtscribe almost never do - 2 and 1 occurrences respectively). Treated as a bonus hard-signal only, not a primary rule, since it isn't comparable across sub-sources."
+    },
+    "easy": "distinct_section_headers <= 6 AND dialogue_char_length <= 5064.",
+    "medium": "Everything that is neither easy nor hard by the rules below.",
+    "hard": "distinct_section_headers >= 10, OR dialogue_char_length > 7532, OR (aci-style note) numbered problem count >= 3.",
+    "rationale": "More section headers means more distinct clinical topics the agent has to extract correctly across all four output fields at once. Longer dialogue means more raw material to condense and a higher chance of missing something. Three or more numbered problems (when the note style makes that countable) means real multi-morbidity, which is harder to keep straight across symptoms/history/risks/next_steps than a single-problem visit."
+  },
+  "approved_by": null,
+  "approved_at": null
+}

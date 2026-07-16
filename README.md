@@ -129,6 +129,7 @@ python3 scripts/check_result_fields.py                   # no API calls; audits 
 python3 scripts/validate_contract_fixtures.py            # no API calls; validates valid/invalid schema fixtures
 python3 scripts/validate_adapter_contracts.py            # no API calls; checks legacy/v1 and normalized tool logs
 python3 scripts/validate_shared_tool_contracts.py        # no API calls; checks no-tool/success/failure traces
+python3 scripts/validate_dataset_specs.py                 # no API calls; checks draft H2/H4 spec consistency
 ```
 
 The existing smoke test covers the no-tool scenario. Together, the smoke test,

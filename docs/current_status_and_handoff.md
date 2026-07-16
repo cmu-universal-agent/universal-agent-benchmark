@@ -100,11 +100,13 @@ reported as benchmark scores.
 - Provide the first H5 `clarify` and `escalate` manual cases plus their rubric.
 - Return the completed dataset/gold templates so Jessica can implement the
   task-specific converters and generate review samples.
-- For H2, finalize the HealthBench draft mapping by correcting the source ID
-  field to `prompt_id`, confirming the actual `example_tags` format, defining
-  the versioned difficulty rule, and approving review samples. HealthBench has
-  no native split; the benchmark will use the shared deterministic split
-  procedure and a locked manifest.
+- H2 draft received: HealthBench `prompt_id`, raw tag format, and measured
+  physician-category distribution are now documented. Approve the provisional
+  difficulty thresholds and review the keyword subclassification for
+  urgent/routine/self-care before bulk conversion.
+- H4 draft received: ACI-Bench source fields, header aliases, four-field
+  extraction rules, and source-split mapping are documented. Approve the
+  extraction/difficulty rules and review generated samples before bulk use.
 
 ### Chloe Gold-Generation Decision (2026-07-16)
 
@@ -118,10 +120,10 @@ reported as benchmark scores.
   converters, benchmark-field generation, split manifests, coverage checks,
   schema validation, and review samples.
 
-The field design is now approved. The feedback confirms the generation method,
-but not yet the source-specific mapping. Bulk
-conversion remains blocked until the exact dataset versions, source fields,
-normalization rules, and ambiguous/unmapped-record policies are documented.
+The field design is now approved. H2 and H4 have detailed owner-provided draft
+specifications, while the other task-specific templates remain pending. Bulk
+conversion remains blocked until each applicable specification is approved and
+the first generated samples pass owner review.
 
 ### After Chloe's Review
 

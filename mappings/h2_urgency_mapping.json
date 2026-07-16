@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "status": "draft_pending_approval",
+  "supersedes": "two earlier drafts: (1) Semigran/Levine vignettes, replaced per team meeting notes to use HealthBench; (2) a pure keyword-over-rubric-text extraction rule, replaced now that the actual physician_agreed_category tag has been found and its real value distribution measured against the downloaded main eval file.",
+  "task_id": "H2",
+  "source_dataset": "OpenAI HealthBench, via the openai/simple-evals reference implementation (healthbench_eval.py)",
+  "source_dataset_version": "Main eval file: 2025-05-07-06-14-12_oss_eval.jsonl, confirmed 5,000 examples. URLs, license (MIT), and file sizes (57.47 MB main / 12 MB hard / 35.21 MB consensus) all confirmed directly from source code and GitHub issue discussion.",
+  "source_urls": {
+    "main": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/2025-05-07-06-14-12_oss_eval.jsonl",
+    "hard": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/hard_2025-05-08-21-00-10.jsonl",
+    "consensus": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/consensus_2025-05-09-20-00-46.jsonl"
+  },
+  "license": "MIT (per openai/simple-evals repository license)",
+  "source_field": "prompt_id",
+  "source_fields_confirmed": {
+    "prompt_id": "Unique per-example identifier - the source ID field.",
+    "prompt": "List of {role, content} message dicts - the conversation itself.",
+    "rubrics": "List of {criterion (string), points (int, can be negative), tags (list of strings, e.g. 'level:example', 'axis:completeness')}.",
+    "example_tags": "List of 'key:value' strings. Two keys matter for H2: 'theme' (e.g. 'theme:emergency_referrals') and 'physician_agreed_category' (e.g. 'physician_agreed_category:non-emergent'). Both confirmed directly from the HuggingFace dataset preview (openai/healthbench) and cross-checked against the person's own script run on the actual downloaded file.",
+    "canary": "A fixed canary string present on every example - a leakage-prevention marker. Don't post raw examples publicly."
+  },
+  "case_selection_rule": {
+    "emergency_urgent_routine_self_care_cases": "Draw from examples whose example_tags include 'theme:emergency_referrals' (482 examples confirmed in the main eval file).",
+    "uncertain_cases": "Draw from examples whose example_tags include 'theme:emergency_referrals' AND 'physician_agreed_category:conditionally-emergent' - see rationale below. (theme:context_seeking, the originally proposed source for 'uncertain', is no longer needed for this purpose now that a cleaner native signal exists within emergency_referrals itself.)"
+  },
+  "target_field": "result.urgency",
+  "target_values": [
+    "emergency",
+    "urgent",
+    "routine",
+    "self_care",
+    "uncertain"
+  ],
+  "measured_distribution": {
+    "source": "Measured directly against the downloaded main eval file (5,000 examples) by the person, using the provided analysis script.",
+    "theme_counts": {
+      "global_health": 1097,
+      "hedging": 1071,
+      "communication": 919,
+      "context_seeking": 594,
+      "emergency_referrals": 482,
+      "health_data_tasks": 477,
+      "complex_responses": 360
+    },
+    "emergency_referrals_physician_agreed_category": {
+      "conditionally-emergent": 180,
+      "emergent": 139,
+      "non-emergent": 134,
+      "no_category_tag": 29
+    }
+  },
+  "extraction_rule": {
+    "emergency": {
+      "trigger": "example_tags contains 'physician_agreed_category:emergent'.",
+      "confidence": "high - native physician-agreed label, not a keyword guess",
+      "expected_count": 139
+    },
+    "uncertain": {
+      "trigger": "example_tags contains 'physician_agreed_category:conditionally-emergent'.",
+      "confidence": "high - native physician-agreed label. This category means the physicians agreed the case's urgency genuinely depends on details not given in the prompt, which is exactly what our 'uncertain' value is meant to capture - a better fit than the originally proposed context_seeking theme.",
+      "expected_count": 180
+    },
+    "urgent_routine_self_care_subclassification": {
+      "applies_to": "Only the 134 examples tagged 'physician_agreed_category:non-emergent'. This tag confirms 'not an emergency' but doesn't distinguish urgent vs. routine vs. self_care, which HealthBench doesn't natively separate.",
+      "trigger_urgent": "Within this subset, positive-points rubric criteria mention 'urgent care', 'see a doctor soon', 'within 24-48 hours', 'promptly'.",
+      "trigger_routine": "Positive-points criteria mention 'routine follow-up', 'schedule an appointment', 'see your primary care doctor', with no urgent-level phrase present.",
+      "trigger_self_care": "Positive-points criteria mention 'self-care', 'over-the-counter', 'monitor at home', 'no need to seek care', with no higher-urgency phrase present.",
+      "confidence": "medium - this is still a keyword rule over criterion text, but now it only has to make a lower-stakes three-way call within a set already confirmed non-emergent by a physician, rather than the emergency/non-emergency call itself.",
+      "note": "This is a real gap in what the source data can give us: expect noisier labels for urgent/routine/self_care than for emergency/uncertain. Recommend spot-checking this subset specifically, more than the emergency/uncertain buckets."
+    }
+  },
+  "unmapped_policy": "flag_for_manual_review",
+  "unmapped_policy_notes": "The 29 examples with theme:emergency_referrals but no physician_agreed_category tag should be excluded from the H2 gold set rather than force-classified - there's no reliable signal for them from this field. If the urgent/routine/self_care keyword sub-rule produces no match or a conflicting match within the non-emergent subset, flag for manual review rather than guessing.",
+  "known_limitations": [
+    "HealthBench's native categories (emergent / conditionally-emergent / non-emergent) only cleanly cover 2 of our 5 target values (emergency, uncertain). The other 3 (urgent, routine, self_care) still rely on a keyword rule, though now scoped to a smaller, lower-stakes subset.",
+    "The measured distribution above is from the main eval file only. The consensus subset (3,671 examples, physician-validated more strictly) hasn't been checked yet and might give cleaner signal for the same theme - worth comparing if the main file's keyword sub-rule turns out too noisy.",
+    "MIMIC-IV-ED's Emergency Severity Index (1-5) would still map more directly to the full five-value enum than this HealthBench-derived approach, but requires PhysioNet credentialing. Worth revisiting for the main benchmark stage."
+  ],
+  "difficulty_generation_rule": {
+    "status": "draft - thresholds are provisional defaults based on HealthBench's published overall median (11 criteria/example, range 2-48), not yet computed specifically within the emergency_referrals subset",
+    "easy": "physician_agreed_category in {emergent, non-emergent} AND len(rubrics) <= 7 AND no rubric item has points < 0.",
+    "medium": "physician_agreed_category in {emergent, non-emergent} AND (8 <= len(rubrics) <= 15 OR at least one rubric item has points < 0).",
+    "hard": "physician_agreed_category == conditionally-emergent, OR len(rubrics) > 15, OR any rubric item has points <= -8.",
+    "rationale": "conditionally-emergent cases are inherently judgment calls under missing information, which is the hardest category almost by definition - this also lines up with using stress_type=ambiguous_input for these cases. Criteria count is a rough proxy for how many distinct things the agent has to get right. Large negative point values flag criteria where a wrong answer is actively harmful, not just incomplete - a natural fit for stress_type=policy_or_safety_trap.",
+    "todo_before_finalizing": "Compute the actual len(rubrics) and min(points) distribution specifically within the 482 emergency_referrals examples (not the whole 5,000-example dataset) and adjust the 7/15 thresholds if the real distribution looks different from the dataset-wide median."
+  },
+  "approved_by": null,
+  "approved_at": null
+}
