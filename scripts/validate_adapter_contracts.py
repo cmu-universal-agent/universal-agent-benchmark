@@ -55,6 +55,8 @@ def main() -> None:
     assert healthcare.case_id == "H1-FIXTURE-001"
     assert healthcare.vertical == "medical_diagnostic"
     assert healthcare.allowed_tools == []
+    assert '"case_id": "H1-FIXTURE-001"' in healthcare.prompt
+    assert '"task_id": "H1"' in healthcare.prompt
     assert "Synthetic evidence" in healthcare.prompt
     assert ecommerce.schema_version == "1.0"
     assert ecommerce.vertical == "ecommerce_trend_research"
@@ -129,6 +131,7 @@ def main() -> None:
         "run_id",
         "experiment_id",
         "model_name",
+        "case_id",
         "tool_calls",
         "token_usage",
     ):

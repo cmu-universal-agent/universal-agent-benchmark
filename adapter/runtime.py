@@ -206,6 +206,7 @@ def finish_run(
             "adapter_version": ADAPTER_VERSION,
             "json_parse_valid": isinstance(parsed_output, dict),
         },
+        case_id=task.case_id,
         run_id=context.run_id,
         experiment_id=context.experiment_id,
         framework_version=context.framework_version,

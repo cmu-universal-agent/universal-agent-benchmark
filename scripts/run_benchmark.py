@@ -91,6 +91,11 @@ def main():
         "Omit to skip the required-keys check (useful when sweeping "
         "tasks from more than one vertical at once).",
     )
+    parser.add_argument(
+        "--list-only",
+        action="store_true",
+        help="Load and list resolved cases without calling a model or writing results.",
+    )
     args = parser.parse_args()
 
     experiment_id = args.experiment_id or f"exp-{uuid.uuid4().hex}"
@@ -107,17 +112,33 @@ def main():
         print(f"no task files found at {args.task}")
         return
 
+    if args.list_only:
+        seen: set[str] = set()
+        for task_path in task_paths:
+            task = load_task(task_path)
+            case_key = task.case_id or task.task_id
+            if case_key in seen:
+                raise SystemExit(f"duplicate case identity: {case_key}")
+            seen.add(case_key)
+            print(
+                f"CASE {case_key} task={task.task_id} vertical={task.vertical} "
+                f"allowed_tools={len(task.allowed_tools or [])}"
+            )
+        print(f"LIST_ONLY_OK cases={len(seen)} model_calls=0 result_writes=0")
+        return
+
     tasks_by_key = {}
 
-    # (vertical, task_id, framework) once per run, in the order they ran
+    # (vertical, case identity, framework) once per run, in run order.
     run_records: list[tuple[str, str, str]] = []
     for task_path in task_paths:
         task = load_task(task_path)
         vertical = task.vertical
         task_id = task.task_id
-        tasks_by_key[(vertical, task_id)] = task
+        case_key = task.case_id or task_id
+        tasks_by_key[(vertical, case_key)] = task
 
-        print(f"\n=== Task {task_id} ({task_path.name}) ===")
+        print(f"\n=== Case {case_key} / Task {task_id} ({task_path.name}) ===")
         for name, python_bin, script in FRAMEWORKS:
             if not python_bin.exists():
                 print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
@@ -131,12 +152,12 @@ def main():
                     check=False,
                     env=child_env,
                 )
-                run_records.append((vertical, task_id, name))
+                run_records.append((vertical, case_key, name))
 
     print("\n--- Summary ---")
     by_vertical: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for vertical, task_id, name in run_records:
-        by_vertical[vertical].append((task_id, name))
+    for vertical, case_key, name in run_records:
+        by_vertical[vertical].append((case_key, name))
 
     failure_modes_by_framework: dict[str, Counter] = defaultdict(Counter)
 
@@ -150,7 +171,8 @@ def main():
         with open(results_path, "r", encoding="utf-8") as f:
             for line in f:
                 d = json.loads(line)
-                all_by_key[(d["task_id"], d["framework"])].append(d)
+                result_case_key = d.get("case_id") or d["task_id"]
+                all_by_key[(result_case_key, d["framework"])].append(d)
 
         key_counts = Counter(records)
         seen: set[tuple[str, str]] = set()
@@ -159,12 +181,12 @@ def main():
                 continue
             seen.add(key)
 
-            task_id, name = key
+            case_key, name = key
             n = key_counts[key]
             # this session's runs are the most recently appended n entries
             session_runs = all_by_key[key][-n:]
             results_objs = [AgentRunResult(**d) for d in session_runs]
-            task = tasks_by_key[(vertical, task_id)]
+            task = tasks_by_key[(vertical, case_key)]
             evaluation = task.metadata.get("evaluation", {})
             required_keys = (
                 args.required_keys
@@ -195,7 +217,7 @@ def main():
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
 
             print(
-                f"{task_id:>10} {name:>18} (n={n}): success_rate={success_rate:.0%} "
+                f"{case_key:>18} {name:>18} (n={n}): success_rate={success_rate:.0%} "
                 f"json_valid_rate={json_valid_rate:.0%} "
                 f"instruction_following_rate={instruction_following_rate:.0%} "
                 f"{required_keys_field}"

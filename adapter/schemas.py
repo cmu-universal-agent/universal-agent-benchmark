@@ -27,6 +27,7 @@ class AgentRunResult:
     error: str | None = None
     tool_call_count: int | None = None
     raw_metadata: dict[str, Any] = field(default_factory=dict)
+    case_id: str | None = None
     run_id: str | None = None
     experiment_id: str | None = None
     framework_version: str | None = None

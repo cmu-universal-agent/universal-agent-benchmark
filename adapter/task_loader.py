@@ -21,9 +21,24 @@ V1_TO_RUNTIME_VERTICAL = {
 }
 
 
-def render_v1_prompt(input_value: dict[str, Any]) -> str:
+def render_v1_prompt(
+    input_value: dict[str, Any],
+    *,
+    case_id: str | None = None,
+    task_id: str | None = None,
+) -> str:
     """Render structured v1.0 input into a deterministic agent prompt."""
     sections = [str(input_value["instruction"]).strip()]
+
+    if case_id and task_id:
+        sections.append(
+            "Benchmark identity:\n"
+            + json.dumps(
+                {"case_id": case_id, "task_id": task_id},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
 
     data = input_value.get("data", {})
     if data:
@@ -57,7 +72,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
         return BenchmarkTask(
             task_id=data["task_id"],
             vertical=runtime_vertical,
-            prompt=render_v1_prompt(input_value),
+            prompt=render_v1_prompt(
+                input_value,
+                case_id=data["case_id"],
+                task_id=data["task_id"],
+            ),
             expected_output_type="json",
             metadata=metadata,
             schema_version="1.0",

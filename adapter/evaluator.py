@@ -42,6 +42,14 @@ def evaluate_result(
     task_id_echoed_correctly = (
         json_valid and isinstance(parsed_output, dict) and parsed_output.get("task_id") == result.task_id
     )
+    case_id_echoed_correctly = (
+        result.case_id is None
+        or (
+            json_valid
+            and isinstance(parsed_output, dict)
+            and parsed_output.get("case_id") == result.case_id
+        )
+    )
 
     exact_value_matches: dict[str, bool] = {}
     if exact_values:
@@ -73,6 +81,7 @@ def evaluate_result(
         no_markdown_wrapper,
         output_is_json_only,
         task_id_echoed_correctly,
+        case_id_echoed_correctly,
         *exact_value_matches.values(),
         *one_sentence_matches.values(),
     ]
@@ -108,6 +117,7 @@ def evaluate_result(
         "no_markdown_wrapper": no_markdown_wrapper,
         "output_is_json_only": output_is_json_only,
         "task_id_echoed_correctly": task_id_echoed_correctly,
+        "case_id_echoed_correctly": case_id_echoed_correctly,
         "exact_value_matches": exact_value_matches,
         "one_sentence_matches": one_sentence_matches,
         "instruction_following_score": instruction_following_score,
