@@ -3,6 +3,7 @@ import re
 from typing import Any
 
 from adapter.schemas import AgentRunResult
+from adapter.validation import validate_task_output
 
 # Verticals whose tasks already embed all needed context in the prompt, so a
 # mock tool is available but never needed. Any call there is measurable tool
@@ -24,6 +25,16 @@ def evaluate_result(
         json_valid = True
     except (json.JSONDecodeError, TypeError):
         pass
+
+    output_schema_errors = (
+        validate_task_output(result.task_id, parsed_output)
+        if json_valid and isinstance(parsed_output, dict)
+        else None
+    )
+    output_schema_checked = output_schema_errors is not None
+    output_schema_valid = (
+        not output_schema_errors if output_schema_checked else None
+    )
 
     missing_keys: list[str] = []
     if required_keys:
@@ -97,6 +108,8 @@ def evaluate_result(
         failure_mode = "invalid_json"
     elif missing_keys:
         failure_mode = "missing_required_keys"
+    elif output_schema_checked and not output_schema_valid:
+        failure_mode = "output_schema_invalid"
     elif instruction_following_score < 1.0:
         failure_mode = "instruction_drift"
     elif tool_overuse:
@@ -111,6 +124,9 @@ def evaluate_result(
         "success": result.success,
         "latency_seconds": result.latency_seconds,
         "json_valid": json_valid,
+        "output_schema_checked": output_schema_checked,
+        "output_schema_valid": output_schema_valid,
+        "output_schema_errors": output_schema_errors or [],
         "required_keys_present": not missing_keys,
         "missing_keys": missing_keys,
         "error_type": error_type,

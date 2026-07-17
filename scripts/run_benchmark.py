@@ -205,6 +205,19 @@ def main():
 
             success_rate = sum(m["success"] for m in metrics_list) / n
             json_valid_rate = sum(m["json_valid"] for m in metrics_list) / n
+            schema_checked = [
+                metric for metric in metrics_list
+                if metric["output_schema_checked"]
+            ]
+            output_schema_field = ""
+            if schema_checked:
+                output_schema_rate = (
+                    sum(metric["output_schema_valid"] for metric in schema_checked)
+                    / len(schema_checked)
+                )
+                output_schema_field = (
+                    f"output_schema_valid_rate={output_schema_rate:.0%} "
+                )
             instruction_following_rate = (
                 sum(m["instruction_following_score"] for m in metrics_list) / n
             )
@@ -219,6 +232,7 @@ def main():
             print(
                 f"{case_key:>18} {name:>18} (n={n}): success_rate={success_rate:.0%} "
                 f"json_valid_rate={json_valid_rate:.0%} "
+                f"{output_schema_field}"
                 f"instruction_following_rate={instruction_following_rate:.0%} "
                 f"{required_keys_field}"
                 f"avg_latency={avg_latency:.2f}s"

@@ -109,7 +109,10 @@ def _instruction(task_id: str) -> str:
             "documents. Return exactly one JSON object and no markdown. Required "
             f'fields: schema_version="1.0", case_id, task_id="{task_id}", '
             f"result={result_shape}, explanation, evidence_ids, confidence (0 to 1), "
-            "and safety={safety_flag, recommend_professional_care, safety_note}. "
+            'and safety={"safety_flag":true,"recommend_professional_care":true,'
+            '"safety_note":"..."}. safety_flag and recommend_professional_care '
+            "must be JSON booleans true or false, never strings such as "
+            '"yes", "no", "high", "low", or "caution". '
             "Do not provide a real diagnosis or hide uncertainty."
         )
     result_shape = ECOMMERCE_RESULT_FIELDS[task_id]

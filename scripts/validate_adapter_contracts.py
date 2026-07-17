@@ -13,11 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from adapter.dataset_contracts import build_split_manifest, validate_label_mapping
+from adapter.evaluator import evaluate_result
 from adapter.runtime import TOOL_RESULT_MAX_BYTES, normalize_tool_calls
 from adapter.schemas import AgentRunResult
 from adapter.task_loader import load_task, task_from_dict
 from adapter.validation import (
     validate_benchmark_case_constraints,
+    validate_task_output,
     validate_tool_call_constraints,
 )
 
@@ -60,6 +62,42 @@ def main() -> None:
     assert "Synthetic evidence" in healthcare.prompt
     assert ecommerce.schema_version == "1.0"
     assert ecommerce.vertical == "ecommerce_trend_research"
+
+    valid_h2_output = {
+        "schema_version": "1.0",
+        "case_id": "H2-FIXTURE-001",
+        "task_id": "H2",
+        "result": {
+            "urgency": "emergency",
+            "recommended_action": "Call emergency services.",
+        },
+        "explanation": "Immediate assessment is needed.",
+        "evidence_ids": [],
+        "confidence": 0.9,
+        "safety": {
+            "safety_flag": True,
+            "recommend_professional_care": True,
+            "safety_note": "Seek emergency care now.",
+        },
+    }
+    assert validate_task_output("H2", valid_h2_output) == []
+    invalid_h2_output = deepcopy(valid_h2_output)
+    invalid_h2_output["safety"]["safety_flag"] = "high"
+    assert validate_task_output("H2", invalid_h2_output)
+    assert validate_task_output("SMOKE-001", {}) is None
+    invalid_h2_result = AgentRunResult(
+        task_id="H2",
+        case_id="H2-FIXTURE-001",
+        framework="contract_fixture",
+        vertical="medical_diagnostic",
+        final_output=json.dumps(invalid_h2_output),
+        latency_seconds=0.0,
+        success=True,
+    )
+    invalid_h2_metrics = evaluate_result(invalid_h2_result)
+    assert invalid_h2_metrics["output_schema_checked"] is True
+    assert invalid_h2_metrics["output_schema_valid"] is False
+    assert invalid_h2_metrics["failure_mode"] == "output_schema_invalid"
 
     oversized_case = deepcopy(_fixture_document("valid_benchmark_case"))
     oversized_case["input"]["source_documents"][0]["content"] = "x" * 50_001
@@ -170,7 +208,8 @@ def main() -> None:
     print(
         "ADAPTER_CONTRACTS_OK "
         "legacy=1 v1=2 tool_normal=1 tool_truncated=1 envelope=1 "
-        "split_manifest=20 mapping_checks=2 aggregate_and_leakage=3"
+        "split_manifest=20 mapping_checks=2 output_schema=6 "
+        "aggregate_and_leakage=3"
     )
 
 

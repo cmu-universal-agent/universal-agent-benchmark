@@ -7,6 +7,7 @@ the adapter and converter layers use these checks consistently.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,16 @@ FORBIDDEN_AGENT_VISIBLE_KEYS = {
     "ground_truth",
     "rubric",
     "evaluator_rubric",
+}
+OUTPUT_SCHEMA_BY_TASK = {
+    "H1": "medical_output.schema.json",
+    "H2": "medical_output.schema.json",
+    "H4": "medical_output.schema.json",
+    "H5": "medical_output.schema.json",
+    "E1": "ecommerce_output.schema.json",
+    "E2": "ecommerce_output.schema.json",
+    "E3": "ecommerce_output.schema.json",
+    "E5": "ecommerce_output.schema.json",
 }
 
 
@@ -57,6 +68,41 @@ def validate_benchmark_case_constraints(case: dict[str, Any]) -> list[str]:
         if key.lower() in FORBIDDEN_AGENT_VISIBLE_KEYS:
             errors.append(f"agent-visible case contains forbidden key at {path}")
     return errors
+
+
+@lru_cache(maxsize=2)
+def _output_validator(schema_name: str):
+    try:
+        import jsonschema
+    except ImportError as exc:  # pragma: no cover - environment guard
+        raise RuntimeError("jsonschema is required for output validation") from exc
+
+    path = ROOT / "schemas" / schema_name
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    return jsonschema.Draft202012Validator(
+        schema,
+        format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
+    )
+
+
+def validate_task_output(
+    task_id: str, output: dict[str, Any]
+) -> list[str] | None:
+    """Validate one parsed task output against its vertical schema.
+
+    ``None`` means no task-specific output schema applies (for example, a
+    legacy smoke task). An empty list means the applicable schema passed.
+    """
+    schema_name = OUTPUT_SCHEMA_BY_TASK.get(task_id)
+    if schema_name is None:
+        return None
+    validator = _output_validator(schema_name)
+    errors = sorted(validator.iter_errors(output), key=lambda error: list(error.path))
+    rendered = []
+    for error in errors:
+        location = ".".join(str(part) for part in error.path) or "<root>"
+        rendered.append(f"{location}: {error.message}")
+    return rendered
 
 
 def validate_tool_arguments(
