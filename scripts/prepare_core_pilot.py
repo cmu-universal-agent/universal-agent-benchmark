@@ -6,7 +6,7 @@ agent-visible cases and evaluator-only gold are written under
 ``data/generated/core_pilot`` so that raw/review data cannot be committed by
 accident.  This script intentionally creates review samples, not approved
 benchmark gold: dataset-owner review is still required for H2's lower-urgency
-subclasses, H4's extracted fields, and H5 clarify/escalate cases.
+subclasses, H4's extracted fields, and the owner-authored H5 rubrics.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v1"
+GENERATOR_VERSION = "core-pilot-converter-v3"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -41,6 +41,12 @@ AMAZON_DIR = DATA / "amazon_reviews_2023"
 TAU_DIR = DATA / "vendor" / "tau2-retail"
 
 HEALTHBENCH_EXPECTED_BYTES = 60_258_154
+H2_LOCAL_REVIEW_DECISIONS = (
+    ROOT / "evaluator_data" / "local_review_decisions" / "h2_review_decisions.json"
+)
+H5_LOCAL_OWNER_DIR = (
+    ROOT / "evaluator_data" / "local_review_decisions" / "h5_owner_cases"
+)
 
 MEDICAL_RESULT_FIELDS = {
     "H1": '{"decision":"yes|no|maybe"}',
@@ -181,7 +187,9 @@ def _gold(
         "task_id": case["task_id"],
         "source": {
             "dataset": metadata["dataset"],
-            "dataset_version": _dataset_version(case["task_id"]),
+            "dataset_version": _dataset_version(
+                case["task_id"], metadata["dataset"]
+            ),
             "source_record_id": metadata["source_record_id"],
             "source_split": metadata["source_split"],
         },
@@ -202,7 +210,9 @@ def _gold(
     }
 
 
-def _dataset_version(task_id: str) -> str:
+def _dataset_version(task_id: str, dataset: str | None = None) -> str:
+    if task_id == "H5" and dataset == "owner_authored_boundary_cases":
+        return "owner-authored draft 2026-07-20"
     return {
         "H1": "PubMedQA PQA-L ori_pqal.json",
         "H2": "HealthBench main 2025-05-07-06-14-12",
@@ -222,6 +232,8 @@ def _configuration_hash() -> str:
         "healthbench_bytes": HEALTHBENCH_EXPECTED_BYTES,
         "h4_spec": "h4_extraction_spec.json",
         "h2_mapping": "h2_urgency_mapping.json",
+        "h5_spec": "h5_manual_case_spec.json",
+        "e3_mapping": "e3_candidate_filter.json",
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
@@ -265,7 +277,100 @@ def _healthbench_tags(row: dict[str, Any]) -> dict[str, str]:
     return result
 
 
-def _classify_h2(row: dict[str, Any]) -> tuple[str | None, str]:
+def _load_h2_review_decisions() -> dict[str, Any]:
+    if not H2_LOCAL_REVIEW_DECISIONS.exists():
+        return {
+            "selected_source_record_ids": [],
+            "urgency_overrides": {},
+            "reviewed_by": None,
+            "reviewed_at": None,
+        }
+    document = _read_json(H2_LOCAL_REVIEW_DECISIONS)
+    if document.get("status") != "local_evaluator_only":
+        raise ValueError("H2 local review decisions must be evaluator-only")
+    allowed = {"emergency", "urgent", "routine", "self_care", "uncertain"}
+    overrides = document.get("urgency_overrides", {})
+    if not isinstance(overrides, dict) or not set(overrides.values()) <= allowed:
+        raise ValueError("H2 local urgency overrides contain an invalid label")
+    selected = document.get("selected_source_record_ids", [])
+    if not isinstance(selected, list) or len(selected) != len(set(selected)):
+        raise ValueError("H2 local selected source IDs must be a unique list")
+    return {
+        "selected_source_record_ids": selected,
+        "urgency_overrides": overrides,
+        "reviewed_by": document.get("reviewed_by"),
+        "reviewed_at": document.get("reviewed_at"),
+    }
+
+
+def _criterion_is_conditional_escalation(text: str) -> bool:
+    conditional = any(
+        phrase in text
+        for phrase in (
+            "if ", "unless ", "should symptoms", "if symptoms", "if the patient",
+            "if they", "if he", "if she", "in the event", "develops", "develop ",
+            "for any worsening", "in case of", "return precaution", "worsen", "worsening",
+        )
+    )
+    red_flag = any(
+        phrase in text
+        for phrase in (
+            "red flag", "dehydrat", "blood in", "bloody", "high fever", "persistent fever",
+            "severe vomiting", "difficulty breathing", "loss of consciousness", "letharg",
+            "fewer wet diaper", "unable to", "worsen", "worsening", "emergency room",
+            "immediate medical care",
+        )
+    )
+    return conditional and red_flag
+
+
+def _classify_h2_non_emergent(row: dict[str, Any]) -> tuple[str | None, str]:
+    signals: set[str] = set()
+    care_action = re.compile(
+        r"\b(?:seek|seeking|see|seeing|visit|consult|consultation|evaluation|"
+        r"follow[- ]?up|appointment|medical attention|medical care)\b",
+        re.IGNORECASE,
+    )
+    urgent_timeframe = re.compile(
+        r"\b(?:within (?:the )?(?:next )?(?:24[-– ]?48 hours|a few days|the next few days|"
+        r"one week)|in the next few days|see (?:a )?(?:doctor|physician|provider) soon|promptly)\b",
+        re.IGNORECASE,
+    )
+    routine_timeframe = re.compile(
+        r"\b(?:in the next (?:month or two|one or two months)|within (?:the )?next \d+ months?|"
+        r"in \d+ weeks?|routine follow[- ]?up|schedule (?:an? )?appointment)\b",
+        re.IGNORECASE,
+    )
+    explicit_no_care = re.compile(
+        r"\b(?:does not|do not|should not|need not|no need to)\s+"
+        r"(?:recommend |advise )?(?:seeking|seek) (?:medical |professional )?care\b",
+        re.IGNORECASE,
+    )
+    for rubric in row.get("rubrics", []):
+        if (rubric.get("points") or 0) <= 0:
+            continue
+        criterion = str(rubric.get("criterion", "")).lower()
+        if explicit_no_care.search(criterion):
+            signals.add("self_care")
+        if not care_action.search(criterion) or _criterion_is_conditional_escalation(criterion):
+            continue
+        if urgent_timeframe.search(criterion):
+            signals.add("urgent")
+        if routine_timeframe.search(criterion):
+            signals.add("routine")
+    professional = signals & {"urgent", "routine"}
+    if len(professional) > 1:
+        return None, "conflicting_current_scenario_timeframes"
+    if professional:
+        return next(iter(professional)), "rubric_timeframe_subclassification_v2"
+    if "self_care" in signals:
+        return "self_care", "rubric_timeframe_subclassification_v2"
+    return None, "ambiguous_or_unmapped_timeframe_rule"
+
+
+def _classify_h2(
+    row: dict[str, Any], urgency_overrides: dict[str, str] | None = None
+) -> tuple[str | None, str]:
     tags = _healthbench_tags(row)
     category = tags.get("physician_agreed_category")
     if tags.get("theme") != "emergency_referrals":
@@ -276,18 +381,10 @@ def _classify_h2(row: dict[str, Any]) -> tuple[str | None, str]:
         return "uncertain", "native_physician_category"
     if category != "non-emergent":
         return None, "missing_physician_category"
-    positive = " ".join(
-        str(rubric.get("criterion", "")).lower()
-        for rubric in row.get("rubrics", [])
-        if (rubric.get("points") or 0) > 0
-    )
-    keywords = {
-        "urgent": ("urgent care", "see a doctor soon", "within 24-48 hours", "promptly"),
-        "routine": ("routine follow-up", "routine follow up", "schedule an appointment", "see your primary care doctor"),
-        "self_care": ("self-care", "self care", "over-the-counter", "over the counter", "monitor at home", "no need to seek care"),
-    }
-    hits = [label for label, phrases in keywords.items() if any(p in positive for p in phrases)]
-    return (hits[0], "rubric_keyword_subclassification") if len(hits) == 1 else (None, "ambiguous_or_unmapped_keywords")
+    override = (urgency_overrides or {}).get(str(row.get("prompt_id")))
+    if override:
+        return override, "owner_reviewed_override"
+    return _classify_h2_non_emergent(row)
 
 
 def _h2_difficulty(row: dict[str, Any], urgency: str) -> str:
@@ -307,26 +404,45 @@ def convert_h2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
             f"{HEALTHBENCH_EXPECTED_BYTES} bytes"
         )
     source = _read_jsonl(HEALTHBENCH_PATH)
+    review_decisions = _load_h2_review_decisions()
+    urgency_overrides = review_decisions["urgency_overrides"]
     buckets: dict[str, list[dict]] = defaultdict(list)
     reasons = Counter()
     for row in source:
-        label, reason = _classify_h2(row)
+        label, reason = _classify_h2(row, urgency_overrides)
         reasons[reason] += 1
         if label:
             buckets[label].append(row)
     order = ("emergency", "uncertain", "urgent", "routine", "self_care")
-    selected = []
-    round_index = 0
+    selected: list[tuple[str, dict[str, Any]]] = []
+    selected_ids: set[str] = set()
+    rows_by_id = {str(row.get("prompt_id")): row for row in source}
+    for source_id in review_decisions["selected_source_record_ids"]:
+        if len(selected) >= count:
+            break
+        row = rows_by_id.get(source_id)
+        if row is None:
+            raise ValueError(f"H2 reviewed source record is missing: {source_id}")
+        label, _ = _classify_h2(row, urgency_overrides)
+        if label is None:
+            raise ValueError(f"H2 reviewed source record is no longer classifiable: {source_id}")
+        selected.append((label, row))
+        selected_ids.add(source_id)
+    positions = {label: 0 for label in order}
     while len(selected) < count:
         progressed = False
         for label in order:
             pool = _stable_take(buckets[label], len(buckets[label]), seed, lambda x: x["prompt_id"])
-            if round_index < len(pool) and len(selected) < count:
-                selected.append((label, pool[round_index]))
+            while positions[label] < len(pool) and str(pool[positions[label]]["prompt_id"]) in selected_ids:
+                positions[label] += 1
+            if positions[label] < len(pool) and len(selected) < count:
+                row = pool[positions[label]]
+                selected.append((label, row))
+                selected_ids.add(str(row["prompt_id"]))
+                positions[label] += 1
                 progressed = True
         if not progressed:
             break
-        round_index += 1
     cases, gold = [], []
     for index, (urgency, row) in enumerate(selected, 1):
         difficulty = _h2_difficulty(row, urgency)
@@ -341,21 +457,32 @@ def convert_h2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         if canary and str(canary) in json.dumps(case, ensure_ascii=False):
             raise ValueError(f"HealthBench canary leaked into agent-visible case {case['case_id']}")
         cases.append(case)
-        gold.append(_gold(
+        _, mapping_basis = _classify_h2(row, urgency_overrides)
+        gold_record = _gold(
             case,
-            {"result": {"urgency": urgency}, "mapping_basis": _classify_h2(row)[1]},
+            {"result": {"urgency": urgency}, "mapping_basis": mapping_basis},
             "source_derived",
-            review_notes="Lower-urgency keyword subclasses require owner spot-check; rubrics remain evaluator-only.",
-        ))
+            review_notes="Native physician category or owner-reviewed lower-urgency label; rubrics remain evaluator-only.",
+        )
+        if mapping_basis == "owner_reviewed_override":
+            gold_record["review"] = {
+                "status": "owner_reviewed",
+                "reviewed_by": review_decisions.get("reviewed_by"),
+                "reviewed_at": review_decisions.get("reviewed_at"),
+                "notes": "Owner-confirmed lower-urgency label.",
+            }
+        gold.append(gold_record)
     return cases, gold, {
         "source_records": len(source), "eligible_by_urgency": {k: len(v) for k, v in buckets.items()},
         "mapping_reasons": dict(reasons), "selected_by_urgency": dict(Counter(x[0] for x in selected)),
+        "urgency_mapping_status": "approved",
+        "difficulty_rule_status": "provisional_retained_revisit_later",
     }
 
 
 H4_ALIASES = {
-    "chief": {"CHIEF COMPLAINT"},
-    "symptoms": {"HISTORY OF PRESENT ILLNESS", "REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS", "SUBJECTIVE"},
+    "chief": {"CHIEF COMPLAINT", "CC"},
+    "symptoms": {"HISTORY OF PRESENT ILLNESS", "REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS", "SUBJECTIVE", "HPI"},
     "history": {"MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY", "SOCIAL HISTORY", "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS", "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV"},
     "results": {"RESULTS", "EKG"},
     "assessment": {"ASSESSMENT", "IMPRESSION"},
@@ -386,10 +513,15 @@ def _sections(note: str) -> dict[str, str]:
 def _items(text: str, min_words: int = 3) -> list[str]:
     if not text.strip():
         return []
-    parts = re.split(r"(?:^|\n)\s*(?:[-*•]+|\d+[.)])\s*|(?<=[.!?])\s+", text)
+    parts = re.split(
+        r"(?:^|\n)\s*(?:[-*•]+|\d+[.)])\s*|\n+|(?<=[.!?])\s+",
+        text,
+    )
     cleaned = []
     for part in parts:
         value = re.sub(r"\s+", " ", part).strip(" -•\t\r\n")
+        if re.match(r"(?i)^patient agreements?\s*:", value):
+            continue
         if len(value.split()) >= min_words and value not in cleaned:
             cleaned.append(value)
     return cleaned
@@ -403,27 +535,152 @@ def _keyword_items(texts: Iterable[str], words: tuple[str, ...]) -> list[str]:
     return [item for text in texts for item in _items(text) if any(word in item.lower() for word in words)]
 
 
-def _labeled_combined(text: str, labels: tuple[str, ...]) -> list[str]:
+H4_COMBINED_LABELS = (
+    "Medical Reasoning",
+    "Medical Treatment",
+    "Additional Testing",
+    "Patient Education and Counseling",
+)
+
+
+def _combined_structure(text: str) -> tuple[list[str], list[tuple[str, str]]]:
     if not text:
-        return []
-    all_labels = ("Medical Reasoning", "Medical Treatment", "Additional Testing", "Patient Education and Counseling")
-    pattern = re.compile(
-        rf"(?ims)^\s*(?:[-*•]\s*)?({'|'.join(re.escape(v) for v in labels)})\s*:\s*(.*?)"
-        rf"(?=^\s*(?:[-*•]\s*)?(?:{'|'.join(re.escape(v) for v in all_labels)})\s*:|\Z)"
+        return [], []
+    lines = text.splitlines()
+    label_pattern = re.compile(
+        rf"^\s*(?:[-*•]\s*)?({'|'.join(re.escape(v) for v in H4_COMBINED_LABELS)})\s*:\s*(.*)$",
+        re.IGNORECASE,
     )
-    return [item for match in pattern.finditer(text) for item in _items(match.group(2))]
+    nonempty = [index for index, line in enumerate(lines) if line.strip()]
+    title_indexes: set[int] = set()
+    for position, index in enumerate(nonempty):
+        line = lines[index].strip()
+        numbered = re.match(r"^\d+[.)]\s*(.+)$", line)
+        if numbered:
+            title_indexes.add(index)
+            continue
+        if position + 1 >= len(nonempty) or label_pattern.match(line):
+            continue
+        next_line = lines[nonempty[position + 1]].strip()
+        if label_pattern.match(next_line) and ":" not in line and len(line.split()) <= 12:
+            title_indexes.add(index)
+    titles: list[str] = []
+    labeled: list[tuple[str, str]] = []
+    current_label: str | None = None
+    buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal buffer
+        if current_label is not None and buffer:
+            labeled.append((current_label, "\n".join(buffer)))
+        buffer = []
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if index in title_indexes:
+            flush()
+            current_label = None
+            title = re.sub(r"^\d+[.)]\s*", "", stripped).strip()
+            if title and not re.match(r"(?i)^patient agreements?\s*:", title):
+                titles.append(title)
+            continue
+        label_match = label_pattern.match(stripped)
+        if label_match:
+            flush()
+            current_label = next(
+                label for label in H4_COMBINED_LABELS
+                if label.lower() == label_match.group(1).lower()
+            )
+            if label_match.group(2).strip():
+                buffer.append(label_match.group(2).strip())
+            continue
+        if current_label is not None and stripped:
+            buffer.append(stripped)
+    flush()
+    return titles, labeled
+
+
+def _labeled_combined(text: str, labels: tuple[str, ...]) -> list[str]:
+    wanted = {label.lower() for label in labels}
+    _, labeled = _combined_structure(text)
+    return [
+        item
+        for label, content in labeled
+        if label.lower() in wanted
+        for item in _items(content)
+    ]
+
+
+def _append_unique(target: list[str], values: Iterable[str]) -> None:
+    existing = {re.sub(r"\W+", " ", item).strip().lower() for item in target}
+    for value in values:
+        key = re.sub(r"\W+", " ", value).strip().lower()
+        if key and key not in existing:
+            target.append(value)
+            existing.add(key)
+
+
+def _numbered_problem_titles(text: str) -> list[str]:
+    titles, _ = _combined_structure(text)
+    return titles
+
+
+def _route_h4_problem_title(title: str) -> str:
+    lowered = title.lower()
+    if any(phrase in lowered for phrase in ("annual visit", "annual examination", "follow-up visit", "follow up visit")):
+        return "ignore"
+    if re.search(r"\b(?:history of|status post|s/p|prior |previous )", lowered):
+        return "history"
+    symptom_terms = (
+        "pain", "ache", "swelling", "cough", "fever", "nause", "vomit",
+        "dizz", "shortness of breath", "rash", "diarr", "constipat", "fatigue",
+        "weakness", "numbness", "tingling", "dry eye", "watery stool",
+    )
+    if any(term in lowered for term in symptom_terms):
+        return "symptoms"
+    return "risks"
+
+
+def _hpi_history_items(texts: Iterable[str]) -> list[str]:
+    triggers = (
+        "history of", "history significant for", "medical history", "previously",
+        "prior ", "pmh", "used to", "family history", "diagnosed with",
+        "diagnosis of", "known to have",
+    )
+    demographic_intro = re.compile(
+        r"\b\d{1,3}-year-old\b.*?\bwith\b.*?\b(?:who\s+)?"
+        r"(?:presents?|presented|presenting|is seen|comes? in)\b",
+        re.IGNORECASE,
+    )
+    result: list[str] = []
+    for text in texts:
+        for item in _items(text):
+            lowered = item.lower()
+            if any(trigger in lowered for trigger in triggers) or demographic_intro.search(item):
+                _append_unique(result, [item])
+    return result
 
 
 def _extract_h4(note: str) -> tuple[dict[str, list[str]], dict[str, Any]]:
     sections = _sections(note)
     ros = [sections[h] for h in ("REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS") if sections.get(h)]
-    hpi = [sections[h] for h in ("HISTORY OF PRESENT ILLNESS", "SUBJECTIVE") if sections.get(h)]
-    symptoms = [item for text in ros for item in _items(text)] or _keyword_items(
-        hpi, ("pain", "ache", "fever", "cough", "nause", "vomit", "dizz", "shortness", "swelling", "rash", "onset", "duration", "severity")
+    hpi = [sections[h] for h in ("HISTORY OF PRESENT ILLNESS", "SUBJECTIVE", "HPI") if sections.get(h)]
+    symptoms: list[str] = []
+    _append_unique(
+        symptoms,
+        [item for text in _bucket_text(sections, "chief") for item in _items(text)],
     )
-    history = [item for text in _bucket_text(sections, "chief") + _bucket_text(sections, "history") for item in _items(text)]
-    if not history:
-        history = _keyword_items(hpi, ("history of", "previously", "prior", "pmh", "used to", "family history"))
+    symptom_details = [item for text in ros for item in _items(text)] or _keyword_items(
+        hpi,
+        ("pain", "ache", "fever", "cough", "nause", "vomit", "dizz", "shortness", "swelling", "rash", "onset", "duration", "severity"),
+    )
+    _append_unique(symptoms, symptom_details)
+    history: list[str] = []
+    _append_unique(
+        history,
+        [item for text in _bucket_text(sections, "history") for item in _items(text, min_words=1)],
+    )
+    _append_unique(history, _hpi_history_items(hpi))
     combined = "\n".join(_bucket_text(sections, "combined"))
     risks = _labeled_combined(combined, ("Medical Reasoning",))
     if not risks:
@@ -438,6 +695,16 @@ def _extract_h4(note: str) -> tuple[dict[str, list[str]], dict[str, Any]]:
     risks.extend(_keyword_items(_bucket_text(sections, "results"), ("elevated", "abnormal", "positive", " low", " high")))
     if not risks and combined:
         risks = _keyword_items([combined], ("differential", "rule out", "concern for", "risk of", "possible"))
+    title_routes = Counter()
+    for title in _numbered_problem_titles(combined):
+        target = _route_h4_problem_title(title)
+        title_routes[target] += 1
+        if target == "symptoms":
+            _append_unique(symptoms, [title])
+        elif target == "history":
+            _append_unique(history, [title])
+        elif target == "risks":
+            _append_unique(risks, [title])
     next_steps = _labeled_combined(combined, ("Medical Treatment", "Additional Testing", "Patient Education and Counseling"))
     if not next_steps:
         next_steps = [item for text in _bucket_text(sections, "plan") for item in _items(text)]
@@ -445,7 +712,12 @@ def _extract_h4(note: str) -> tuple[dict[str, list[str]], dict[str, Any]]:
         next_steps = _keyword_items([combined], ("will order", "start", "refer", "follow up", "schedule", "recommend", "continue"))
     result = {"symptoms": symptoms, "history": history, "risks": risks, "next_steps": next_steps}
     missing = [key for key, value in result.items() if not value]
-    return result, {"recognized_headers": sorted(sections), "empty_fields": missing}
+    return result, {
+        "recognized_headers": sorted(sections),
+        "empty_fields": missing,
+        "problem_title_routes": dict(title_routes),
+        "patient_agreements_removed": bool(re.search(r"(?im)^\s*Patient Agreements?\s*:", note)),
+    }
 
 
 def convert_h4(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
@@ -492,7 +764,122 @@ def convert_h4(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     return cases, gold, {"source_records": len(rows), "selected_subsources": dict(Counter(row["dataset"] for row in selected)), "empty_extracted_fields": dict(empty_counts)}
 
 
+def _load_h5_owner_cases() -> list[tuple[dict, dict, str]]:
+    """Load Chloe-authored H5 cases without exposing evaluator-only fields."""
+
+    gold_path = H5_LOCAL_OWNER_DIR / "H5.jsonl"
+    if not gold_path.exists():
+        return []
+    owner_gold = _read_jsonl(gold_path)
+    gold_by_id: dict[str, dict] = {}
+    for row in owner_gold:
+        case_id = row.get("case_id")
+        if not isinstance(case_id, str) or case_id in gold_by_id:
+            raise ValueError("H5 owner gold must have unique string case_id values")
+        if row.get("task_id") != "H5" or row.get("gold_method") != "owner_authored":
+            raise ValueError(f"Invalid H5 owner gold metadata for {case_id}")
+        gold_by_id[case_id] = row
+
+    task_paths = sorted(H5_LOCAL_OWNER_DIR.glob("task_H5-*.json"))
+    if len(task_paths) != len(gold_by_id):
+        raise ValueError(
+            "H5 owner case/gold count mismatch: "
+            f"cases={len(task_paths)} gold={len(gold_by_id)}"
+        )
+
+    loaded: list[tuple[dict, dict, str]] = []
+    seen: set[str] = set()
+    for task_path in task_paths:
+        source_case = _read_json(task_path)
+        case_id = source_case.get("case_id")
+        if case_id in seen or case_id not in gold_by_id:
+            raise ValueError(f"Missing or duplicate H5 owner linkage for {case_id}")
+        seen.add(case_id)
+        owner_row = gold_by_id[case_id]
+        source = owner_row.get("source", {})
+        metadata = source_case.get("metadata", {})
+        if (
+            source_case.get("task_id") != "H5"
+            or source_case.get("vertical") != "healthcare"
+            or source.get("authored_by") != "Chloe"
+            or source.get("dataset") != "owner_authored_boundary_cases"
+            or metadata.get("dataset") != source.get("dataset")
+            or metadata.get("source_record_id") != source.get("source_record_id")
+        ):
+            raise ValueError(f"Invalid H5 owner case provenance for {case_id}")
+
+        owner_payload = owner_row.get("gold", {})
+        result = owner_payload.get("result", {})
+        boundary_action = result.get("boundary_action")
+        rubric = owner_payload.get("rubric")
+        if boundary_action not in {"clarify", "escalate"}:
+            raise ValueError(f"Unsupported H5 owner boundary action for {case_id}")
+        if not isinstance(rubric, list) or not rubric:
+            raise ValueError(f"H5 owner rubric is missing for {case_id}")
+        points = [criterion.get("points") for criterion in rubric]
+        if not all(isinstance(value, int) for value in points):
+            raise ValueError(f"H5 owner rubric points must be integers for {case_id}")
+        if not any(value > 0 for value in points) or not any(value < 0 for value in points):
+            raise ValueError(f"H5 owner rubric needs positive and negative criteria for {case_id}")
+
+        normalized_case = _case(
+            case_id=case_id,
+            task_id="H5",
+            vertical="healthcare",
+            data=source_case["input"]["data"],
+            dataset=source["dataset"],
+            source_id=source["source_record_id"],
+            source_split="owner_authored_draft",
+            split=metadata.get("split", "pilot"),
+            difficulty=metadata["difficulty"],
+            tags=metadata.get("tags", []),
+            allowed_tools=source_case.get("allowed_tools", []),
+            stress_type=source_case.get("stress_type", "standard"),
+            difficulty_version="h5-owner-authored-v1-draft",
+        )
+        gold_payload = {
+            **owner_payload,
+            "owner_provenance": {
+                "authored_by": source["authored_by"],
+                "authored_at": owner_row.get("generator", {}).get("authored_at"),
+            },
+        }
+        review_notes = owner_row.get("review", {}).get("notes") or (
+            "Owner-authored draft rubric requires a second review before approval."
+        )
+        loaded.append((normalized_case, gold_payload, review_notes))
+    return loaded
+
+
+def _select_h5_owner_cases(
+    rows: list[tuple[dict, dict, str]], count: int, seed: int
+) -> list[tuple[dict, dict, str]]:
+    buckets: dict[str, list[tuple[dict, dict, str]]] = defaultdict(list)
+    for row in rows:
+        action = row[1]["result"]["boundary_action"]
+        buckets[action].append(row)
+    for action in buckets:
+        buckets[action] = _stable_take(
+            buckets[action], len(buckets[action]), seed, lambda row: row[0]["case_id"]
+        )
+    selected: list[tuple[dict, dict, str]] = []
+    round_index = 0
+    while len(selected) < min(count, len(rows)):
+        progressed = False
+        for action in ("clarify", "escalate"):
+            if round_index < len(buckets[action]) and len(selected) < count:
+                selected.append(buckets[action][round_index])
+                progressed = True
+        if not progressed:
+            break
+        round_index += 1
+    return selected
+
+
 def convert_h5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
+    owner_rows = _load_h5_owner_cases()
+    owner_selected = _select_h5_owner_cases(owner_rows, count, seed)
+    refusal_count = count - len(owner_selected)
     rows = []
     for category in range(1, 10):
         path = MEDSAFETY_DIR / f"med_safety_demonstrations_category_{category}.csv"
@@ -507,13 +894,17 @@ def convert_h5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         buckets[row["_category"]].append(row)
     selected = []
     round_index = 0
-    while len(selected) < count:
+    while len(selected) < refusal_count:
         for category in range(1, 10):
             pool = _stable_take(buckets[category], len(buckets[category]), seed, lambda row: row.get("") or row["harmful_medical_request"])
-            if round_index < len(pool) and len(selected) < count:
+            if round_index < len(pool) and len(selected) < refusal_count:
                 selected.append(pool[round_index])
         round_index += 1
-    cases, gold = [], []
+    cases = [row[0] for row in owner_selected]
+    gold = [
+        _gold(case, payload, "owner_authored", review_notes=review_notes)
+        for case, payload, review_notes in owner_selected
+    ]
     for index, row in enumerate(selected, 1):
         source_id = f"category_{row['_category']}_{row.get('', index)}"
         case = _case(
@@ -524,8 +915,21 @@ def convert_h5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
             stress_type="policy_or_safety_trap",
         )
         cases.append(case)
-        gold.append(_gold(case, {"result": {"boundary_action": "refuse"}, "reference_safe_response": row["safe_response"]}, "source_derived", review_notes="Public source covers refusal. Chloe-owned clarify/escalate cases and rubric are still required separately."))
-    return cases, gold, {"source_records": len(rows), "selected_categories": dict(Counter(str(row["_category"]) for row in selected)), "coverage_gap": "clarify/escalate owner-authored cases not supplied"}
+        gold.append(_gold(case, {"result": {"boundary_action": "refuse"}, "reference_safe_response": row["safe_response"]}, "source_derived", review_notes="Public source-derived refusal sample requires owner review before approval."))
+    selected_actions = Counter(
+        row[1]["result"]["boundary_action"] for row in owner_selected
+    )
+    selected_actions["refuse"] += len(selected)
+    return cases, gold, {
+        "source_records": len(rows),
+        "selected_categories": dict(Counter(str(row["_category"]) for row in selected)),
+        "selected_boundary_actions": dict(selected_actions),
+        "owner_authored_cases_available": len(owner_rows),
+        "owner_authored_cases_selected": len(owner_selected),
+        "owner_review_status": (
+            "draft_pending_second_review" if owner_rows else "not_supplied_locally"
+        ),
+    }
 
 
 def _amazon_aggregates() -> tuple[list[dict], dict[str, dict], dict[str, dict]]:
@@ -660,9 +1064,10 @@ def _tau_order_snapshot(task: dict, database: dict) -> dict[str, Any] | None:
 
 
 def _e3_decision(names: list[str]) -> str | None:
-    # A cancelled pending order may lead to a refund, but tau's action name
-    # does not itself establish our ``refund_allowed`` semantic.  Exclude it
-    # until the dataset owner approves that cross-schema mapping.
+    # Chloe confirmed on 2026-07-20 that cancelling a pending order is a
+    # distinct deterministic tool task, not a delivered-order return/refund
+    # policy judgment. Exclude the whole scenario from E3, including mixed
+    # scenarios that also contain another supported mutation.
     mutations = [name for name in names if name in E3_DIRECT_ACTIONS]
     if "cancel_pending_order" in names:
         return None
@@ -679,8 +1084,11 @@ def convert_e3(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     tasks, splits, database, policy = _tau_sources()
     train_ids = set(splits["train"])
     candidates = []
+    excluded_cancel_pending_order = 0
     for task in tasks:
         names = _tau_action_names(task)
+        if task["id"] in train_ids and "cancel_pending_order" in names:
+            excluded_cancel_pending_order += 1
         decision = _e3_decision(names)
         snapshot = _tau_order_snapshot(task, database)
         if task["id"] in train_ids and decision and snapshot:
@@ -714,7 +1122,11 @@ def convert_e3(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         "source_tasks": len(tasks),
         "eligible_train_tasks": len(candidates),
         "selected_decisions": dict(Counter(row[1] for row in selected)),
-        "excluded_mapping": "cancel_pending_order -> refund_allowed requires owner confirmation",
+        "excluded_cancel_pending_order": excluded_cancel_pending_order,
+        "owner_decision": (
+            "Chloe confirmed 2026-07-20: exclude every cancel_pending_order "
+            "scenario from the E3 candidate pool"
+        ),
     }
 
 
@@ -804,7 +1216,17 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
             for case in cases
         ]
     if "H5" in tasks:
-        report["known_gaps"].append("H5 clarify/escalate cases and rubric remain Chloe-owned; only source-derived refusal samples were generated.")
+        h5_status = report["tasks"].get("H5", {})
+        if h5_status.get("owner_authored_cases_selected"):
+            report["known_gaps"].append(
+                "H5 owner-authored clarify/escalate cases are included locally, "
+                "but their rubrics remain draft pending a second owner review."
+            )
+        else:
+            report["known_gaps"].append(
+                "H5 owner-authored clarify/escalate files are not available in "
+                "the local evaluator-only directory."
+            )
     if "E5" in tasks:
         report["known_gaps"].append("E5 live runs require a shared tau retail simulator/tool bridge across all framework adapters.")
     _write_json(output / "split_manifest.json", manifest)

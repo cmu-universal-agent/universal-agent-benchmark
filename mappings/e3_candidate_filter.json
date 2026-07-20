@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "status": "approved",
+  "rule_version": "e3-candidate-filter-v1",
+  "task_id": "E3",
+  "owner_feedback": {
+    "reviewed_by": "Chloe",
+    "reviewed_at": "2026-07-20",
+    "decision": "exclude_cancel_pending_order"
+  },
+  "excluded_action": "cancel_pending_order",
+  "exclusion_scope": "Exclude every source scenario containing cancel_pending_order from the E3 candidate pool, including scenarios that also contain another otherwise supported mutation.",
+  "prohibited_mapping": "cancel_pending_order -> refund_allowed",
+  "rationale": [
+    "Cancelling an unshipped pending order and evaluating a return or exchange for a delivered order are different business actions with different prerequisites.",
+    "A pending-order cancellation is deterministic from order status and does not exercise the conditional policy judgment E3 is intended to measure.",
+    "The scenario is better suited to a tool-use or state-transition task such as E5 than to E3 policy judgment."
+  ],
+  "unmapped_policy": "reject_from_candidate_pool"
+}

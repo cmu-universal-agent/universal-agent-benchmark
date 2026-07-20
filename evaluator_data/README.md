@@ -13,4 +13,7 @@ Gold-generation methods confirmed by the evaluation owner:
 - programmatic extraction from source records: H4;
 - manual case/rubric design: H5 `clarify` and `escalate`.
 
-Only README files are committed until the evaluation owner approves real data.
+Exact case-level gold and rubrics remain local until the evaluation owner
+approves their release. Non-case rule summaries and extraction specifications
+may be version controlled when they contain no evaluator answers or raw source
+records.

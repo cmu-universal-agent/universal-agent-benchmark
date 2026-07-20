@@ -1,7 +1,9 @@
 # Universal Agent Benchmark
 
-For the latest implementation status, blockers, ownership, and asynchronous
-handoff instructions, see `docs/current_status_and_handoff.md`.
+For the current implementation status, proposal/workplan index, ownership,
+decision gates, and session-resume workflow, start with
+`docs/PROJECT_LEAD_GUIDE.md`. The older
+`docs/current_status_and_handoff.md` remains a historical WS2 handoff snapshot.
 
 Compares LangGraph, CrewAI, and OpenAI Agents SDK across two verticals — medical diagnostic QA and e-commerce trend research — through a shared adapter interface (`adapter/`).
 

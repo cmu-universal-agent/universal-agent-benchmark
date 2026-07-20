@@ -1,21 +1,26 @@
 # Dataset and Gold-Generation Plan
 
-Status: schema field design approved by Chloe on 2026-07-16. H2 and H4 draft
-source specifications have been received; remaining task templates and formal
-approval are pending. This document is not benchmark data and is not approval
-for bulk conversion.
+Status: schema field design approved by Chloe on 2026-07-16. Chloe's H2/H4 v2
+feedback, four owner-authored H5 cases, and the E3 pending-order exclusion were
+incorporated on 2026-07-20. Chloe subsequently confirmed H2-004 unchanged as
+`routine`, closing H2 urgency-label review. H2 remains draft only for its
+difficulty metadata: Chloe offered no threshold-adjustment recommendation and
+Jessica chose to retain the current provisional rule for now and revisit it
+later. This does not block H2 gold generation. H4 and the H5 case rubrics still
+require follow-up review. This document is not benchmark data and is not
+approval for bulk conversion.
 
 ## Confirmed Generation Methods
 
 | Task | Gold method | Evaluation owner | Engineering owner | Current blocker |
 |---|---|---|---|---|
 | H1 | Automatically derived from public source data | Chloe confirms source semantics | Jessica implements converter | Exact dataset version/source fields |
-| H2 | Automatically derived from HealthBench physician category plus scoped rubric rules | Chloe confirms urgency mapping | Jessica implements converter and coverage check | Approve draft difficulty thresholds and review the urgent/routine/self-care subclassification |
-| H4 | Programmatic extraction from ACI-Bench notes | Chloe confirms extraction semantics/audit | Jessica implements extractor | Approve draft extraction/difficulty rules and review generated samples |
-| H5 | Chloe manually designs `clarify` and `escalate` cases | Chloe authors gold and rubric | Jessica validates and packages cases | First reviewed cases and rubric |
+| H2 | Automatically derived from HealthBench physician category plus scoped timeframe rules and evaluator-only owner overrides | Chloe confirms urgency mapping | Jessica implements converter and coverage check | No gold blocker; current difficulty rule retained provisionally and scheduled for later calibration |
+| H4 | Programmatic extraction from ACI-Bench notes using header, problem-block, and semantic routing rules | Chloe confirms extraction semantics/audit | Jessica implements extractor | Review regenerated v2 samples and approve extraction/difficulty rules |
+| H5 | Chloe manually designs `clarify` and `escalate` cases | Chloe authors gold and rubric | Jessica validates and packages cases | Four draft cases supplied (2 clarify, 2 escalate); second-pass rubric review required |
 | E1 | Automatically derived from public source data | Chloe confirms trend-label semantics | Jessica implements converter | Exact aggregation/normalization rules |
 | E2 | Automatically derived from public source data | Chloe confirms recommendation gold semantics | Jessica implements converter | Candidate-set and relevance rules |
-| E3 | Automatically derived from public source data | Chloe confirms policy-decision mapping | Jessica implements converter | Dataset version and ambiguous-policy handling |
+| E3 | Automatically derived from public source data | Chloe confirms policy-decision mapping | Jessica implements converter | `cancel_pending_order` exclusion approved; remaining source/version rules still require normal audit |
 | E5 | Automatically derived from public source/simulator state | Chloe confirms success/final-state semantics | Jessica implements converter; integration owner confirms simulator | Final simulator fields/status values |
 
 ## Required Source Specification
@@ -31,16 +36,18 @@ Before implementing one task-specific converter, record:
 7. Gold generator/extractor version and deterministic configuration.
 8. Review sample size and audit acceptance criteria.
 
-HealthBench H2 has no native source split. Its loader's optional random sample
-is not treated as a benchmark split. The converter omits `source_split`, uses
-`prompt_id` as the source record ID, and applies the shared deterministic
-development/pilot/validation/test split only after the mapping and difficulty
-rule are approved.
+HealthBench H2 has no native train/test split. Its main eval file is recorded as
+`source_split: main_eval`, which is provenance rather than a benchmark split.
+The converter uses `prompt_id` as the source record ID and preserves Chloe's
+reviewed source selection in a local evaluator-only decision file. That file is
+gitignored and must never be published with benchmark cases.
 
-The received H4 draft uses ACI-Bench's existing source splits and maps them to
-development/pilot/validation/test. The held-out test files remain locked. The
-specification is committed for review with `status: draft_pending_approval`;
-it is not yet authorization for bulk extraction.
+The H4 v2 draft uses ACI-Bench's existing source splits and maps them to
+development/pilot/validation/test. It now handles abbreviated CC/HPI headers,
+newline-separated ROS entries, HPI history supplements, boilerplate removal,
+and semantic problem-title routing. The held-out test files remain locked. The
+specification remains `draft_pending_approval`; it is not yet authorization for
+bulk extraction.
 
 ## Implementation Sequence
 
@@ -60,7 +67,13 @@ it is not yet authorization for bulk extraction.
 - H4 extraction is not considered validated merely because it is
   programmatic; field-level audit is required before bulk use.
 - H5 manual cases must cover both `clarify` and `escalate` and include an
-  explicit rubric and rationale.
+  explicit rubric and rationale. Chloe supplied two of each on 2026-07-20;
+  exact case-level content stays in the local evaluator-only directory until
+  its second-pass review is complete.
+- E3 rejects every source scenario containing `cancel_pending_order`, including
+  mixed-action scenarios. Chloe confirmed that cancellation is a deterministic
+  pending-order action rather than the delivered-order policy judgment E3 is
+  designed to measure; it must not map to `refund_allowed`.
 - Generated records with missing or unmapped source values are rejected rather
   than silently coerced.
 - All sample and bulk outputs pass schema and leakage validation.

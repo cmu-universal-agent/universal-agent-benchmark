@@ -1,13 +1,16 @@
 # Workstream 2 Summary
 
-Last updated: July 16, 2026
+Last updated: July 20, 2026
 
 ## Status
 
-Jessica's Workstream 2 work that can be completed without making dataset or
-scoring decisions for other owners is complete. The overall team workstream is
-not yet closed: dataset-specific mappings, eight formal converted tasks, and
-the controlled pilot still depend on inputs and review from other owners.
+Jessica's Workstream 2 infrastructure and the H2/H4 revisions requested by
+Chloe are implemented and pass offline validation. Jessica selected the
+handoff-with-carry-overs closure path on July 20, 2026, so WS3 planning may
+start. H2 urgency review is complete, its provisional difficulty rule is
+retained for later calibration, and the E3 pending-order ambiguity is resolved.
+H4 sample re-review and four H5 rubric second passes remain Chloe-owned
+carry-overs; they block final semantic freeze, not WS3 contract work.
 
 ## Completed by Jessica
 
@@ -35,13 +38,18 @@ the controlled pilot still depend on inputs and review from other owners.
 
 - Return the remaining dataset/version, source ID/gold fields, transformation,
   missing/ambiguous/unmapped handling, and audit templates.
-- Approve the received H2 HealthBench draft after reviewing its provisional
-  difficulty thresholds and the urgent/routine/self-care keyword subclassifier;
-  then review the first converted samples. HealthBench has no native split, so
-  engineering will generate a deterministic locked benchmark split.
-- Approve the received H4 ACI-Bench extraction and difficulty rules for
-  symptoms, history, risks, and next steps, then review generated samples.
-- Provide initial H5 clarify/escalate examples and their rubric.
+- H2 urgency review is complete: H2-003 is `urgent`, H2-004 and H2-005 are
+  `routine`, and H2-008 is `self_care`. No further Chloe action is required for
+  H2. The current difficulty distribution (easy=90, medium=10, hard=353) is
+  explicitly provisional and retained for now as a later engineering task.
+- Re-review the regenerated H4 sample after the v2 fixes for boilerplate,
+  abbreviated headers, newline splitting, missing HPI history, and semantic
+  problem-title routing; then approve or revise the extraction/difficulty rules.
+- Perform the stated second-pass review on the four supplied H5 cases and
+  rubrics (two `clarify`, two `escalate`). Their exact evaluator content remains
+  local and gitignored until approval.
+- Treat the E3 `cancel_pending_order` decision as closed: all such scenarios
+  are excluded from E3 and are never mapped to `refund_allowed`.
 - Review 5–10 generated samples per task; no bulk manual labeling is required.
 
 ### Mickey
@@ -77,7 +85,9 @@ the controlled pilot still depend on inputs and review from other owners.
 
 ## Jessica's Next Actions After Handoff
 
-After Chloe's approved templates arrive, Jessica will implement deterministic
-converters/extractors, generate review samples, run coverage/schema/leakage and
-split-manifest validation, then execute the eight-task controlled comparison
-after the framework entry points are ready.
+Start WS3 in a separate branch only after confirming its relationship to Draft
+PR #1. First assign the shared simulator/core owner and reviewer, assign all
+three wrapper owners, and approve the canonical tool/state contract. Apply any
+later H4/H5 owner corrections as isolated carry-over changes and rerun the
+offline gate. The eight-task controlled comparison starts only after remaining
+task semantics and framework entry points are ready.

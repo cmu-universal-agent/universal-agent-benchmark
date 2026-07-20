@@ -2,6 +2,11 @@
 
 Last updated: July 16, 2026
 
+> Historical snapshot: this handoff predates the eight deterministic core-task
+> converters and strict task-output schema validation now present in Draft PR
+> #1. For the current executive snapshot, proposal/workplan index, owners, and
+> gates, read `docs/PROJECT_LEAD_GUIDE.md` first.
+
 ## Purpose
 
 This document lets the team continue asynchronously across time zones. It

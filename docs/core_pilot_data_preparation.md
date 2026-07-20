@@ -24,6 +24,8 @@ From the repository root, using an environment that has `jsonschema`:
 
 ```powershell
 & ".\.venv-openai\Scripts\python.exe" ".\scripts\validate_core_dataset_caches.py"
+& ".\.venv-openai\Scripts\python.exe" -m unittest tests.test_core_pilot_extraction -v
+& ".\.venv-openai\Scripts\python.exe" ".\scripts\validate_dataset_specs.py"
 & ".\.venv-openai\Scripts\python.exe" ".\scripts\prepare_core_pilot.py" --per-task 8 --overwrite
 & ".\.venv-openai\Scripts\python.exe" ".\scripts\validate_core_pilot.py" --expected-per-task 8
 & ".\.venv-openai\Scripts\python.exe" ".\scripts\run_benchmark.py" --task ".\data\generated\core_pilot\cases" --list-only
@@ -39,14 +41,24 @@ Generated files are written to `data/generated/core_pilot/`:
 ## Review boundaries
 
 - H2 emergency and uncertain come directly from native physician-agreed tags.
-  Urgent, routine, and self-care use the owner-provided rubric keyword rule and
-  remain review samples until spot-checked.
+  Urgent, routine, and self-care use Chloe's v2 criterion-scoped timeframe rule.
+  H2-003/004/005/008 now have local evaluator-only owner decisions; 004 remains
+  `routine`. Urgency-label review and H2 gold generation are complete. Chloe
+  gave no threshold-adjustment recommendation; the current hard-skewed
+  difficulty rule is retained provisionally and will be calibrated later.
 - H4 fields are programmatically extracted from the reference clinical note.
-  Empty/unmatched areas are flagged rather than invented.
-- H5 currently generates source-derived refusal samples only. Chloe-owned
-  clarify/escalate cases and their rubric are still required.
-- E3 excludes `cancel_pending_order -> refund_allowed`; that cross-schema
-  semantic requires owner confirmation.
+  Chloe's v2 corrections cover template boilerplate, abbreviated CC/HPI
+  headers, newline splitting, HPI history supplementation, and semantic
+  problem-title routing. Empty/unmatched areas are flagged rather than invented,
+  and the regenerated outputs still require owner review.
+- H5 locally includes Chloe's four owner-authored draft cases (two `clarify`,
+  two `escalate`) and fills the remaining review slots with source-derived
+  refusal samples. Exact prompts/gold/rubrics are gitignored; all four rubrics
+  require a second review before approval.
+- E3 excludes every scenario containing `cancel_pending_order`, including
+  mixed-action scenarios. Chloe confirmed on 2026-07-20 that this action must
+  not map to `refund_allowed` because it is outside E3's delivered-order policy
+  judgment scope.
 - E5 cases and expected actions are ready, but live execution requires one
   shared tau retail simulator/tool bridge exposed identically to all three
   framework adapters.

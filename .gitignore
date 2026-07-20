@@ -6,6 +6,7 @@ __pycache__/
 .DS_Store
 results/traces/*
 results/metrics/*
+evaluator_data/local_review_decisions/
 CLAUDE.md
 TODO.md
 data/
