@@ -10,8 +10,8 @@ complete, its provisional difficulty rule is retained for later calibration,
 and the E3 pending-order ambiguity is resolved. Chloe approved all four H5
 cases/rubrics on July 21. Chloe also approved H4 after the final Case 007
 metformin-history correction, so all WS2 semantic-review gates are closed.
-PR #1 remains Draft, and Jessica's explicit no-merge instruction remains in
-force until she releases it and repository review is complete.
+PR #1 is Ready for Review, and Jessica's explicit no-merge instruction remains
+in force until she releases it and repository review is complete.
 
 ## Completed by Jessica
 
@@ -66,8 +66,9 @@ force until she releases it and repository review is complete.
 - Remaining external gates are live-model smoke with local API configuration,
   native Linux/CI confirmation, formal generated cases/gold, and E5 integration
   with the shared tau-retail simulator/tool registry.
-- Keep PR #2 separate and stacked; do not merge or retarget it until the PR
-  integration sequence is approved.
+- Keep PR #2 separate and stacked. GitHub currently reports it as
+  non-mergeable against the advanced PR #1 base; confirm its base update and
+  integration sequence before any merge or retarget.
 
 ### Xiaoxia / Dashboard Owner
 
@@ -95,7 +96,7 @@ force until she releases it and repository review is complete.
 ## Jessica's Next Actions After Handoff
 
 Continue WS3 planning, but start implementation in a separate branch only after
-confirming its relationship to Draft PR #1 and stacked PR #2. First assign the
+confirming its relationship to Ready PR #1 and stacked PR #2. First assign the
 shared simulator/core owner and reviewer, assign all three wrapper owners, and
 approve the canonical tool/state contract. The H4 owner-review gate is closed;
 retain its regression tests during integration. The eight-task controlled

@@ -32,6 +32,6 @@ The workbook, generated cases, source-note excerpts, and evaluator-only gold
 must not be committed or uploaded. Only this outcome record, code, tests, and
 approved specification metadata belong in the public pull request.
 
-H4 is no longer a WS2 semantic-review blocker. PR #1 remains Draft and the
-current no-merge instruction remains in force until Jessica explicitly changes
-it and repository review is complete.
+H4 is no longer a WS2 semantic-review blocker. PR #1 is Ready for Review, while
+the current no-merge instruction remains in force until Jessica explicitly
+changes it and repository review is complete.

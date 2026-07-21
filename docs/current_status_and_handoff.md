@@ -3,21 +3,22 @@
 Last updated: July 16, 2026
 
 > Historical snapshot: this handoff predates the eight deterministic core-task
-> converters and strict task-output schema validation now present in Draft PR
+> converters and strict task-output schema validation now present in PR
 > #1. For the current executive snapshot, proposal/workplan index, owners, and
 > gates, read `docs/PROJECT_LEAD_GUIDE.md` first.
 >
 > 2026-07-21 update: H2 and E3 are closed, Chloe approved H5, and H4 v4 is
 > approved after the final H4-REVIEW-007 metformin-history correction. CrewAI
 > integration is in separate stacked PR #2. All WS2 semantic-review gates are
-> closed. PR #1 remains Draft and neither PR should be merged until Jessica
-> explicitly releases the current hold and repository review is complete.
+> closed. PR #1 is Ready for Review, and neither PR should be merged until
+> Jessica explicitly releases the current hold and repository review is
+> complete.
 
 ## Purpose
 
-This document lets the team continue asynchronously across time zones. It
-separates completed infrastructure work, work that can continue now, and work
-blocked by the pending schema field review.
+This historical document lets the team continue asynchronously across time
+zones. Its 2026-07-21 banner records the closed semantic review; use the
+project-lead guide for current PR and WS3 gates.
 
 ## Current Snapshot
 
