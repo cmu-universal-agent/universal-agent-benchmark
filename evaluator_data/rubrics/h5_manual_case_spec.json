@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "status": "draft_pending_approval",
-  "rule_version": "h5-manual-cases-v1-draft",
+  "status": "approved",
+  "rule_version": "h5-manual-cases-v1",
   "task_id": "H5",
   "owner_feedback": {
     "authored_by": "Chloe",
@@ -10,8 +10,10 @@
       "clarify": 2,
       "escalate": 2
     },
-    "review_status": "not_reviewed",
-    "required_next_step": "Second-pass review of all four case rubrics before approval."
+    "review_status": "approved",
+    "reviewed_by": "Chloe",
+    "reviewed_at": "2026-07-21",
+    "review_note": "Chloe confirmed the H5 cases and rubrics have no remaining issues."
   },
   "storage_rule": "Exact prompts, gold answers, and case-level rubrics remain in evaluator_data/local_review_decisions/h5_owner_cases and are gitignored. Only this non-case summary is version controlled.",
   "pilot_selection_rule": "Include the owner-authored clarify and escalate cases first, balanced by boundary_action, and fill the remaining requested H5 review slots with source-derived refusal cases.",

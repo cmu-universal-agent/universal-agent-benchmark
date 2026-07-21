@@ -100,6 +100,95 @@ Patient Agreements: The patient understands and agrees with the recommended medi
         self.assertEqual(diagnostics["empty_fields"], [])
         self.assertTrue(diagnostics["patient_agreements_removed"])
 
+    def test_secondary_history_headers_are_not_emitted_as_content(self):
+        note = """PAST HISTORY
+Medical
+Uterine fibroids.
+Anemia.
+Surgical
+Cholecystectomy.
+FAMILY HISTORY
+None reported.
+ASSESSMENT
+Stable chronic conditions.
+PLAN
+Continue current management.
+"""
+        result, _diagnostics = PREPARE._extract_h4(note)
+
+        self.assertEqual(
+            result["history"],
+            ["Uterine fibroids.", "Anemia.", "Cholecystectomy."],
+        )
+        self.assertNotIn("Medical", result["history"])
+        self.assertNotIn("Surgical", result["history"])
+
+    def test_past_surgical_history_header_is_not_emitted_as_content(self):
+        note = """MEDICATIONS
+Ibuprofen, digoxin.
+PAST MEDICAL HISTORY
+Atrial fibrillation.
+PAST SURGICAL HISTORY:
+Rhinoplasty.
+ASSESSMENT
+Right knee pain.
+PLAN
+Continue current management.
+"""
+        result, _diagnostics = PREPARE._extract_h4(note)
+
+        self.assertIn("Rhinoplasty.", result["history"])
+        self.assertFalse(
+            any("past surgical history" in item.lower() for item in result["history"])
+        )
+
+    def test_honorific_abbreviations_remain_attached_to_sentences(self):
+        examples = (
+            "Ms. Thompson is a 43-year-old female who presents today for an evaluation of right knee pain.",
+            "The patient presented to his primary care provider, Dr. Howard, on 03/01/2021 complaining of worsening headaches over the past few months.",
+            "Mr. Ward reports headaches started about 3 months ago, at which point they were around 3 out of 10 in severity.",
+        )
+
+        for sentence in examples:
+            with self.subTest(sentence=sentence):
+                self.assertEqual(PREPARE._items(sentence), [sentence])
+
+    def test_short_denials_after_another_sentence_are_retained(self):
+        note = """REVIEW OF SYSTEMS
+Gastrointestinal: Reports right-sided abdominal pain and nausea. Denies vomiting
+Genitourinary: Reports dysuria and dark colored urine. Denies hematuria.
+PAST HISTORY
+History of kidney stones.
+ASSESSMENT
+Possible recurrent kidney stone.
+PLAN
+Obtain imaging.
+"""
+        result, _diagnostics = PREPARE._extract_h4(note)
+
+        self.assertIn("Denies vomiting", result["symptoms"])
+        self.assertIn("Denies hematuria.", result["symptoms"])
+
+    def test_hpi_infection_symptoms_supplement_nonempty_ros(self):
+        note = """HISTORY OF PRESENT ILLNESS
+He has been experiencing frequent infections. During the winter months, he experiences frequent colds that tend to linger.
+REVIEW OF SYSTEMS
+Gastrointestinal: Denies abdominal issues or diarrhea.
+PAST HISTORY
+The patient was recently diagnosed with type 2 diabetes.
+ASSESSMENT
+Possible immune dysfunction.
+PLAN
+Order additional testing.
+"""
+        result, _diagnostics = PREPARE._extract_h4(note)
+
+        self.assertIn("He has been experiencing frequent infections.", result["symptoms"])
+        self.assertIn(
+            "During the winter months, he experiences frequent colds that tend to linger.",
+            result["symptoms"],
+        )
+
 
 class H5OwnerCaseTests(unittest.TestCase):
     def test_owner_cases_are_selected_across_both_boundary_actions(self):
@@ -110,7 +199,7 @@ class H5OwnerCaseTests(unittest.TestCase):
                     (
                         {"case_id": f"H5-{action.upper()}-{index}"},
                         {"result": {"boundary_action": action}},
-                        "draft",
+                        {"status": "approved"},
                     )
                 )
 
@@ -120,6 +209,32 @@ class H5OwnerCaseTests(unittest.TestCase):
             {row[1]["result"]["boundary_action"] for row in selected},
             {"clarify", "escalate"},
         )
+
+    def test_owner_approval_metadata_is_preserved_in_generated_gold(self):
+        case = {
+            "case_id": "H5-CLARIFY-TEST",
+            "task_id": "H5",
+            "metadata": {
+                "dataset": "owner_authored_boundary_cases",
+                "source_record_id": "OWNER-H5-TEST",
+                "source_split": "owner_authored_reviewed",
+            },
+        }
+        review = {
+            "status": "approved",
+            "reviewed_by": "Chloe",
+            "reviewed_at": "2026-07-21",
+            "notes": "Second-pass review complete.",
+        }
+
+        gold = PREPARE._gold(
+            case,
+            {"result": {"boundary_action": "clarify"}},
+            "owner_authored",
+            review=review,
+        )
+
+        self.assertEqual(gold["review"], review)
 
 
 class E3CandidateFilterTests(unittest.TestCase):

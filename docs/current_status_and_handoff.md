@@ -6,6 +6,11 @@ Last updated: July 16, 2026
 > converters and strict task-output schema validation now present in Draft PR
 > #1. For the current executive snapshot, proposal/workplan index, owners, and
 > gates, read `docs/PROJECT_LEAD_GUIDE.md` first.
+>
+> 2026-07-21 update: H2 and E3 are closed, Chloe approved H5, and H4 v3 is
+> implemented pending review of eight regenerated samples. CrewAI integration
+> is in separate stacked PR #2. Jessica's current instruction is **do not merge
+> either PR yet**; complete H4 owner review and final validation first.
 
 ## Purpose
 

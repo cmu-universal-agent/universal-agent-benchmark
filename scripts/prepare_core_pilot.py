@@ -5,8 +5,8 @@ The source datasets must already be present under ``data/``.  Generated
 agent-visible cases and evaluator-only gold are written under
 ``data/generated/core_pilot`` so that raw/review data cannot be committed by
 accident.  This script intentionally creates review samples, not approved
-benchmark gold: dataset-owner review is still required for H2's lower-urgency
-subclasses, H4's extracted fields, and the owner-authored H5 rubrics.
+benchmark gold: dataset-owner review is still required for H4's extracted
+fields, and other task-specific limitations remain recorded in the report.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v3"
+GENERATOR_VERSION = "core-pilot-converter-v4"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -178,6 +178,7 @@ def _gold(
     method: str,
     *,
     review_notes: str | None = None,
+    review: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     metadata = case["metadata"]
     return {
@@ -201,7 +202,7 @@ def _gold(
             "configuration_hash": _configuration_hash(),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
-        "review": {
+        "review": review or {
             "status": "not_reviewed",
             "reviewed_by": None,
             "reviewed_at": None,
@@ -212,7 +213,7 @@ def _gold(
 
 def _dataset_version(task_id: str, dataset: str | None = None) -> str:
     if task_id == "H5" and dataset == "owner_authored_boundary_cases":
-        return "owner-authored draft 2026-07-20"
+        return "owner-authored 2026-07-20; owner-approved 2026-07-21"
     return {
         "H1": "PubMedQA PQA-L ori_pqal.json",
         "H2": "HealthBench main 2025-05-07-06-14-12",
@@ -483,7 +484,12 @@ def convert_h2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
 H4_ALIASES = {
     "chief": {"CHIEF COMPLAINT", "CC"},
     "symptoms": {"HISTORY OF PRESENT ILLNESS", "REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS", "SUBJECTIVE", "HPI"},
-    "history": {"MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY", "SOCIAL HISTORY", "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS", "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV"},
+    "history": {
+        "MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY",
+        "PAST SURGICAL HISTORY", "MEDICAL", "SURGICAL", "SOCIAL HISTORY",
+        "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS",
+        "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV",
+    },
     "results": {"RESULTS", "EKG"},
     "assessment": {"ASSESSMENT", "IMPRESSION"},
     "plan": {"PLAN", "INSTRUCTIONS", "PROCEDURE", "ORDERS"},
@@ -513,22 +519,36 @@ def _sections(note: str) -> dict[str, str]:
 def _items(text: str, min_words: int = 3) -> list[str]:
     if not text.strip():
         return []
+    abbreviation_marker = "\ue000"
+    protected = re.sub(
+        r"(?i)\b(?:mr|mrs|ms|dr)\.",
+        lambda match: match.group(0)[:-1] + abbreviation_marker,
+        text,
+    )
     parts = re.split(
         r"(?:^|\n)\s*(?:[-*•]+|\d+[.)])\s*|\n+|(?<=[.!?])\s+",
-        text,
+        protected,
     )
     cleaned = []
     for part in parts:
         value = re.sub(r"\s+", " ", part).strip(" -•\t\r\n")
+        value = value.replace(abbreviation_marker, ".")
         if re.match(r"(?i)^patient agreements?\s*:", value):
             continue
-        if len(value.split()) >= min_words and value not in cleaned:
+        short_clinical_statement = re.match(
+            r"(?i)^(?:denies|reports|endorses|positive for|negative for)\b",
+            value,
+        )
+        if (
+            len(value.split()) >= min_words or short_clinical_statement
+        ) and value not in cleaned:
             cleaned.append(value)
     return cleaned
 
 
 def _bucket_text(sections: dict[str, str], bucket: str) -> list[str]:
-    return [sections[h] for h in H4_ALIASES[bucket] if sections.get(h)]
+    aliases = H4_ALIASES[bucket]
+    return [text for header, text in sections.items() if header in aliases and text]
 
 
 def _keyword_items(texts: Iterable[str], words: tuple[str, ...]) -> list[str]:
@@ -620,6 +640,11 @@ def _append_unique(target: list[str], values: Iterable[str]) -> None:
             existing.add(key)
 
 
+def _is_noncontent_history_item(value: str) -> bool:
+    normalized = re.sub(r"\W+", " ", value).strip().lower()
+    return normalized in {"none", "none reported", "not reported"}
+
+
 def _numbered_problem_titles(text: str) -> list[str]:
     titles, _ = _combined_structure(text)
     return titles
@@ -670,15 +695,27 @@ def _extract_h4(note: str) -> tuple[dict[str, list[str]], dict[str, Any]]:
         symptoms,
         [item for text in _bucket_text(sections, "chief") for item in _items(text)],
     )
-    symptom_details = [item for text in ros for item in _items(text)] or _keyword_items(
-        hpi,
-        ("pain", "ache", "fever", "cough", "nause", "vomit", "dizz", "shortness", "swelling", "rash", "onset", "duration", "severity"),
+    _append_unique(symptoms, [item for text in ros for item in _items(text)])
+    _append_unique(
+        symptoms,
+        _keyword_items(
+            hpi,
+            (
+                "pain", "ache", "fever", "cough", "cold", "infection",
+                "nause", "vomit", "dizz", "shortness", "swelling", "rash",
+                "onset", "duration", "severity",
+            ),
+        ),
     )
-    _append_unique(symptoms, symptom_details)
     history: list[str] = []
     _append_unique(
         history,
-        [item for text in _bucket_text(sections, "history") for item in _items(text, min_words=1)],
+        [
+            item
+            for text in _bucket_text(sections, "history")
+            for item in _items(text, min_words=1)
+            if not _is_noncontent_history_item(item)
+        ],
     )
     _append_unique(history, _hpi_history_items(hpi))
     combined = "\n".join(_bucket_text(sections, "combined"))
@@ -764,7 +801,7 @@ def convert_h4(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     return cases, gold, {"source_records": len(rows), "selected_subsources": dict(Counter(row["dataset"] for row in selected)), "empty_extracted_fields": dict(empty_counts)}
 
 
-def _load_h5_owner_cases() -> list[tuple[dict, dict, str]]:
+def _load_h5_owner_cases() -> list[tuple[dict, dict, dict[str, Any]]]:
     """Load Chloe-authored H5 cases without exposing evaluator-only fields."""
 
     gold_path = H5_LOCAL_OWNER_DIR / "H5.jsonl"
@@ -787,7 +824,7 @@ def _load_h5_owner_cases() -> list[tuple[dict, dict, str]]:
             f"cases={len(task_paths)} gold={len(gold_by_id)}"
         )
 
-    loaded: list[tuple[dict, dict, str]] = []
+    loaded: list[tuple[dict, dict, dict[str, Any]]] = []
     seen: set[str] = set()
     for task_path in task_paths:
         source_case = _read_json(task_path)
@@ -829,13 +866,13 @@ def _load_h5_owner_cases() -> list[tuple[dict, dict, str]]:
             data=source_case["input"]["data"],
             dataset=source["dataset"],
             source_id=source["source_record_id"],
-            source_split="owner_authored_draft",
+            source_split="owner_authored_reviewed",
             split=metadata.get("split", "pilot"),
             difficulty=metadata["difficulty"],
             tags=metadata.get("tags", []),
             allowed_tools=source_case.get("allowed_tools", []),
             stress_type=source_case.get("stress_type", "standard"),
-            difficulty_version="h5-owner-authored-v1-draft",
+            difficulty_version="h5-owner-authored-v1",
         )
         gold_payload = {
             **owner_payload,
@@ -844,17 +881,22 @@ def _load_h5_owner_cases() -> list[tuple[dict, dict, str]]:
                 "authored_at": owner_row.get("generator", {}).get("authored_at"),
             },
         }
-        review_notes = owner_row.get("review", {}).get("notes") or (
-            "Owner-authored draft rubric requires a second review before approval."
-        )
-        loaded.append((normalized_case, gold_payload, review_notes))
+        review = dict(owner_row.get("review", {}))
+        if not review:
+            review = {
+                "status": "not_reviewed",
+                "reviewed_by": None,
+                "reviewed_at": None,
+                "notes": "Owner-authored rubric requires review before approval.",
+            }
+        loaded.append((normalized_case, gold_payload, review))
     return loaded
 
 
 def _select_h5_owner_cases(
-    rows: list[tuple[dict, dict, str]], count: int, seed: int
-) -> list[tuple[dict, dict, str]]:
-    buckets: dict[str, list[tuple[dict, dict, str]]] = defaultdict(list)
+    rows: list[tuple[dict, dict, dict[str, Any]]], count: int, seed: int
+) -> list[tuple[dict, dict, dict[str, Any]]]:
+    buckets: dict[str, list[tuple[dict, dict, dict[str, Any]]]] = defaultdict(list)
     for row in rows:
         action = row[1]["result"]["boundary_action"]
         buckets[action].append(row)
@@ -862,7 +904,7 @@ def _select_h5_owner_cases(
         buckets[action] = _stable_take(
             buckets[action], len(buckets[action]), seed, lambda row: row[0]["case_id"]
         )
-    selected: list[tuple[dict, dict, str]] = []
+    selected: list[tuple[dict, dict, dict[str, Any]]] = []
     round_index = 0
     while len(selected) < min(count, len(rows)):
         progressed = False
@@ -902,8 +944,8 @@ def convert_h5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         round_index += 1
     cases = [row[0] for row in owner_selected]
     gold = [
-        _gold(case, payload, "owner_authored", review_notes=review_notes)
-        for case, payload, review_notes in owner_selected
+        _gold(case, payload, "owner_authored", review=review)
+        for case, payload, review in owner_selected
     ]
     for index, row in enumerate(selected, 1):
         source_id = f"category_{row['_category']}_{row.get('', index)}"
@@ -927,7 +969,11 @@ def convert_h5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         "owner_authored_cases_available": len(owner_rows),
         "owner_authored_cases_selected": len(owner_selected),
         "owner_review_status": (
-            "draft_pending_second_review" if owner_rows else "not_supplied_locally"
+            "approved"
+            if owner_rows and all(row[2].get("status") == "approved" for row in owner_rows)
+            else "draft_pending_second_review"
+            if owner_rows
+            else "not_supplied_locally"
         ),
     }
 
@@ -1217,12 +1263,15 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
         ]
     if "H5" in tasks:
         h5_status = report["tasks"].get("H5", {})
-        if h5_status.get("owner_authored_cases_selected"):
+        if (
+            h5_status.get("owner_authored_cases_selected")
+            and h5_status.get("owner_review_status") != "approved"
+        ):
             report["known_gaps"].append(
                 "H5 owner-authored clarify/escalate cases are included locally, "
                 "but their rubrics remain draft pending a second owner review."
             )
-        else:
+        elif not h5_status.get("owner_authored_cases_selected"):
             report["known_gaps"].append(
                 "H5 owner-authored clarify/escalate files are not available in "
                 "the local evaluator-only directory."

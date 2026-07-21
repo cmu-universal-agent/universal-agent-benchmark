@@ -80,7 +80,7 @@ def _validate_h2(document: dict) -> int:
 def _validate_h4(document: dict) -> int:
     assert document.get("schema_version") == "1.0"
     assert document.get("status") in ALLOWED_STATUSES
-    assert document.get("rule_version") == "h4-extraction-v2"
+    assert document.get("rule_version") == "h4-extraction-v3"
     assert document.get("owner_feedback", {}).get("reviewed_by") == "Chloe"
     assert document.get("task_id") == "H4"
     assert document.get("source_field") == "encounter_id"
@@ -94,6 +94,10 @@ def _validate_h4(document: dict) -> int:
     assert document.get("boilerplate_stoplist", {}).get("fix")
     assert document.get("numbered_problem_title_handling", {}).get("fix")
     assert document["extraction_rule"]["history"].get("supplemental_source")
+    assert document["extraction_rule"]["symptoms"].get("supplemental_source")
+    assert document.get("secondary_history_header_handling", {}).get("fix")
+    assert document.get("honorific_sentence_splitting", {}).get("fix")
+    assert document.get("short_clinical_statement_handling", {}).get("fix")
     assert document["split_mapping"]["status"] == "confirmed"
     assert document["split_mapping"]["total_cases"] == 207
     assert len(document["source_files_confirmed"]["note_and_dialogue_files"]) == 5
@@ -104,11 +108,13 @@ def _validate_h4(document: dict) -> int:
 def _validate_h5(document: dict) -> int:
     assert document.get("schema_version") == "1.0"
     assert document.get("status") in ALLOWED_STATUSES
-    assert document.get("rule_version") == "h5-manual-cases-v1-draft"
+    assert document.get("rule_version") == "h5-manual-cases-v1"
     assert document.get("task_id") == "H5"
     feedback = document.get("owner_feedback", {})
     assert feedback.get("authored_by") == "Chloe"
-    assert feedback.get("review_status") == "not_reviewed"
+    assert feedback.get("review_status") == "approved"
+    assert feedback.get("reviewed_by") == "Chloe"
+    assert feedback.get("reviewed_at") == "2026-07-21"
     supplied = feedback.get("cases_supplied", {})
     assert supplied == {"clarify": 2, "escalate": 2}
     requirements = document.get("rubric_requirements", {})

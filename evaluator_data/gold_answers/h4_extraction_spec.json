@@ -1,18 +1,22 @@
 {
   "schema_version": "1.0",
   "status": "draft_pending_approval",
-  "rule_version": "h4-extraction-v2",
+  "rule_version": "h4-extraction-v3",
   "owner_feedback": {
     "reviewed_by": "Chloe",
-    "received_at": "2026-07-20",
+    "received_at": "2026-07-21",
     "confirmed_findings": [
       "Patient Agreements boilerplate must not enter next_steps.",
       "Problem titles and clinical fragments must be routed by meaning rather than sent to one default bucket.",
       "Plain newlines must split adjacent ROS/history entries.",
       "HPI demographic introductions and diagnosed-with phrasing must supplement dedicated history sections.",
-      "Abbreviated colon headers caused the D2N069 empty-field failure."
+      "Abbreviated colon headers caused the D2N069 empty-field failure.",
+      "Standalone Medical, Surgical, and PAST SURGICAL HISTORY labels are headings, not history content.",
+      "Mr., Mrs., Ms., and Dr. must not be treated as sentence boundaries.",
+      "Short clinical denials such as Denies vomiting and Denies hematuria must be retained.",
+      "Positive HPI infection and lingering-cold descriptions must supplement a non-empty ROS section."
     ],
-    "approval_note": "Specific corrections are owner-confirmed. The overall extraction spec remains draft until the revised eight-case sample is reviewed."
+    "approval_note": "The v3 corrections are owner-requested and implemented for review. The overall extraction spec remains draft until Chloe reviews the regenerated eight-case sample."
   },
   "supersedes": "earlier draft that assumed a fixed 4-section template (HISTORY OF PRESENT ILLNESS / PHYSICAL EXAM / RESULTS / ASSESSMENT AND PLAN) based on a secondary paper description. That template is only one of many; real notes vary a lot. This version is built and spot-checked directly against the uploaded aci-bench-2023.zip.",
   "task_id": "H4",
@@ -41,7 +45,7 @@
   "header_alias_table": {
     "chief_complaint_bucket": ["CHIEF COMPLAINT"],
     "symptoms_bucket": ["HISTORY OF PRESENT ILLNESS", "REVIEW OF SYSTEMS", "REVIEW OF SYMPTOMS", "SUBJECTIVE"],
-    "history_bucket": ["MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY", "SOCIAL HISTORY", "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS", "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV"],
+    "history_bucket": ["MEDICAL HISTORY", "PAST HISTORY", "PAST MEDICAL HISTORY", "PAST SURGICAL HISTORY", "MEDICAL", "SURGICAL", "SOCIAL HISTORY", "FAMILY HISTORY", "SURGICAL HISTORY", "MEDICATIONS", "CURRENT MEDICATIONS", "ALLERGIES", "BIRTH HISTORY", "HIV"],
     "exam_vitals_bucket_not_used_for_gold": ["PHYSICAL EXAM", "PHYSICAL EXAMINATION", "EXAM", "VITALS", "VITALS REVIEWED"],
     "results_bucket": ["RESULTS", "EKG"],
     "assessment_bucket": ["ASSESSMENT", "IMPRESSION"],
@@ -50,8 +54,9 @@
   },
   "extraction_rule": {
     "symptoms": {
-      "primary_source": "CHIEF COMPLAINT/CC plus symptoms_bucket text, preferring REVIEW OF SYSTEMS/REVIEW OF SYMPTOMS when present since these are already structured as 'System: finding'. Chief complaints belong in symptoms, not history.",
-      "fallback": "When no REVIEW OF SYSTEMS/SYMPTOMS section exists, fall back to keyword-sentence extraction from HISTORY OF PRESENT ILLNESS (sentences containing symptom-descriptor words or onset/duration/severity language).",
+      "primary_source": "CHIEF COMPLAINT/CC plus all REVIEW OF SYSTEMS/REVIEW OF SYMPTOMS entries. Chief complaints belong in symptoms, not history.",
+      "supplemental_source": "Always scan HISTORY OF PRESENT ILLNESS and merge keyword-matched symptom sentences even when ROS is non-empty. This includes pain/onset/severity language and generalized illness descriptions such as frequent infections or lingering colds.",
+      "fallback": "If dedicated symptom sections are absent, the same HPI keyword extraction becomes the primary source rather than a separate rule.",
       "confidence": "medium-high for the ROS-bullet case (very clean), medium for the HPI-narrative fallback case"
     },
     "history": {
@@ -76,7 +81,7 @@
     }
   },
   "sections_not_mapped_to_gold": "exam_vitals_bucket (PHYSICAL EXAM/EXAMINATION, EXAM, VITALS, VITALS REVIEWED) is kept as background context only, not scored against any of the four output fields.",
-  "sentence_splitting_rule": "Split section text on bullet markers, numbered lists, plain newlines, and sentence-ending punctuation. Discard fragments shorter than 3 words except dedicated history/problem-title entries. Direct review of D2N085 confirmed that adjacent newline-separated ROS systems can lack terminal punctuation, so newline splitting is mandatory rather than a fallback.",
+  "sentence_splitting_rule": "Split section text on bullet markers, numbered lists, plain newlines, and sentence-ending punctuation, while protecting the common honorifics Mr., Mrs., Ms., and Dr. from sentence-boundary detection. Discard fragments shorter than 3 words except dedicated history/problem-title entries and short clinical statements beginning with Denies, Reports, Endorses, Positive for, or Negative for. Direct review of D2N085 confirmed that adjacent newline-separated ROS systems can lack terminal punctuation, so newline splitting is mandatory rather than a fallback.",
   "empty_section_handling": "If a bucket has no matching section in a given note, the corresponding output array is empty, not omitted - matches the existing schema rule that empty arrays are allowed for H4.",
   "boilerplate_stoplist": {
     "status": "confirmed high-prevalence issue, not a rare edge case",
@@ -87,6 +92,21 @@
     "status": "confirmed gap in the original rule, found while checking H4-001/D2N084",
     "finding": "In the combined ASSESSMENT AND PLAN format, a short problem title may be numbered or unnumbered and is followed by labeled reasoning/treatment/testing/counseling bullets. The original parser did not terminate the prior labeled block at a new title, so titles leaked into next_steps.",
     "fix": "Terminate each labeled sub-bullet at the next numbered problem title so the title cannot leak into next_steps. Route the title by meaning: symptom/problem descriptions such as pain go to symptoms; 'history of'/'status post' titles go to history; diagnoses and clinical findings such as a murmur go to risks. Deduplicate a routed title against items already extracted from other sections."
+  },
+  "secondary_history_header_handling": {
+    "status": "owner-confirmed v3 correction",
+    "finding": "Standalone Medical and Surgical subheadings and the PAST SURGICAL HISTORY heading leaked into history as independent entries in H4-REVIEW-003, H4-REVIEW-005, and H4-REVIEW-006.",
+    "fix": "Recognize these labels as history section headers. Preserve their following clinical content but never emit the header text itself. Drop context-free missing-value placeholders such as None reported rather than presenting them as clinical history."
+  },
+  "honorific_sentence_splitting": {
+    "status": "owner-confirmed v3 correction",
+    "finding": "Mr., Ms., and Dr. were mistaken for sentence-ending punctuation in H4-REVIEW-005 and H4-REVIEW-006, causing the beginning of sentences to be discarded.",
+    "fix": "Protect periods in Mr., Mrs., Ms., and Dr. before sentence splitting and restore them afterward."
+  },
+  "short_clinical_statement_handling": {
+    "status": "owner-confirmed v3 correction",
+    "finding": "Two-word denials following another sentence, including Denies vomiting and Denies hematuria, were removed by the three-word fragment floor in H4-REVIEW-004.",
+    "fix": "Retain short fragments that begin with an explicit clinical assertion or denial while continuing to filter non-content fragments."
   },
   "unmapped_policy": "flag_for_manual_review",
   "unmapped_policy_notes": "A note whose header set doesn't match any bucket in the alias table above for an entire required area (e.g. no chief_complaint, symptoms, history, assessment, or plan bucket found anywhere) should be flagged for manual review rather than silently producing all-empty output, since that likely means an unrecognized header string was used and the alias table needs another entry added.",

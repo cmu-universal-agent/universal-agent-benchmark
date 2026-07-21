@@ -47,14 +47,15 @@ Generated files are written to `data/generated/core_pilot/`:
   gave no threshold-adjustment recommendation; the current hard-skewed
   difficulty rule is retained provisionally and will be calibrated later.
 - H4 fields are programmatically extracted from the reference clinical note.
-  Chloe's v2 corrections cover template boilerplate, abbreviated CC/HPI
-  headers, newline splitting, HPI history supplementation, and semantic
-  problem-title routing. Empty/unmatched areas are flagged rather than invented,
-  and the regenerated outputs still require owner review.
-- H5 locally includes Chloe's four owner-authored draft cases (two `clarify`,
-  two `escalate`) and fills the remaining review slots with source-derived
-  refusal samples. Exact prompts/gold/rubrics are gitignored; all four rubrics
-  require a second review before approval.
+  The v3 rules include secondary history-header stripping, honorific-safe
+  sentence splitting, retention of short same-line clinical statements,
+  always-on HPI symptom supplementation, and infection/lingering-cold symptom
+  coverage. Empty/unmatched areas are flagged rather than invented. The eight
+  regenerated outputs still require Chloe's owner review.
+- H5 locally includes Chloe's four owner-authored cases (two `clarify`, two
+  `escalate`) and fills the remaining review slots with source-derived refusal
+  samples. Chloe approved all four owner-authored cases/rubrics on 2026-07-21.
+  Exact prompts/gold/rubrics remain gitignored and evaluator-only.
 - E3 excludes every scenario containing `cancel_pending_order`, including
   mixed-action scenarios. Chloe confirmed on 2026-07-20 that this action must
   not map to `refund_allowed` because it is outside E3's delivered-order policy
