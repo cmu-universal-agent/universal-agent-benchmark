@@ -77,7 +77,7 @@ Attachment provenance, retained only for traceability:
 | Original workstream | Original intent | Current interpretation |
 |---|---|---|
 | WS1 | Finalize project plan, industries, benchmarks, and task classification | Substantially complete: two verticals, three frameworks, and eight minimum task types selected. |
-| WS2 | Infrastructure engine, framework setup, schemas, logging, stress/dashboard preparation | Jessica-owned engineering is complete and validated. H2, E3, and H5 owner review are closed. H4 v3 is implemented and awaits Chloe's regenerated eight-case review. Jessica explicitly placed PR #1 and stacked PR #2 on a no-merge hold until that review and final validation are complete. |
+| WS2 | Infrastructure engine, framework setup, schemas, logging, stress/dashboard preparation | Jessica-owned engineering is complete. H2, E3, H5, and H4 owner reviews are closed; H4 v4 includes the final Case 007 metformin-history correction. PR #1 remains Draft and Jessica's explicit no-merge hold remains active pending repository review and her direction. |
 | WS3 | Evaluation engine development and validated simulation datasets | Proposed next focus is the shared tau-retail simulator/core, three thin wrappers, evaluator state, and initial stress coverage. Meeting approval and owners are still required. |
 | WS4 | Experiment execution and framework integration | Formal experiment execution has not started. Preliminary smoke results are engineering checks only. |
 | WS5 | Final report, dashboard, failure analysis, production-ready repository | Not started as a formal workstream; earlier documentation and report artifacts are inputs only. |
@@ -103,17 +103,18 @@ As verified on 2026-07-21:
   agreed PR sequence.
 - This guide and the WS2 owner-feedback batch are intended for that existing
   Draft PR, not a new pull request.
-- Jessica's current instruction is **do not merge yet**. H4 v3 owner review and
-  the final WS2 validation suite must finish first.
+- Jessica's current instruction is **do not merge yet**. H4 owner review is now
+  complete; PR #1 remains Draft until final validation evidence is recorded and
+  Jessica explicitly changes its state.
 
 ### Workstream 2
 
-WS2 infrastructure and Jessica-owned implementation are complete and validated.
+WS2 infrastructure and Jessica-owned implementation are complete.
 H2 and E3 were approved on 2026-07-20. Chloe approved all four H5 owner-authored
-cases and rubrics on 2026-07-21. H4 v3 now incorporates Chloe's latest five
-classes of feedback and awaits her review of the regenerated eight-case pack.
-H4 is the only remaining WS2 semantic-review gate. WS3 planning may continue,
-but PR #1 and stacked PR #2 remain unmerged.
+cases and rubrics on 2026-07-21. Chloe approved H4 after confirming that the
+final Case 007 active-medication sentence must be retained; H4 v4 implements
+that correction. All WS2 semantic-review gates are closed. WS3 planning may
+continue, but PR #1 and stacked PR #2 remain unmerged.
 
 The Draft PR contains:
 
@@ -226,22 +227,23 @@ conversion or manual labeling when code can do it deterministically.
 | Area | Current/likely owner | Status and required action |
 |---|---|---|
 | Project coordination, converters, cross-framework validation | Jessica | Confirm WS3 scope before accepting additional implementation ownership. |
-| Dataset/gold semantics | Chloe | H2 urgency labels and the E3 pending-order exclusion are confirmed. H5's four owner-authored cases/rubrics are approved. Review the regenerated H4 v3 eight-case pack; this is the only remaining WS2 semantic gate. E5 final-state semantics remain a separate WS3 readiness decision. |
+| Dataset/gold semantics | Chloe | H2 urgency labels, E3 pending-order exclusion, H5's four owner-authored cases/rubrics, and H4 v4 extraction semantics are approved. E5 final-state semantics remain a separate WS3 readiness decision. |
 | CrewAI wrapper | Mickey | CrewAI PR #2 is implemented as a stacked change with offline contract coverage. Live-model smoke, native Linux/CI confirmation, and E5 shared simulator integration remain external gates. CrewAI-specific ownership does not imply shared-core ownership. |
 | Stress scenarios and failure taxonomy | Lanfang | Confirm initial scenarios, expected failures, and test requirements. |
 | Dashboard/visual reporting | Xiaoxia | Confirm whether retained in WS3 or managed as a separate stream. |
 | Shared tau-retail simulator/core contract | Unassigned | Assign one named owner and reviewer. Do not default this to Mickey. |
 | LangGraph tau-retail wrapper | Unassigned | Assign one named owner after the shared contract is frozen. |
 | OpenAI Agents SDK tau-retail wrapper | Unassigned | Assign one named owner after the shared contract is frozen. |
-| Repository merge/review | Repository maintainers | Honor the current no-merge hold. Review PR #1 and stacked PR #2 only after H4 v3 approval and final WS2 validation. |
+| Repository merge/review | Repository maintainers | H4 approval is complete. Confirm final WS2 validation, then review PR #1 and stacked PR #2 in sequence. Honor Jessica's current no-merge hold until she explicitly releases it. |
 
 ## Gates
 
 ### WS2 closure gate
 
 The earlier carry-over path was superseded by Jessica's explicit 2026-07-21
-instruction to **not merge yet**. PR #1 remains Draft and PR #2 remains a
-separate stacked change until H4 v3 owner review and final validation complete.
+instruction to **not merge yet**. H4 owner review is complete. PR #1 remains
+Draft and PR #2 remains a separate stacked change until final validation is
+recorded, repository review is complete, and Jessica releases the hold.
 
 Completed closure evidence:
 
@@ -250,12 +252,13 @@ Completed closure evidence:
   calibration, satisfying the current H2 gate;
 - E3 pending-order exclusion reflected in the converter and coverage report;
 - H5 four-case owner review recorded as approved on 2026-07-21;
+- H4 eight-case owner review recorded as approved on 2026-07-21 after the final
+  Case 007 metformin-history correction;
 - final offline validation passes for 64 cases and 64 evaluator-only gold
   records with zero detected leakage.
 
 Named carry-overs:
 
-- Chloe: review the regenerated H4 extraction v3 eight-case pack;
 - repository maintainers: review PR #1 and ensure its description and
   limitations match the approved scope, then review stacked PR #2 in the agreed
   sequence. Do not merge either PR while the hold is active.
@@ -273,8 +276,8 @@ On the first WS3 task:
 4. Name owners for the CrewAI, LangGraph, and OpenAI Agents SDK thin wrappers.
 5. Approve the canonical tool/state/reset/error contract and minimum fixtures.
 6. Resolve evaluator-visible E5 final-state semantics before scoring live runs.
-7. Keep H4 v3 review separate from WS3 engineering; H5 is closed. H4 blocks WS2
-   merge and semantic freeze, not contract-design discussion.
+7. Keep the approved H4 v4 regression tests intact; H4 and H5 owner review are
+   closed and no longer block WS2 semantic freeze.
 
 ### WS3 definition of ready
 

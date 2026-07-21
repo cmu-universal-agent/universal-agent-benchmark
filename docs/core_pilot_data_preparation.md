@@ -47,11 +47,13 @@ Generated files are written to `data/generated/core_pilot/`:
   gave no threshold-adjustment recommendation; the current hard-skewed
   difficulty rule is retained provisionally and will be calibrated later.
 - H4 fields are programmatically extracted from the reference clinical note.
-  The v3 rules include secondary history-header stripping, honorific-safe
-  sentence splitting, retention of short same-line clinical statements,
+  The owner-approved v4 rules include secondary history-header stripping,
+  honorific-safe sentence splitting, retention of short same-line clinical statements,
   always-on HPI symptom supplementation, and infection/lingering-cold symptom
-  coverage. Empty/unmatched areas are flagged rather than invented. The eight
-  regenerated outputs still require Chloe's owner review.
+  coverage. Narrow current-medication statements such as `currently taking`
+  are retained as history. Empty/unmatched areas are flagged rather than
+  invented. Chloe approved the eight-case review on 2026-07-21 after the final
+  H4-REVIEW-007 metformin correction.
 - H5 locally includes Chloe's four owner-authored cases (two `clarify`, two
   `escalate`) and fills the remaining review slots with source-derived refusal
   samples. Chloe approved all four owner-authored cases/rubrics on 2026-07-21.

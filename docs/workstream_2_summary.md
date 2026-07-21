@@ -4,13 +4,14 @@ Last updated: July 21, 2026
 
 ## Status
 
-Jessica's Workstream 2 infrastructure and the H4 v3 revisions requested by
+Jessica's Workstream 2 infrastructure and the H4 v4 revisions requested by
 Chloe are implemented and pass offline validation. H2 urgency review is
 complete, its provisional difficulty rule is retained for later calibration,
 and the E3 pending-order ambiguity is resolved. Chloe approved all four H5
-cases/rubrics on July 21. H4 v3 is the only remaining WS2 semantic-review gate.
-Jessica explicitly directed that PR #1 and stacked CrewAI PR #2 must not be
-merged until H4 owner review and final validation are complete.
+cases/rubrics on July 21. Chloe also approved H4 after the final Case 007
+metformin-history correction, so all WS2 semantic-review gates are closed.
+PR #1 remains Draft, and Jessica's explicit no-merge instruction remains in
+force until she releases it and repository review is complete.
 
 ## Completed by Jessica
 
@@ -42,16 +43,17 @@ merged until H4 owner review and final validation are complete.
   `routine`, and H2-008 is `self_care`. No further Chloe action is required for
   H2. The current difficulty distribution (easy=90, medium=10, hard=353) is
   explicitly provisional and retained for now as a later engineering task.
-- Review the regenerated H4 v3 eight-case pack after fixes for secondary
+- H4 is closed: Chloe approved the eight-case pack after fixes for secondary
   history-title leakage, `Dr.`/`Mr.`/`Ms.` sentence splitting, short same-line
-  `Denies ...` statements, and infection/lingering-cold HPI coverage; then
-  approve or revise the extraction/difficulty rules.
+  `Denies ...` statements, infection/lingering-cold HPI coverage, and Case 007
+  active metformin use. Difficulty calibration remains a later non-blocking
+  engineering task.
 - Treat H5 as closed: all four supplied cases and rubrics (two `clarify`, two
   `escalate`) were approved on July 21. Exact evaluator content remains local
   and gitignored.
 - Treat the E3 `cancel_pending_order` decision as closed: all such scenarios
   are excluded from E3 and are never mapped to `refund_allowed`.
-- Review the eight regenerated H4 samples; no bulk manual labeling is required.
+- No further H4 review is required unless later calibration changes the rule.
 
 ### Mickey
 
@@ -83,7 +85,9 @@ merged until H4 owner review and final validation are complete.
 
 ### Repository / Integration Owner
 
-- Review the Workstream 2 PRs, but do not merge while the current hold is active.
+- Review the Workstream 2 PRs. PR #1 is eligible to move out of Draft after the
+  final validation evidence is confirmed, but do not merge while Jessica's
+  current hold is active.
 - Grant or confirm contributor access to the official
   `cmu-universal-agent/universal-agent-benchmark` repository before the next
   upstream synchronization.
@@ -93,7 +97,7 @@ merged until H4 owner review and final validation are complete.
 Continue WS3 planning, but start implementation in a separate branch only after
 confirming its relationship to Draft PR #1 and stacked PR #2. First assign the
 shared simulator/core owner and reviewer, assign all three wrapper owners, and
-approve the canonical tool/state contract. Apply any H4 owner corrections and
-rerun the complete offline gate before merge. The eight-task controlled
-comparison starts only after remaining task semantics and framework entry
+approve the canonical tool/state contract. The H4 owner-review gate is closed;
+retain its regression tests during integration. The eight-task controlled
+comparison starts only after remaining WS3 task semantics and framework entry
 points are ready.

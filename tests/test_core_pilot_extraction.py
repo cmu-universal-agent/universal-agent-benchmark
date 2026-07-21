@@ -189,6 +189,26 @@ Order additional testing.
             result["symptoms"],
         )
 
+    def test_hpi_current_medication_supplements_history(self):
+        note = """HISTORY OF PRESENT ILLNESS
+The patient was recently diagnosed with type 2 diabetes. He is currently taking metformin.
+REVIEW OF SYSTEMS
+Gastrointestinal: Denies abdominal issues or diarrhea.
+PAST HISTORY
+Patient denies a history of blood transfusions.
+ASSESSMENT
+Possible immune dysfunction.
+PLAN
+Order additional testing.
+"""
+        result, _diagnostics = PREPARE._extract_h4(note)
+
+        self.assertIn(
+            "The patient was recently diagnosed with type 2 diabetes.",
+            result["history"],
+        )
+        self.assertIn("He is currently taking metformin.", result["history"])
+
 
 class H5OwnerCaseTests(unittest.TestCase):
     def test_owner_cases_are_selected_across_both_boundary_actions(self):

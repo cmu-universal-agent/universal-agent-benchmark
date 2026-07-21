@@ -4,9 +4,9 @@
 The source datasets must already be present under ``data/``.  Generated
 agent-visible cases and evaluator-only gold are written under
 ``data/generated/core_pilot`` so that raw/review data cannot be committed by
-accident.  This script intentionally creates review samples, not approved
-benchmark gold: dataset-owner review is still required for H4's extracted
-fields, and other task-specific limitations remain recorded in the report.
+accident.  This script creates deterministic review samples, not published
+benchmark gold. H4's extraction semantics are owner-approved; other
+task-specific limitations remain recorded in the report.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v4"
+GENERATOR_VERSION = "core-pilot-converter-v5"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -670,7 +670,7 @@ def _hpi_history_items(texts: Iterable[str]) -> list[str]:
     triggers = (
         "history of", "history significant for", "medical history", "previously",
         "prior ", "pmh", "used to", "family history", "diagnosed with",
-        "diagnosis of", "known to have",
+        "diagnosis of", "known to have", "currently taking", "currently on",
     )
     demographic_intro = re.compile(
         r"\b\d{1,3}-year-old\b.*?\bwith\b.*?\b(?:who\s+)?"

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "status": "draft_pending_approval",
-  "rule_version": "h4-extraction-v3",
+  "status": "approved",
+  "rule_version": "h4-extraction-v4",
   "owner_feedback": {
     "reviewed_by": "Chloe",
     "received_at": "2026-07-21",
@@ -14,9 +14,10 @@
       "Standalone Medical, Surgical, and PAST SURGICAL HISTORY labels are headings, not history content.",
       "Mr., Mrs., Ms., and Dr. must not be treated as sentence boundaries.",
       "Short clinical denials such as Denies vomiting and Denies hematuria must be retained.",
-      "Positive HPI infection and lingering-cold descriptions must supplement a non-empty ROS section."
+      "Positive HPI infection and lingering-cold descriptions must supplement a non-empty ROS section.",
+      "Current medication statements in HPI, including 'currently taking metformin', belong in history."
     ],
-    "approval_note": "The v3 corrections are owner-requested and implemented for review. The overall extraction spec remains draft until Chloe reviews the regenerated eight-case sample."
+    "approval_note": "Chloe confirmed all other H4 corrections and stated the review is complete once H4-REVIEW-007 retains metformin. Version 4 adds that deterministic active-medication history rule and records the H4 owner review as approved."
   },
   "supersedes": "earlier draft that assumed a fixed 4-section template (HISTORY OF PRESENT ILLNESS / PHYSICAL EXAM / RESULTS / ASSESSMENT AND PLAN) based on a secondary paper description. That template is only one of many; real notes vary a lot. This version is built and spot-checked directly against the uploaded aci-bench-2023.zip.",
   "task_id": "H4",
@@ -61,7 +62,7 @@
     },
     "history": {
       "primary_source": "All history_bucket sections present in the note (MEDICAL/PAST/SOCIAL/FAMILY/SURGICAL HISTORY, MEDICATIONS, ALLERGIES, etc.). CHIEF COMPLAINT is excluded from history.",
-      "supplemental_source": "Always scan HISTORY OF PRESENT ILLNESS, even when dedicated history sections already produced items. Merge and deduplicate sentences containing 'history of', 'history significant for', 'medical history significant for', 'previously', 'prior', 'PMH', 'diagnosed with', or an age/sex demographic introduction that names established conditions before 'who presents'.",
+      "supplemental_source": "Always scan HISTORY OF PRESENT ILLNESS, even when dedicated history sections already produced items. Merge and deduplicate sentences containing 'history of', 'history significant for', 'medical history significant for', 'previously', 'prior', 'PMH', 'diagnosed with', narrow current-medication phrases such as 'currently taking' or 'currently on', or an age/sex demographic introduction that names established conditions before 'who presents'.",
       "confirmed_bug": "Direct review of D2N068 showed that a recurring demographic-introduction sentence names established conditions using 'medical history significant for' rather than the old trigger 'history of'. The extractor therefore missed those conditions. Fix: always supplement dedicated history sections from HPI and support 'medical history significant for', 'history significant for', 'diagnosed with', and the recurring age/sex/condition introduction pattern.",
       "confidence": "high when dedicated history sections exist, medium on the narrative fallback (lower until the keyword gap above is fixed)"
     },
@@ -108,6 +109,11 @@
     "finding": "Two-word denials following another sentence, including Denies vomiting and Denies hematuria, were removed by the three-word fragment floor in H4-REVIEW-004.",
     "fix": "Retain short fragments that begin with an explicit clinical assertion or denial while continuing to filter non-content fragments."
   },
+  "hpi_active_medication_handling": {
+    "status": "owner-confirmed v4 correction",
+    "finding": "H4-REVIEW-007 retained the type 2 diabetes diagnosis but omitted the adjacent sentence 'He is currently taking metformin.' from every scored field.",
+    "fix": "When scanning HPI for supplemental history, retain sentences containing the narrow current-medication phrases 'currently taking' or 'currently on'. This captures active medication history without treating general plan or recommendation language as history."
+  },
   "unmapped_policy": "flag_for_manual_review",
   "unmapped_policy_notes": "A note whose header set doesn't match any bucket in the alias table above for an entire required area (e.g. no chief_complaint, symptoms, history, assessment, or plan bucket found anywhere) should be flagged for manual review rather than silently producing all-empty output, since that likely means an unrecognized header string was used and the alias table needs another entry added.",
   "known_limitations": [
@@ -140,6 +146,6 @@
     "hard": "distinct_section_headers >= 10, OR dialogue_char_length > 7532, OR (aci-style note) numbered problem count >= 3.",
     "rationale": "More section headers means more distinct clinical topics the agent has to extract correctly across all four output fields at once. Longer dialogue means more raw material to condense and a higher chance of missing something. Three or more numbered problems (when the note style makes that countable) means real multi-morbidity, which is harder to keep straight across symptoms/history/risks/next_steps than a single-problem visit."
   },
-  "approved_by": null,
-  "approved_at": null
+  "approved_by": "Chloe",
+  "approved_at": "2026-07-21"
 }
