@@ -95,18 +95,33 @@ As verified on 2026-07-21:
 
 - The official repository is public and Jessica has push permission.
 - Official `main` is at `15ebb8a`.
-- PR #1 is open, Ready for Review, and mergeable at head `ee545af`.
+- PR #1 is open, Ready for Review, and mergeable at head `e4e4ee4`.
 - PR #1 uses `jessica/infrastructure-schema-compat`; inspect the live PR for
   its current head rather than relying on a cached commit hash.
 - PR #2 contains Mickey's CrewAI integration and is stacked on PR #1's branch.
-  It remains separate and unmerged. GitHub currently reports it as
-  non-mergeable against the advanced PR #1 base, so confirm the integration
-  sequence before rebasing, retargeting, or merging it.
+  It remains separate and unmerged. GitHub currently reports it as mergeable
+  against recorded base SHA `494b506`, but that SHA predates PR #1 head
+  `e4e4ee4`. Treat mergeability and base synchronization as separate gates;
+  confirm the integration sequence before rebasing, retargeting, or merging.
 - This guide and the WS2 owner-feedback batch are intended for that existing
   PR, not a new pull request.
 - H4 owner review and final validation are complete. PR #1 was moved from Draft
   to Ready for Review on 2026-07-21. Jessica's current instruction remains
   **do not merge yet** pending repository review and her explicit direction.
+
+### Current tracking board
+
+| Item | Verified current state | Evidence | Next gate | Owner |
+|---|---|---|---|---|
+| PR #1 / WS2 | Open, Ready for Review, mergeable; head `e4e4ee4`; no-merge hold active | Official PR #1 metadata, verified 2026-07-21 | Repository review, then Jessica explicitly releases the hold | Repository maintainers / Jessica |
+| PR #2 / CrewAI | Open, non-draft, mergeable against recorded base `494b506`; head `baed9d8`; stacked base is behind PR #1 head | Official PR #2 and PR #1 metadata, verified 2026-07-21 | Confirm sequence and refresh/review the base after PR #1 | Mickey / repository maintainers |
+| H4 semantics | Approved, `h4-extraction-v4`, including Case 007 metformin history | `evaluator_data/gold_answers/h4_extraction_spec.json`; Chloe approval dated 2026-07-21 | Preserve regression coverage; no semantic gate remains | Chloe |
+| WS3 kickoff notes | Markdown and Word drafts updated locally and intentionally untracked | Canonical checkout working tree, verified 2026-07-21 | Use in kickoff; publish only on explicit instruction | Jessica |
+| WS3 shared core | Proposed, owner and reviewer unassigned | WS3 readiness checklist below | Name owner/reviewer and approve shared contract | Team decision |
+| E5 evaluator semantics | Still open; separate from closed H4/H5/H2/E3 reviews | Ownership table and WS3 readiness gate | Chloe/team approval before scored live runs | Chloe / team |
+
+The board is a verified snapshot, not an authorization log. Recheck GitHub for
+mutable PR fields and recheck machine-readable specs before every update.
 
 ### Workstream 2
 
@@ -314,6 +329,21 @@ On the first WS3 task:
    status matters.
 5. Separate confirmed decisions from proposals and stale documents.
 6. State what can proceed autonomously and what requires an owner's decision.
+
+### Refresh the tracking board
+
+1. Run the project-lead skill's read-only snapshot script and capture branch,
+   full HEAD, upstream, ahead/behind counts, working tree, H4 approval fields,
+   and local-only kickoff artifacts.
+2. Read official PR #1 and PR #2 metadata: state, draft, mergeable, head/base
+   refs and SHAs, reviews/checks when relevant, and verification time.
+3. For stacked PR #2, compare its `base_sha` with PR #1's current `head_sha`.
+   Report GitHub mergeability and base synchronization separately.
+4. Classify each row as verified current state, proposal/open decision, or
+   intentionally local. Do not infer owner acceptance from a kickoff draft.
+5. Update this guide only when a verified fact, gate, owner, or evidence link
+   changes. Never commit the local kickoff Markdown/Word files unless the user
+   explicitly reverses the local-only instruction.
 
 ### Before implementation
 
