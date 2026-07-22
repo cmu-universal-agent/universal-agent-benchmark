@@ -1,0 +1,135 @@
+{
+  "contract_version": "0.1.0",
+  "valid_arguments": {
+    "calculate": {"expression": "2 + 2"},
+    "cancel_pending_order": {"order_id": "#W0000000", "reason": "ordered by mistake"},
+    "exchange_delivered_order_items": {"order_id": "#W0000000", "item_ids": ["item-old"], "new_item_ids": ["item-new"], "payment_method_id": "card-1"},
+    "find_user_id_by_email": {"email": "synthetic@example.test"},
+    "find_user_id_by_name_zip": {"first_name": "Test", "last_name": "User", "zip": "00000"},
+    "get_item_details": {"item_id": "item-1"},
+    "get_order_details": {"order_id": "#W0000000"},
+    "get_product_details": {"product_id": "product-1"},
+    "get_user_details": {"user_id": "user-1"},
+    "modify_pending_order_address": {"order_id": "#W0000000", "address1": "1 Test Way", "address2": "", "city": "Testville", "state": "TS", "country": "USA", "zip": "00000"},
+    "modify_pending_order_items": {"order_id": "#W0000000", "item_ids": ["item-old"], "new_item_ids": ["item-new"], "payment_method_id": "card-1"},
+    "modify_pending_order_payment": {"order_id": "#W0000000", "payment_method_id": "card-1"},
+    "modify_user_address": {"user_id": "user-1", "address1": "1 Test Way", "address2": "", "city": "Testville", "state": "TS", "country": "USA", "zip": "00000"},
+    "return_delivered_order_items": {"order_id": "#W0000000", "item_ids": ["item-1"], "payment_method_id": "card-1"},
+    "transfer_to_human_agents": {"summary": "Synthetic issue for contract validation."}
+  },
+  "reset_determinism": {
+    "seed": 42,
+    "first": {
+      "contract_version": "0.1.0",
+      "reset_id": "reset-first",
+      "case_id": "E5-CONTRACT-001",
+      "sequence_index": 0,
+      "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "entity_counts": {"orders": 2, "products": 3, "users": 1},
+      "mutation_count": 0
+    },
+    "second": {
+      "contract_version": "0.1.0",
+      "reset_id": "reset-second",
+      "case_id": "E5-CONTRACT-001",
+      "sequence_index": 0,
+      "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "entity_counts": {"orders": 2, "products": 3, "users": 1},
+      "mutation_count": 0
+    }
+  },
+  "scenarios": [
+    {
+      "fixture_id": "no_tool",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-no-tool", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-no-tool", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0}
+    },
+    {
+      "fixture_id": "read_success",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-read", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-read-001", "run_id": "run-read-001", "sequence_index": 0, "retry_of": null, "tool_name": "get_order_details", "arguments": {"order_id": "#W0000000"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:01Z", "latency_ms": 1, "outcome": "success", "result": "ok", "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": null},
+          "state_after_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-read", "case_id": "E5-CONTRACT-001", "sequence_index": 1, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0}
+    },
+    {
+      "fixture_id": "write_success",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-write", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-write-001", "run_id": "run-write-001", "sequence_index": 0, "retry_of": null, "tool_name": "modify_pending_order_payment", "arguments": {"order_id": "#W0000000", "payment_method_id": "card-1"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:01Z", "latency_ms": 1, "outcome": "success", "result": "ok", "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": null},
+          "state_after_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-write", "case_id": "E5-CONTRACT-001", "sequence_index": 1, "state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 1}
+    },
+    {
+      "fixture_id": "invalid_arguments",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-invalid", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-invalid-001", "run_id": "run-invalid-001", "sequence_index": 0, "retry_of": null, "tool_name": "modify_pending_order_payment", "arguments": {"order_id": "#W0000000"}, "was_allowed": true, "arguments_valid": false, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:00Z", "latency_ms": 0, "outcome": "rejected", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": {"error_type": "invalid_arguments", "message": "Synthetic invalid arguments.", "retryable": false}},
+          "state_after_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-invalid", "case_id": "E5-CONTRACT-001", "sequence_index": 1, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0}
+    },
+    {
+      "fixture_id": "disallowed_tool",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-disallowed", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-disallowed-001", "run_id": "run-disallowed-001", "sequence_index": 0, "retry_of": null, "tool_name": "get_user_details", "arguments": {"user_id": "user-1"}, "was_allowed": false, "arguments_valid": true, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:00Z", "latency_ms": 0, "outcome": "rejected", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": {"error_type": "disallowed_tool", "message": "Synthetic disallowed tool.", "retryable": false}},
+          "state_after_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-disallowed", "case_id": "E5-CONTRACT-001", "sequence_index": 1, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0}
+    },
+    {
+      "fixture_id": "tool_failure",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-failure", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-failure-001", "run_id": "run-failure-001", "sequence_index": 0, "retry_of": null, "tool_name": "get_order_details", "arguments": {"order_id": "#W0000000"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:01Z", "latency_ms": 1, "outcome": "error", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": {"error_type": "tool_failure", "message": "Synthetic injected failure.", "retryable": true}},
+          "state_after_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-failure-retry", "run_id": "run-failure-001", "sequence_index": 1, "retry_of": "tool-failure-001", "tool_name": "get_order_details", "arguments": {"order_id": "#W0000000"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:02Z", "completed_at": "2026-07-22T00:00:03Z", "latency_ms": 1, "outcome": "success", "result": "ok", "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": null},
+          "state_after_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-failure", "case_id": "E5-CONTRACT-001", "sequence_index": 2, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0}
+    },
+    {
+      "fixture_id": "duplicate_action",
+      "initial_state": {"contract_version": "0.1.0", "reset_id": "reset-duplicate", "case_id": "E5-CONTRACT-001", "sequence_index": 0, "state_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 0},
+      "events": [
+        {
+          "state_before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-duplicate-root", "run_id": "run-duplicate-001", "sequence_index": 0, "retry_of": null, "tool_name": "cancel_pending_order", "arguments": {"order_id": "#W0000000", "reason": "ordered by mistake"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:00Z", "completed_at": "2026-07-22T00:00:01Z", "latency_ms": 1, "outcome": "success", "result": "ok", "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": null},
+          "state_after_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "state_before_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "call": {"schema_version": "1.0", "tool_call_id": "tool-duplicate-retry", "run_id": "run-duplicate-001", "sequence_index": 1, "retry_of": "tool-duplicate-root", "tool_name": "cancel_pending_order", "arguments": {"order_id": "#W0000000", "reason": "ordered by mistake"}, "was_allowed": true, "arguments_valid": true, "started_at": "2026-07-22T00:00:02Z", "completed_at": "2026-07-22T00:00:03Z", "latency_ms": 1, "outcome": "error", "result": null, "result_truncated": false, "result_bytes": 4, "result_sha256": null, "error": {"error_type": "duplicate_action", "message": "Synthetic duplicate mutation.", "retryable": false}},
+          "state_after_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "final_state": {"contract_version": "0.1.0", "reset_id": "reset-duplicate", "case_id": "E5-CONTRACT-001", "sequence_index": 2, "state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "entity_counts": {"orders": 2, "products": 3, "users": 1}, "mutation_count": 1}
+    }
+  ],
+  "leakage_probe": {
+    "agent_visible_good": {"order": {"status": "pending"}},
+    "agent_visible_bad": {"gold_answer": "synthetic-hidden-value"}
+  }
+}

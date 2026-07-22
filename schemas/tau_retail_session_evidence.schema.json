@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/tau_retail_session_evidence.schema.json",
+  "title": "Tau-Retail Session Evidence",
+  "description": "Evaluator-side binding of reset state, normalized tool attempts, and final bounded state evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fixture_id", "initial_state", "events", "final_state"],
+  "properties": {
+    "fixture_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,99}$"},
+    "initial_state": {"$ref": "tau_retail_state_record.schema.json"},
+    "events": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state_before_sha256", "call", "state_after_sha256"],
+        "properties": {
+          "state_before_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "call": {"$ref": "tool_call.schema.json"},
+          "state_after_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "final_state": {"$ref": "tau_retail_state_record.schema.json"}
+  }
+}
