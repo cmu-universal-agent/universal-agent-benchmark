@@ -1,6 +1,5 @@
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -160,25 +159,6 @@ def _llm_configuration(context: RunContext) -> tuple[dict[str, Any], list[str]]:
     return kwargs, forwarded
 
 
-def _redacted_error(exc: Exception) -> str:
-    """Keep useful exception details while removing likely credentials."""
-    message = str(exc)
-    for name, value in os.environ.items():
-        if value and len(value) >= 8 and any(
-            marker in name.upper() for marker in ("KEY", "TOKEN", "SECRET", "PASSWORD")
-        ):
-            message = message.replace(value, "[REDACTED]")
-    message = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", message)
-    message = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}\b", "[REDACTED]", message)
-    message = re.sub(r"(https?://)[^/@\s]+@", r"\1[REDACTED]@", message)
-    message = re.sub(
-        r"(?i)([?&](?:api_?key|token|access_?token|secret|password)=)[^&\s]+",
-        r"\1[REDACTED]",
-        message,
-    )
-    return f"{type(exc).__name__}: {message}"
-
-
 def _run_agent(
     prompt: str,
     vertical: str,
@@ -253,7 +233,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
             task,
             final_output="",
             success=False,
-            error=_redacted_error(exc),
+            error=f"{type(exc).__name__}: {exc}",
             raw_tool_logs=_raw_tool_logs(),
         )
         result.raw_metadata.update(

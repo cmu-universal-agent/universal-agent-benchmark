@@ -81,7 +81,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
             metadata=metadata,
             schema_version="1.0",
             case_id=data["case_id"],
-            allowed_tools=list(data.get("allowed_tools", [])),
+            allowed_tools=(
+                list(data["allowed_tools"])
+                if data.get("allowed_tools") is not None
+                else None
+            ),
             stress_type=data["stress_type"],
             input_data=dict(input_value.get("data", {})),
         )
