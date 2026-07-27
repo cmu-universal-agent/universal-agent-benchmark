@@ -1,0 +1,19 @@
+{
+  "case_id": "RETAIL-E5-001",
+  "prompt": "A customer contacts support about order O5001. The mouse they received (P1001-BLK) was defective. They are a delivered order and eligible for a refund. Process the correct resolution for this customer using the available tools.",
+  "focus_user_id": "U100",
+  "focus_order_id": "O5001",
+  "evaluator_only": {
+    "required_actions": [
+      {"tool_name": "refund_order", "arguments": {"order_id": "O5001", "reason": "defective"}}
+    ],
+    "disallowed_actions": [
+      {"tool_name": "escalate_to_human", "arguments": {}}
+    ],
+    "expected_final_state": {
+      "orders": {
+        "O5001": {"status": "refunded", "refunded_amount": 25.99}
+      }
+    }
+  }
+}

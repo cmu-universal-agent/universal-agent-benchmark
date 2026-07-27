@@ -1,0 +1,14 @@
+{
+  "U100": {
+    "user_id": "U100",
+    "name": "Alice Chen",
+    "email": "alice@example.com",
+    "order_ids": ["O5001"]
+  },
+  "U101": {
+    "user_id": "U101",
+    "name": "Ben Ortiz",
+    "email": "ben@example.com",
+    "order_ids": ["O5002"]
+  }
+}

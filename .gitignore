@@ -11,4 +11,6 @@ results/dashboard.html
 AGENTS.md
 CLAUDE.md
 TODO.md
-data/
+/data/
+.crewai/
+evaluator_data/
