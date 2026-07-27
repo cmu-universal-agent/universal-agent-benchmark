@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from adapter.schemas import BenchmarkTask
+from adapter.validation import validate_benchmark_case_constraints
 
 
 V1_TO_RUNTIME_VERTICAL = {
@@ -62,6 +63,11 @@ def render_v1_prompt(
 def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
     """Convert a task dictionary from either supported format."""
     if data.get("schema_version") == "1.0":
+        constraint_errors = validate_benchmark_case_constraints(data)
+        if constraint_errors:
+            details = "; ".join(constraint_errors)
+            raise ValueError(f"invalid Benchmark Case v1.0: {details}")
+
         input_value = data["input"]
         schema_vertical = data["vertical"]
         runtime_vertical = V1_TO_RUNTIME_VERTICAL.get(schema_vertical, schema_vertical)
