@@ -17,7 +17,7 @@ import uuid
 from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, Callable, Sequence
 
 from adapter.schemas import AgentRunResult, BenchmarkTask
 
@@ -362,3 +362,71 @@ def finish_run(
         tool_calls=tool_calls,
         token_usage=usage,
     )
+
+
+def run_framework_task(
+    task: BenchmarkTask,
+    *,
+    framework: str,
+    package_name: str,
+    tool_modules: Sequence[Any],
+    requested_settings: GenerationSettings,
+    build_model: Callable[[GenerationSettings], tuple[Any, GenerationSettingsResolution]],
+    run_model: Callable[[Any, GenerationSettings], tuple[str, dict[str, int | None]]],
+) -> AgentRunResult:
+    """Shared run_task control flow for every framework adapter.
+
+    ``requested_settings`` must be resolved by the caller (usually via
+    ``configured_generation_settings()``) rather than read here, so
+    framework modules can keep patching their own imported reference in
+    tests. ``build_model`` receives the requested generation settings and
+    returns the constructed model/agent object plus its resolved generation
+    settings. A ``build_model`` failure is recorded as a model-construction
+    error and ``run_model`` is never called. On success, ``run_model``
+    receives the constructed object and the originally requested settings,
+    and returns (final_output, token_usage). A ``run_model`` failure is
+    recorded as a run error. ``tool_modules`` are reset before the attempt
+    and their call logs are collected into the result regardless of outcome
+    (except when model construction itself failed).
+    """
+    timing = start_run_timing()
+    model_error: Exception | None = None
+    model: Any = None
+    try:
+        model, generation_settings = build_model(requested_settings)
+    except Exception as exc:
+        model_error = exc
+        generation_settings = unsupported_generation_settings(requested_settings)
+
+    context = begin_run(framework, package_name, generation_settings, timing)
+    for module in tool_modules:
+        module.reset_call_log()
+
+    if model_error is not None:
+        return finish_run(
+            context,
+            task,
+            final_output="",
+            success=False,
+            error=f"{type(model_error).__name__}: {model_error}",
+        )
+
+    try:
+        final_output, token_usage = run_model(model, requested_settings)
+        return finish_run(
+            context,
+            task,
+            final_output=final_output,
+            success=True,
+            raw_tool_logs=[log for module in tool_modules for log in module.call_log],
+            token_usage=token_usage,
+        )
+    except Exception as exc:
+        return finish_run(
+            context,
+            task,
+            final_output="",
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
+            raw_tool_logs=[log for module in tool_modules for log in module.call_log],
+        )

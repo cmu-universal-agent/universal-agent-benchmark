@@ -11,7 +11,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
-from adapter.runtime import begin_run, finish_run
+from adapter.runtime import (
+    GenerationSettings,
+    GenerationSettingsResolution,
+    configured_generation_settings,
+    normalize_openai_model_settings,
+    resolve_generation_settings,
+    run_framework_task,
+)
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
@@ -27,6 +34,7 @@ os.environ["OPENAI_AGENTS_DISABLE_TRACING"] = "1"
 
 from agents import (
     Agent,
+    ModelSettings,
     Runner,
     function_tool,
     set_default_openai_api,
@@ -36,8 +44,6 @@ from agents import (
 
 api_key = os.getenv("OPENAI_API_KEY")
 base_url = os.getenv("OPENAI_BASE_URL")
-model = os.getenv("OPENAI_MODEL", "gpt-4")
-
 set_default_openai_api("chat_completions")
 
 set_default_openai_client(
@@ -77,10 +83,22 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
     return [tool_value for name, tool_value in available.items() if name in allowed]
 
 
-async def _run_agent(
-    prompt: str, vertical: str, allowed_tools: list[str] | None = None
-) -> tuple[str, dict[str, int]]:
+def _build_agent(
+    vertical: str,
+    allowed_tools: list[str] | None,
+    generation_settings: GenerationSettings,
+) -> tuple[Agent, GenerationSettingsResolution]:
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4")
+    supported_settings = normalize_openai_model_settings(
+        model_name,
+        generation_settings,
+    )
     tools = _select_tools(vertical, allowed_tools)
+    extra_args = (
+        {"seed": supported_settings.seed}
+        if supported_settings.seed is not None
+        else None
+    )
     agent = Agent(
         name="OpenAI Smoke Test Agent",
         instructions=(
@@ -88,9 +106,30 @@ async def _run_agent(
             "Follow the user's output format exactly. "
             "Do not add markdown."
         ),
-        model=model,
+        model=model_name,
+        model_settings=ModelSettings(
+            temperature=supported_settings.temperature,
+            max_tokens=supported_settings.max_output_tokens,
+            extra_args=extra_args,
+        ),
         tools=tools,
     )
+    model_settings = agent.model_settings
+    effective_settings = GenerationSettings(
+        temperature=model_settings.temperature,
+        max_output_tokens=model_settings.max_tokens,
+        seed=(model_settings.extra_args or {}).get("seed"),
+    )
+    return agent, resolve_generation_settings(
+        generation_settings,
+        effective_settings,
+    )
+
+
+async def _run_agent(
+    prompt: str,
+    agent: Agent,
+) -> tuple[str, dict[str, int]]:
     result = await Runner.run(agent, prompt)
     usage = result.context_wrapper.usage
     return str(result.final_output), {
@@ -101,30 +140,17 @@ async def _run_agent(
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    context = begin_run(FRAMEWORK_NAME, "openai-agents")
-    medical_tools.reset_call_log()
-    ecommerce_tools.reset_call_log()
-    try:
-        final_output, token_usage = asyncio.run(
-            _run_agent(task.prompt, task.vertical, task.allowed_tools)
-        )
-        return finish_run(
-            context,
-            task,
-            final_output=final_output,
-            success=True,
-            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
-            token_usage=token_usage,
-        )
-    except Exception as exc:
-        return finish_run(
-            context,
-            task,
-            final_output="",
-            success=False,
-            error=f"{type(exc).__name__}: {exc}",
-            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
-        )
+    return run_framework_task(
+        task,
+        framework=FRAMEWORK_NAME,
+        package_name="openai-agents",
+        tool_modules=[medical_tools, ecommerce_tools],
+        requested_settings=configured_generation_settings(),
+        build_model=lambda settings: _build_agent(
+            task.vertical, task.allowed_tools, settings
+        ),
+        run_model=lambda agent, _requested: asyncio.run(_run_agent(task.prompt, agent)),
+    )
 
 
 
