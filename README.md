@@ -139,3 +139,12 @@ The existing smoke test covers the no-tool scenario. Together, the smoke test,
 adapter-contract scenarios: no tool, successful tool call, and failing tool.
 
 `generate_suitability_matrix.py` is the final deliverable: per-vertical accuracy, latency, and failure-mode tables with ASCII bar charts, plus qualitative findings and a recommendation per framework.
+
+## Retail run console (dashboard)
+
+```bash
+python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
+open results/dashboard.html                                # macOS; or just double-click the file
+```
+
+Reads the latest row per `(task_id, framework)` from `results/metrics/retail_results.jsonl` and renders a self-contained, read-only HTML page — no server, nothing to deploy. It's a rendering layer only: pass/fail, failure class, and final-state correctness are never recomputed, only displayed. `results/dashboard.html` is generated (gitignored), so it isn't checked in or viewable on GitHub — regenerate it locally and open the file to view it. See `docs/WS3_dashboard_prototype.html` for the approved visual reference.
