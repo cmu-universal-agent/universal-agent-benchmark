@@ -86,9 +86,8 @@ in force until she releases it and repository review is complete.
 
 ### Repository / Integration Owner
 
-- Review the Workstream 2 PRs. PR #1 is eligible to move out of Draft after the
-  final validation evidence is confirmed, but do not merge while Jessica's
-  current hold is active.
+- Review the Workstream 2 PRs. PR #1 is Ready for Review; do not merge while
+  Jessica's current hold is active.
 - Grant or confirm contributor access to the official
   `cmu-universal-agent/universal-agent-benchmark` repository before the next
   upstream synchronization.
