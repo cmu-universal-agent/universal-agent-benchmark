@@ -5,6 +5,10 @@ __pycache__/
 .DS_Store
 results/traces/*
 results/metrics/*
+results/framework_suitability_matrix.md
+results/framework_suitability_matrix.pdf
+results/dashboard.html
+AGENTS.md
 CLAUDE.md
 TODO.md
 data/
