@@ -7,6 +7,10 @@ __pycache__/
 results/traces/*
 results/metrics/*
 evaluator_data/local_review_decisions/
+results/framework_suitability_matrix.md
+results/framework_suitability_matrix.pdf
+results/dashboard.html
+AGENTS.md
 CLAUDE.md
 TODO.md
 data/
