@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
@@ -86,6 +87,118 @@ def _bounded_tool_result(value: Any) -> tuple[Any, bool, int, str | None]:
 
 
 @dataclass(frozen=True)
+class GenerationSettings:
+    temperature: float | None
+    max_output_tokens: int | None
+    seed: int | None
+
+
+@dataclass(frozen=True)
+class GenerationSettingsResolution:
+    requested: GenerationSettings
+    effective: GenerationSettings
+    unsupported: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RunTiming:
+    started_at: str
+    started_perf_counter: float
+
+
+def start_run_timing() -> RunTiming:
+    """Start end-to-end timing before framework model construction."""
+    return RunTiming(
+        started_at=_utc_now(),
+        started_perf_counter=time.perf_counter(),
+    )
+
+
+def resolve_generation_settings(
+    requested: GenerationSettings,
+    effective: GenerationSettings,
+) -> GenerationSettingsResolution:
+    """Separate requested settings from values retained by a model wrapper."""
+    unsupported = tuple(
+        field.name
+        for field in fields(GenerationSettings)
+        if getattr(requested, field.name) is not None
+        and not _generation_value_matches(
+            getattr(requested, field.name), getattr(effective, field.name)
+        )
+    )
+    return GenerationSettingsResolution(
+        requested=requested,
+        effective=effective,
+        unsupported=unsupported,
+    )
+
+
+def _generation_value_matches(
+    requested: float | int, effective: float | int | None
+) -> bool:
+    """Compare a requested setting to its wrapper-echoed value.
+
+    Some wrappers round-trip floats through their own coercion (e.g.
+    pydantic), so exact equality would misreport a supported setting as
+    unsupported due to float noise.
+    """
+    if effective is None:
+        return False
+    if isinstance(requested, float) or isinstance(effective, float):
+        return math.isclose(requested, effective, rel_tol=0, abs_tol=1e-9)
+    return requested == effective
+
+
+def unsupported_generation_settings(
+    requested: GenerationSettings,
+) -> GenerationSettingsResolution:
+    """Represent a model construction that applied no generation settings."""
+    return resolve_generation_settings(
+        requested,
+        GenerationSettings(
+            temperature=None,
+            max_output_tokens=None,
+            seed=None,
+        ),
+    )
+
+
+def normalize_openai_model_settings(
+    model_name: str,
+    requested: GenerationSettings,
+) -> GenerationSettings:
+    """Omit known unsupported OpenAI model parameters.
+
+    GPT-5 reasoning models reject non-default temperature values unless
+    reasoning effort is explicitly disabled. The benchmark does not alter
+    reasoning effort, so an unsupported requested temperature is omitted.
+    """
+    normalized_name = model_name.rsplit("/", 1)[-1].lower()
+    temperature = requested.temperature
+    if (
+        normalized_name.startswith("gpt-5")
+        and "chat" not in normalized_name
+        and temperature not in (None, 1.0)
+    ):
+        temperature = None
+    return GenerationSettings(
+        temperature=temperature,
+        max_output_tokens=requested.max_output_tokens,
+        seed=requested.seed,
+    )
+
+
+def configured_generation_settings() -> GenerationSettings:
+    """Read the generation settings shared by every framework adapter."""
+    return GenerationSettings(
+        temperature=_optional_float("OPENAI_TEMPERATURE", 0.0),
+        max_output_tokens=_optional_int("OPENAI_MAX_OUTPUT_TOKENS"),
+        seed=_optional_int("OPENAI_SEED"),
+    )
+
+
+@dataclass(frozen=True)
 class RunContext:
     run_id: str
     experiment_id: str
@@ -97,15 +210,28 @@ class RunContext:
     temperature: float | None
     max_output_tokens: int | None
     seed: int | None
+    requested_generation_settings: GenerationSettings
+    unsupported_generation_settings: tuple[str, ...]
     started_at: str
     started_perf_counter: float
 
 
-def begin_run(framework: str, package_name: str) -> RunContext:
+def begin_run(
+    framework: str,
+    package_name: str,
+    generation_settings: GenerationSettings | GenerationSettingsResolution | None = None,
+    timing: RunTiming | None = None,
+) -> RunContext:
     """Capture configuration at execution time, never during report generation."""
-    started_at = _utc_now()
+    run_timing = timing or start_run_timing()
     run_id = f"run-{uuid.uuid4().hex}"
     experiment_id = os.getenv("BENCHMARK_EXPERIMENT_ID") or f"manual-{run_id}"
+    if isinstance(generation_settings, GenerationSettingsResolution):
+        resolution = generation_settings
+    else:
+        settings = generation_settings or configured_generation_settings()
+        resolution = resolve_generation_settings(settings, settings)
+    effective_settings = resolution.effective
     return RunContext(
         run_id=run_id,
         experiment_id=experiment_id,
@@ -114,11 +240,13 @@ def begin_run(framework: str, package_name: str) -> RunContext:
         model_provider=os.getenv("OPENAI_MODEL_PROVIDER", "openai"),
         model_name=os.getenv("OPENAI_MODEL", "unknown"),
         model_version=os.getenv("OPENAI_MODEL_VERSION") or None,
-        temperature=_optional_float("OPENAI_TEMPERATURE", 0.0),
-        max_output_tokens=_optional_int("OPENAI_MAX_OUTPUT_TOKENS"),
-        seed=_optional_int("OPENAI_SEED"),
-        started_at=started_at,
-        started_perf_counter=time.perf_counter(),
+        temperature=effective_settings.temperature,
+        max_output_tokens=effective_settings.max_output_tokens,
+        seed=effective_settings.seed,
+        requested_generation_settings=resolution.requested,
+        unsupported_generation_settings=resolution.unsupported,
+        started_at=run_timing.started_at,
+        started_perf_counter=run_timing.started_perf_counter,
     )
 
 
@@ -205,6 +333,17 @@ def finish_run(
         raw_metadata={
             "adapter_version": ADAPTER_VERSION,
             "json_parse_valid": isinstance(parsed_output, dict),
+            "requested_generation_settings": asdict(
+                context.requested_generation_settings
+            ),
+            "effective_generation_settings": {
+                "temperature": context.temperature,
+                "max_output_tokens": context.max_output_tokens,
+                "seed": context.seed,
+            },
+            "unsupported_generation_settings": list(
+                context.unsupported_generation_settings
+            ),
         },
         case_id=task.case_id,
         run_id=context.run_id,
