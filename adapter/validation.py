@@ -16,14 +16,49 @@ ROOT = Path(__file__).resolve().parents[1]
 ORDINARY_SOURCE_LIMIT = 50_000
 LONG_CONTEXT_SOURCE_LIMIT = 100_000
 TOOL_RESULT_MAX_BYTES = 50 * 1024
-FORBIDDEN_AGENT_VISIBLE_KEYS = {
-    "expected",
-    "expected_answer",
-    "gold_answer",
-    "ground_truth",
-    "rubric",
-    "evaluator_rubric",
-}
+# Compound, purpose-built evaluator terms with effectively no collision risk
+# against real domain field names. Hard-blocked at task-load time for every
+# framework run, not just during offline dataset review.
+STRICT_EVALUATOR_ONLY_KEYS = frozenset(
+    {
+        "canary",
+        "evaluation_criteria",
+        "evaluator_rubric",
+        "expected_actions",
+        "expected_answer",
+        "expected_communications",
+        "expected_final_state",
+        "gold_answer",
+        "ground_truth",
+        "ground_truth_sentiment_direction",
+        "ground_truth_trend_direction",
+        "hidden_state",
+        "reference_safe_response",
+        "rubrics",
+        "safe_response",
+        "unsafe_response",
+    }
+)
+
+# Bare dictionary words that are plausible legitimate domain field names
+# (e.g. a clinical "note" or an e-commerce "gold" loyalty tier). Each has a
+# compound sibling above already covering the real evaluator-only concept.
+# Flagged during offline dataset review, where a human can judge a match,
+# but not hard-blocked at runtime load.
+AMBIGUOUS_EVALUATOR_ONLY_KEYS = frozenset(
+    {
+        "evaluation",
+        "expected",
+        "gold",
+        "note",
+        "rubric",
+    }
+)
+
+EVALUATOR_ONLY_KEYS = STRICT_EVALUATOR_ONLY_KEYS | AMBIGUOUS_EVALUATOR_ONLY_KEYS
+
+# Backward-compatible name for callers that imported the original constant.
+FORBIDDEN_AGENT_VISIBLE_KEYS = EVALUATOR_ONLY_KEYS
 OUTPUT_SCHEMA_BY_TASK = {
     "H1": "medical_output.schema.json",
     "H2": "medical_output.schema.json",
@@ -49,6 +84,20 @@ def _walk_keys(value: Any, path: str = "<root>") -> list[tuple[str, str]]:
     return found
 
 
+def find_evaluator_leakage(
+    value: Any,
+    path: str = "<root>",
+    *,
+    keys: frozenset[str] = EVALUATOR_ONLY_KEYS,
+) -> list[tuple[str, str]]:
+    """Return evaluator-only keys and their recursive agent-visible paths."""
+    return [
+        (key, key_path)
+        for key, key_path in _walk_keys(value, path)
+        if key.lower() in keys
+    ]
+
+
 def validate_benchmark_case_constraints(case: dict[str, Any]) -> list[str]:
     """Check aggregate context limits and evaluator-data isolation."""
     errors: list[str] = []
@@ -64,9 +113,8 @@ def validate_benchmark_case_constraints(case: dict[str, Any]) -> list[str]:
             f"aggregate source content is {total} characters; limit is {limit}"
         )
 
-    for key, path in _walk_keys(case):
-        if key.lower() in FORBIDDEN_AGENT_VISIBLE_KEYS:
-            errors.append(f"agent-visible case contains forbidden key at {path}")
+    for _, path in find_evaluator_leakage(case, keys=STRICT_EVALUATOR_ONLY_KEYS):
+        errors.append(f"agent-visible case contains forbidden key at {path}")
     return errors
 
 
