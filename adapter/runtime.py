@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
+import re
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, Callable, Sequence
 
 from adapter.schemas import AgentRunResult, BenchmarkTask
 
@@ -86,6 +88,128 @@ def _bounded_tool_result(value: Any) -> tuple[Any, bool, int, str | None]:
 
 
 @dataclass(frozen=True)
+class GenerationSettings:
+    temperature: float | None
+    max_output_tokens: int | None
+    seed: int | None
+
+
+@dataclass(frozen=True)
+class GenerationSettingsResolution:
+    requested: GenerationSettings
+    effective: GenerationSettings
+    unsupported: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RunTiming:
+    started_at: str
+    started_perf_counter: float
+
+
+def start_run_timing() -> RunTiming:
+    """Start end-to-end timing before framework model construction."""
+    return RunTiming(
+        started_at=_utc_now(),
+        started_perf_counter=time.perf_counter(),
+    )
+
+
+def resolve_generation_settings(
+    requested: GenerationSettings,
+    effective: GenerationSettings,
+) -> GenerationSettingsResolution:
+    """Separate requested settings from values retained by a model wrapper."""
+    unsupported = tuple(
+        field.name
+        for field in fields(GenerationSettings)
+        if getattr(requested, field.name) is not None
+        and not _generation_value_matches(
+            getattr(requested, field.name), getattr(effective, field.name)
+        )
+    )
+    return GenerationSettingsResolution(
+        requested=requested,
+        effective=effective,
+        unsupported=unsupported,
+    )
+
+
+def _generation_value_matches(
+    requested: float | int, effective: float | int | None
+) -> bool:
+    """Compare a requested setting to its wrapper-echoed value.
+
+    Some wrappers round-trip floats through their own coercion (e.g.
+    pydantic), so exact equality would misreport a supported setting as
+    unsupported due to float noise.
+    """
+    if effective is None:
+        return False
+    if isinstance(requested, float) or isinstance(effective, float):
+        return math.isclose(requested, effective, rel_tol=0, abs_tol=1e-9)
+    return requested == effective
+
+
+def failed_model_construction_settings(
+    requested: GenerationSettings,
+) -> GenerationSettingsResolution:
+    """Represent generation settings when the model was never constructed.
+
+    A ``build_model`` failure (bad credentials, import error, invalid model
+    name, ...) means no generation setting was ever attempted, let alone
+    rejected. Recording that as "unsupported" would misreport a total build
+    failure as evidence that the framework doesn't support a specific
+    setting, corrupting any suitability comparison drawn from the metadata.
+    ``unsupported`` is therefore always empty here; ``model_construction_failed``
+    on the resulting run is the correct signal for "no settings apply."
+    """
+    return GenerationSettingsResolution(
+        requested=requested,
+        effective=GenerationSettings(
+            temperature=None,
+            max_output_tokens=None,
+            seed=None,
+        ),
+        unsupported=(),
+    )
+
+
+def normalize_openai_model_settings(
+    model_name: str,
+    requested: GenerationSettings,
+) -> GenerationSettings:
+    """Omit known unsupported OpenAI model parameters.
+
+    GPT-5 reasoning models reject non-default temperature values unless
+    reasoning effort is explicitly disabled. The benchmark does not alter
+    reasoning effort, so an unsupported requested temperature is omitted.
+    """
+    normalized_name = model_name.rsplit("/", 1)[-1].lower()
+    temperature = requested.temperature
+    if (
+        normalized_name.startswith("gpt-5")
+        and "chat" not in normalized_name
+        and temperature not in (None, 1.0)
+    ):
+        temperature = None
+    return GenerationSettings(
+        temperature=temperature,
+        max_output_tokens=requested.max_output_tokens,
+        seed=requested.seed,
+    )
+
+
+def configured_generation_settings() -> GenerationSettings:
+    """Read the generation settings shared by every framework adapter."""
+    return GenerationSettings(
+        temperature=_optional_float("OPENAI_TEMPERATURE", 0.0),
+        max_output_tokens=_optional_int("OPENAI_MAX_OUTPUT_TOKENS"),
+        seed=_optional_int("OPENAI_SEED"),
+    )
+
+
+@dataclass(frozen=True)
 class RunContext:
     run_id: str
     experiment_id: str
@@ -97,15 +221,31 @@ class RunContext:
     temperature: float | None
     max_output_tokens: int | None
     seed: int | None
+    requested_generation_settings: GenerationSettings
+    unsupported_generation_settings: tuple[str, ...]
+    model_construction_failed: bool
     started_at: str
     started_perf_counter: float
 
 
-def begin_run(framework: str, package_name: str) -> RunContext:
+def begin_run(
+    framework: str,
+    package_name: str,
+    generation_settings: GenerationSettings | GenerationSettingsResolution | None = None,
+    timing: RunTiming | None = None,
+    *,
+    model_construction_failed: bool = False,
+) -> RunContext:
     """Capture configuration at execution time, never during report generation."""
-    started_at = _utc_now()
+    run_timing = timing or start_run_timing()
     run_id = f"run-{uuid.uuid4().hex}"
     experiment_id = os.getenv("BENCHMARK_EXPERIMENT_ID") or f"manual-{run_id}"
+    if isinstance(generation_settings, GenerationSettingsResolution):
+        resolution = generation_settings
+    else:
+        settings = generation_settings or configured_generation_settings()
+        resolution = resolve_generation_settings(settings, settings)
+    effective_settings = resolution.effective
     return RunContext(
         run_id=run_id,
         experiment_id=experiment_id,
@@ -114,11 +254,14 @@ def begin_run(framework: str, package_name: str) -> RunContext:
         model_provider=os.getenv("OPENAI_MODEL_PROVIDER", "openai"),
         model_name=os.getenv("OPENAI_MODEL", "unknown"),
         model_version=os.getenv("OPENAI_MODEL_VERSION") or None,
-        temperature=_optional_float("OPENAI_TEMPERATURE", 0.0),
-        max_output_tokens=_optional_int("OPENAI_MAX_OUTPUT_TOKENS"),
-        seed=_optional_int("OPENAI_SEED"),
-        started_at=started_at,
-        started_perf_counter=time.perf_counter(),
+        temperature=effective_settings.temperature,
+        max_output_tokens=effective_settings.max_output_tokens,
+        seed=effective_settings.seed,
+        requested_generation_settings=resolution.requested,
+        unsupported_generation_settings=resolution.unsupported,
+        model_construction_failed=model_construction_failed,
+        started_at=run_timing.started_at,
+        started_perf_counter=run_timing.started_perf_counter,
     )
 
 
@@ -164,6 +307,30 @@ def normalize_tool_calls(
     return normalized
 
 
+def redact_error(message: str) -> str:
+    """Strip likely credentials from an error message before it is stored.
+
+    Applied centrally so every framework adapter gets the same guarantee
+    against leaking API keys/tokens into results/metrics/*.jsonl, instead of
+    each wrapper having to remember to redact its own exception text.
+    """
+    redacted = message
+    for name, value in os.environ.items():
+        if value and len(value) >= 8 and any(
+            marker in name.upper() for marker in ("KEY", "TOKEN", "SECRET", "PASSWORD")
+        ):
+            redacted = redacted.replace(value, "[REDACTED]")
+    redacted = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", redacted)
+    redacted = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}\b", "[REDACTED]", redacted)
+    redacted = re.sub(r"(https?://)[^/@\s]+@", r"\1[REDACTED]@", redacted)
+    redacted = re.sub(
+        r"(?i)([?&](?:api_?key|token|access_?token|secret|password)=)[^&\s]+",
+        r"\1[REDACTED]",
+        redacted,
+    )
+    return redacted
+
+
 def finish_run(
     context: RunContext,
     task: BenchmarkTask,
@@ -200,11 +367,23 @@ def finish_run(
         final_output=raw_output,
         latency_seconds=time.perf_counter() - context.started_perf_counter,
         success=success,
-        error=error,
+        error=redact_error(error) if error is not None else None,
         tool_call_count=len(tool_calls),
         raw_metadata={
             "adapter_version": ADAPTER_VERSION,
             "json_parse_valid": isinstance(parsed_output, dict),
+            "requested_generation_settings": asdict(
+                context.requested_generation_settings
+            ),
+            "effective_generation_settings": {
+                "temperature": context.temperature,
+                "max_output_tokens": context.max_output_tokens,
+                "seed": context.seed,
+            },
+            "unsupported_generation_settings": list(
+                context.unsupported_generation_settings
+            ),
+            "model_construction_failed": context.model_construction_failed,
         },
         case_id=task.case_id,
         run_id=context.run_id,
@@ -223,3 +402,80 @@ def finish_run(
         tool_calls=tool_calls,
         token_usage=usage,
     )
+
+
+def run_framework_task(
+    task: BenchmarkTask,
+    *,
+    framework: str,
+    package_name: str,
+    tool_modules: Sequence[Any],
+    requested_settings: GenerationSettings,
+    build_model: Callable[[GenerationSettings], tuple[Any, GenerationSettingsResolution]],
+    run_model: Callable[[Any, GenerationSettings], tuple[str, dict[str, int | None]]],
+) -> AgentRunResult:
+    """Shared run_task control flow for every framework adapter.
+
+    ``requested_settings`` must be resolved by the caller (usually via
+    ``configured_generation_settings()``) rather than read here, so
+    framework modules can keep patching their own imported reference in
+    tests. ``build_model`` receives the requested generation settings and
+    returns the constructed model/agent object plus its resolved generation
+    settings. A ``build_model`` failure is recorded as a model-construction
+    error (``raw_metadata.model_construction_failed=True``) and ``run_model``
+    is never called; ``unsupported_generation_settings`` stays empty in that
+    case since no setting was ever attempted, let alone rejected. On success,
+    ``run_model``
+    receives the constructed object and the originally requested settings,
+    and returns (final_output, token_usage). A ``run_model`` failure is
+    recorded as a run error. ``tool_modules`` are reset before the attempt
+    and their call logs are collected into the result regardless of outcome
+    (except when model construction itself failed).
+    """
+    timing = start_run_timing()
+    model_error: Exception | None = None
+    model: Any = None
+    try:
+        model, generation_settings = build_model(requested_settings)
+    except Exception as exc:
+        model_error = exc
+        generation_settings = failed_model_construction_settings(requested_settings)
+
+    context = begin_run(
+        framework,
+        package_name,
+        generation_settings,
+        timing,
+        model_construction_failed=model_error is not None,
+    )
+    for module in tool_modules:
+        module.reset_call_log()
+
+    if model_error is not None:
+        return finish_run(
+            context,
+            task,
+            final_output="",
+            success=False,
+            error=f"{type(model_error).__name__}: {model_error}",
+        )
+
+    try:
+        final_output, token_usage = run_model(model, requested_settings)
+        return finish_run(
+            context,
+            task,
+            final_output=final_output,
+            success=True,
+            raw_tool_logs=[log for module in tool_modules for log in module.call_log],
+            token_usage=token_usage,
+        )
+    except Exception as exc:
+        return finish_run(
+            context,
+            task,
+            final_output="",
+            success=False,
+            error=f"{type(exc).__name__}: {exc}",
+            raw_tool_logs=[log for module in tool_modules for log in module.call_log],
+        )

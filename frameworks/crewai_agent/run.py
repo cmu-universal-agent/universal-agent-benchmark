@@ -21,7 +21,14 @@ from crewai import Agent, Crew, LLM, Process, Task
 from crewai.tools import tool
 
 from adapter.result_writer import append_result
-from adapter.runtime import begin_run, finish_run
+from adapter.runtime import (
+    GenerationSettings,
+    GenerationSettingsResolution,
+    configured_generation_settings,
+    normalize_openai_model_settings,
+    resolve_generation_settings,
+    run_framework_task,
+)
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
@@ -57,9 +64,9 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
     return [tool_value for name, tool_value in available.items() if name in allowed]
 
 
-def _run_agent(
-    prompt: str, vertical: str, allowed_tools: list[str] | None = None
-) -> tuple[str, dict[str, int]]:
+def _build_llm(
+    generation_settings: GenerationSettings,
+) -> tuple[LLM, GenerationSettingsResolution]:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
@@ -67,14 +74,36 @@ def _run_agent(
     # CrewAI often expects OpenAI models in this form:
     # openai/gpt-4, openai/gpt-4o-mini, etc.
     crewai_model_name = model_name if "/" in model_name else f"openai/{model_name}"
+    supported_settings = normalize_openai_model_settings(
+        crewai_model_name,
+        generation_settings,
+    )
 
     llm = LLM(
         model=crewai_model_name,
         api_key=api_key,
         base_url=base_url,
-        temperature=0,
+        temperature=supported_settings.temperature,
+        max_tokens=supported_settings.max_output_tokens,
+        seed=supported_settings.seed,
+    )
+    effective_settings = GenerationSettings(
+        temperature=llm.temperature,
+        max_output_tokens=llm.max_tokens,
+        seed=llm.seed,
+    )
+    return llm, resolve_generation_settings(
+        generation_settings,
+        effective_settings,
     )
 
+
+def _run_agent(
+    prompt: str,
+    vertical: str,
+    allowed_tools: list[str] | None,
+    llm: LLM,
+) -> tuple[str, dict[str, int]]:
     tools = _select_tools(vertical, allowed_tools)
 
     agent = Agent(
@@ -116,30 +145,17 @@ def _run_agent(
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    context = begin_run(FRAMEWORK_NAME, "crewai")
-    medical_tools.reset_call_log()
-    ecommerce_tools.reset_call_log()
-    try:
-        final_output, token_usage = _run_agent(
-            task.prompt, task.vertical, task.allowed_tools
-        )
-        return finish_run(
-            context,
-            task,
-            final_output=final_output,
-            success=True,
-            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
-            token_usage=token_usage,
-        )
-    except Exception as exc:
-        return finish_run(
-            context,
-            task,
-            final_output="",
-            success=False,
-            error=f"{type(exc).__name__}: {exc}",
-            raw_tool_logs=[*medical_tools.call_log, *ecommerce_tools.call_log],
-        )
+    return run_framework_task(
+        task,
+        framework=FRAMEWORK_NAME,
+        package_name="crewai",
+        tool_modules=[medical_tools, ecommerce_tools],
+        requested_settings=configured_generation_settings(),
+        build_model=_build_llm,
+        run_model=lambda llm, _requested: _run_agent(
+            task.prompt, task.vertical, task.allowed_tools, llm
+        ),
+    )
 
 
 def main():
