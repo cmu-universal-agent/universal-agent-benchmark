@@ -256,6 +256,15 @@ def inspect_rows(paths: list[Path]) -> tuple[dict[str, Any], list[str]]:
                         if not isinstance(parsed, dict):
                             raise ValueError("final output is not a JSON object")
                         schema_errors = validate_task_output(result.task_id, parsed)
+                        if schema_errors is not None:
+                            for field_name in ("task_id", "case_id"):
+                                actual = parsed.get(field_name)
+                                expected = getattr(result, field_name)
+                                if actual != expected:
+                                    raise ValueError(
+                                        f"output {field_name} {actual!r} does not "
+                                        f"match result {expected!r}"
+                                    )
                         if schema_errors:
                             raise ValueError(
                                 "output schema: " + "; ".join(schema_errors)

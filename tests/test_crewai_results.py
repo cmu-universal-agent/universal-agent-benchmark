@@ -35,6 +35,25 @@ def _result(case_id: str, success: bool = True) -> AgentRunResult:
     )
 
 
+def _h1_output(case_id: str = "CASE-001", task_id: str = "H1") -> str:
+    return json.dumps(
+        {
+            "schema_version": "1.0",
+            "case_id": case_id,
+            "task_id": task_id,
+            "result": {"decision": "yes"},
+            "explanation": "The synthetic evidence supports this decision.",
+            "evidence_ids": [],
+            "confidence": 0.9,
+            "safety": {
+                "safety_flag": False,
+                "recommend_professional_care": False,
+                "safety_note": "No additional synthetic safety concern.",
+            },
+        }
+    )
+
+
 class CrewAIResultCheckerTests(unittest.TestCase):
     def test_valid_rows_are_reconstructed_and_summarized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -86,6 +105,29 @@ class CrewAIResultCheckerTests(unittest.TestCase):
             summary, errors = inspect_rows([path])
         self.assertEqual(len(summary["malformed_outputs"]), 1)
         self.assertTrue(any("malformed final output" in error for error in errors))
+
+    def test_core_output_identifiers_must_match_result_envelope(self) -> None:
+        for field_name, final_output in (
+            ("case_id", _h1_output(case_id="CASE-OTHER")),
+            ("task_id", _h1_output(task_id="H2")),
+        ):
+            with self.subTest(field_name=field_name):
+                result = _result("CASE-001")
+                result.task_id = "H1"
+                result.vertical = "healthcare"
+                result.final_output = final_output
+                result.raw_output = final_output
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "results.jsonl"
+                    path.write_text(
+                        json.dumps(asdict(result)) + "\n",
+                        encoding="utf-8",
+                    )
+                    summary, errors = inspect_rows([path])
+                self.assertEqual(len(summary["malformed_outputs"]), 1)
+                self.assertTrue(
+                    any(f"output {field_name}" in error for error in errors)
+                )
 
     def test_invalid_success_type_is_not_counted_as_failure(self) -> None:
         row = asdict(_result("CASE-001"))
