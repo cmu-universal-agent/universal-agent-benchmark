@@ -11,7 +11,8 @@
     "product_id": "P1002",
     "name": "Mechanical Keyboard",
     "variants": [
-      {"item_id": "P1002-STD", "attributes": {"layout": "ansi"}, "price": 89.0, "available": true}
+      {"item_id": "P1002-STD", "attributes": {"layout": "ansi"}, "price": 89.0, "available": true},
+      {"item_id": "P1002-ISO", "attributes": {"layout": "iso"}, "price": 92.0, "available": true}
     ]
   }
 }

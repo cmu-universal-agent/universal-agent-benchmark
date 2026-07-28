@@ -1,25 +1,19 @@
-"""Agent-visible state snapshots and the evaluator-only gold split.
+"""Agent-visible case snapshots and the evaluator-only gold split.
 
-get_evaluator_view() reads straight from the loaded case fixture and must
-never be threaded into anything returned by call_tool/get_trace/
-get_final_state -- see WS3 build guide section 6/7 and
-tests/retail_core/test_leakage.py.
+Raw RetailDB state (.users/.orders/.products) has no agent- or
+evaluator-visible accessor here on purpose: per
+docs/ws3_tau_retail_contract.md, "raw database state remains
+evaluator-only," and even the evaluator only ever sees the bounded record
+from RetailDB.state_record() (see env.py's get_final_state/
+get_session_evidence). get_evaluator_view() reads straight from the loaded
+case fixture and must never be threaded into anything returned by
+call_tool/get_trace/get_final_state -- see tests/retail_core/test_leakage.py.
 """
 
 import copy
 from typing import Any
 
-from adapter.retail_core.db import RetailDB
-
 EVALUATOR_ONLY_KEY = "evaluator_only"
-
-
-def agent_visible_state(db: RetailDB) -> dict[str, Any]:
-    return {
-        "users": copy.deepcopy(db.users),
-        "orders": copy.deepcopy(db.orders),
-        "products": copy.deepcopy(db.products),
-    }
 
 
 def agent_visible_case(case: dict[str, Any]) -> dict[str, Any]:
