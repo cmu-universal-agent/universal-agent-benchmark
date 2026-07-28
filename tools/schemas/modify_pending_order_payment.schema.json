@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/tools/schemas/modify_pending_order_payment.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "payment_method_id"],
+  "properties": {
+    "order_id": {"type": "string", "minLength": 1, "maxLength": 100},
+    "payment_method_id": {"type": "string", "minLength": 1, "maxLength": 100}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "contract_version": "0.2.0",
+  "status": "candidate_for_owner_review",
+  "domain": "tau_retail",
+  "source": {
+    "upstream_repository": "sierra-research/tau2-bench",
+    "upstream_path": "src/tau2/domains/retail/tools.py",
+    "upstream_blob_sha": "eba01ab32dca0d4ef33328c22358b794d859f2b6",
+    "local_task_count": 114
+  },
+  "normalized_tool_call_schema": "schemas/tool_call.schema.json",
+  "state_record_schema": "schemas/tau_retail_state_record.schema.json",
+  "session_evidence_schema": "schemas/tau_retail_session_evidence.schema.json",
+  "wrapper_evidence_schema": "schemas/tau_retail_wrapper_evidence.schema.json",
+  "lifecycle": {
+    "reset_is_agent_visible": false,
+    "reset_arguments": ["case_id", "reset_id", "seed"],
+    "same_case_and_seed_are_deterministic": true,
+    "reset_clears_call_history": true,
+    "reset_clears_failure_injection": true,
+    "reset_clears_mutation_count": true
+  },
+  "errors": [
+    {"error_type": "invalid_arguments", "outcome": "rejected", "retryable": false},
+    {"error_type": "disallowed_tool", "outcome": "rejected", "retryable": false},
+    {"error_type": "not_found", "outcome": "error", "retryable": false},
+    {"error_type": "invalid_state", "outcome": "error", "retryable": false},
+    {"error_type": "duplicate_action", "outcome": "error", "retryable": false},
+    {"error_type": "policy_rejected", "outcome": "error", "retryable": false},
+    {"error_type": "tool_failure", "outcome": "error", "retryable": true},
+    {"error_type": "timeout", "outcome": "timeout", "retryable": true},
+    {"error_type": "internal_error", "outcome": "error", "retryable": false}
+  ],
+  "tools": [
+    {"name": "calculate", "operation": "non_mutating", "input_schema": "tools/schemas/calculate.schema.json"},
+    {"name": "cancel_pending_order", "operation": "write", "input_schema": "tools/schemas/cancel_pending_order.schema.json"},
+    {"name": "exchange_delivered_order_items", "operation": "write", "input_schema": "tools/schemas/exchange_delivered_order_items.schema.json"},
+    {"name": "find_user_id_by_email", "operation": "read", "input_schema": "tools/schemas/find_user_id_by_email.schema.json"},
+    {"name": "find_user_id_by_name_zip", "operation": "read", "input_schema": "tools/schemas/find_user_id_by_name_zip.schema.json"},
+    {"name": "get_item_details", "operation": "read", "input_schema": "tools/schemas/get_item_details.schema.json"},
+    {"name": "get_order_details", "operation": "read", "input_schema": "tools/schemas/get_order_details.schema.json"},
+    {"name": "get_product_details", "operation": "read", "input_schema": "tools/schemas/get_product_details.schema.json"},
+    {"name": "get_user_details", "operation": "read", "input_schema": "tools/schemas/get_user_details.schema.json"},
+    {"name": "list_all_product_types", "operation": "read", "input_schema": "tools/schemas/list_all_product_types.schema.json"},
+    {"name": "modify_pending_order_address", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_address.schema.json"},
+    {"name": "modify_pending_order_items", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_items.schema.json"},
+    {"name": "modify_pending_order_payment", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_payment.schema.json"},
+    {"name": "modify_user_address", "operation": "write", "input_schema": "tools/schemas/modify_user_address.schema.json"},
+    {"name": "return_delivered_order_items", "operation": "write", "input_schema": "tools/schemas/return_delivered_order_items.schema.json"},
+    {"name": "transfer_to_human_agents", "operation": "non_mutating", "input_schema": "tools/schemas/transfer_to_human_agents.schema.json"}
+  ]
+}
