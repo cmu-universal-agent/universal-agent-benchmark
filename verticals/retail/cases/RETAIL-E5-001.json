@@ -1,0 +1,31 @@
+{
+  "case_id": "RETAIL-E5-001",
+  "prompt": "A customer contacts support about order O5001. The mouse they received (P1001-BLK) was defective. They are a delivered order and eligible for a refund. Process the correct resolution for this customer using the available tools.",
+  "focus_user_id": "U100",
+  "focus_order_id": "O5001",
+  "allowed_tools": [
+    "calculate",
+    "cancel_pending_order",
+    "exchange_delivered_order_items",
+    "find_user_id_by_email",
+    "find_user_id_by_name_zip",
+    "get_item_details",
+    "get_order_details",
+    "get_product_details",
+    "get_user_details",
+    "list_all_product_types",
+    "modify_pending_order_address",
+    "modify_pending_order_items",
+    "modify_pending_order_payment",
+    "modify_user_address",
+    "return_delivered_order_items",
+    "transfer_to_human_agents"
+  ],
+  "evaluator_only": {
+    "status": "pending_chloe_approval",
+    "note": "E5 success/final-state semantics are owned by Chloe (see docs/ws3_tau_retail_contract.md's Decision boundary) and have not been signed off. No gold is committed here; see evaluator_data/local_review_decisions/retail_e5_pending_gold.json (gitignored) for the current draft awaiting approval.",
+    "required_actions": null,
+    "disallowed_actions": null,
+    "expected_final_state": null
+  }
+}

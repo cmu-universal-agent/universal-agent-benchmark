@@ -1,0 +1,18 @@
+{
+  "P1001": {
+    "product_id": "P1001",
+    "name": "Wireless Mouse",
+    "variants": [
+      {"item_id": "P1001-BLK", "attributes": {"color": "black"}, "price": 25.99, "available": true},
+      {"item_id": "P1001-WHT", "attributes": {"color": "white"}, "price": 25.99, "available": true}
+    ]
+  },
+  "P1002": {
+    "product_id": "P1002",
+    "name": "Mechanical Keyboard",
+    "variants": [
+      {"item_id": "P1002-STD", "attributes": {"layout": "ansi"}, "price": 89.0, "available": true},
+      {"item_id": "P1002-ISO", "attributes": {"layout": "iso"}, "price": 92.0, "available": true}
+    ]
+  }
+}
