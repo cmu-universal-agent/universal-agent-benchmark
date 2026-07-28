@@ -57,7 +57,7 @@ class Ws3TauRetailContractTests(unittest.TestCase):
             evidence = json.loads(output.read_text(encoding="utf-8"))
             html = html_output.read_text(encoding="utf-8")
 
-        self.assertEqual(summary["tools"], 15)
+        self.assertEqual(summary["tools"], 16)
         self.assertEqual(summary["duplicate_error"], "duplicate_action")
         self.assertFalse(summary["duplicate_state_changed"])
         self.assertEqual(evidence["wrapper_version"], "synthetic-contract-fixture")
