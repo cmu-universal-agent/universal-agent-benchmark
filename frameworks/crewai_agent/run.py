@@ -1,26 +1,41 @@
 import argparse
-import json
 import os
 import sys
-import time
 from pathlib import Path
-
-from dotenv import load_dotenv
-from crewai import Agent, Task, Crew, Process, LLM
-from crewai.tools import tool
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+
+# CrewAI resolves its storage directory while the package is imported. Load
+# local configuration first and keep its writable state inside the project so
+# the adapter also works in sandboxed runners that cannot write to AppData.
+load_dotenv(ROOT / ".env", override=False)
+storage_dir = Path(os.getenv("CREWAI_STORAGE_DIR", ".crewai"))
+if not storage_dir.is_absolute():
+    storage_dir = ROOT / storage_dir
+os.environ["CREWAI_STORAGE_DIR"] = str(storage_dir.resolve())
+
+from crewai import Agent, Crew, LLM, Process, Task
+from crewai.tools import tool
+
 from adapter.result_writer import append_result
+from adapter.runtime import (
+    GenerationSettings,
+    GenerationSettingsResolution,
+    configured_generation_settings,
+    normalize_openai_model_settings,
+    resolve_generation_settings,
+    run_framework_task,
+)
 from adapter.schemas import AgentRunResult, BenchmarkTask
+from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
 from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "crewai"
-
-load_dotenv(ROOT / ".env", override=True)
 
 
 @tool("search_literature")
@@ -36,12 +51,22 @@ def get_review_history(parent_asin: str) -> str:
 
 
 TOOLS_BY_VERTICAL = {
-    "medical_diagnostic": [search_literature],
-    "ecommerce_trend_research": [get_review_history],
+    "medical_diagnostic": {"search_literature": search_literature},
+    "ecommerce_trend_research": {"get_review_history": get_review_history},
 }
 
 
-def _run_agent(prompt: str, vertical: str) -> str:
+def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
+    available = TOOLS_BY_VERTICAL.get(vertical, {})
+    if allowed_tools is None:
+        return list(available.values())
+    allowed = set(allowed_tools)
+    return [tool_value for name, tool_value in available.items() if name in allowed]
+
+
+def _build_llm(
+    generation_settings: GenerationSettings,
+) -> tuple[LLM, GenerationSettingsResolution]:
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = os.getenv("OPENAI_BASE_URL")
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
@@ -49,15 +74,37 @@ def _run_agent(prompt: str, vertical: str) -> str:
     # CrewAI often expects OpenAI models in this form:
     # openai/gpt-4, openai/gpt-4o-mini, etc.
     crewai_model_name = model_name if "/" in model_name else f"openai/{model_name}"
+    supported_settings = normalize_openai_model_settings(
+        crewai_model_name,
+        generation_settings,
+    )
 
     llm = LLM(
         model=crewai_model_name,
         api_key=api_key,
         base_url=base_url,
-        temperature=0,
+        temperature=supported_settings.temperature,
+        max_tokens=supported_settings.max_output_tokens,
+        seed=supported_settings.seed,
+    )
+    effective_settings = GenerationSettings(
+        temperature=llm.temperature,
+        max_output_tokens=llm.max_tokens,
+        seed=llm.seed,
+    )
+    return llm, resolve_generation_settings(
+        generation_settings,
+        effective_settings,
     )
 
-    tools = TOOLS_BY_VERTICAL.get(vertical, [])
+
+def _run_agent(
+    prompt: str,
+    vertical: str,
+    allowed_tools: list[str] | None,
+    llm: LLM,
+) -> tuple[str, dict[str, int]]:
+    tools = _select_tools(vertical, allowed_tools)
 
     agent = Agent(
         role="Benchmark Smoke Test Agent",
@@ -89,45 +136,25 @@ def _run_agent(prompt: str, vertical: str) -> str:
     )
 
     result = crew.kickoff()
-    return str(result)
+    usage = result.token_usage
+    return str(result), {
+        "input_tokens": usage.prompt_tokens,
+        "output_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+    }
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    start = time.perf_counter()
-    medical_tools.reset_call_log()
-    ecommerce_tools.reset_call_log()
-    try:
-        final_output = _run_agent(task.prompt, task.vertical)
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
-            final_output=final_output,
-            latency_seconds=time.perf_counter() - start,
-            success=True,
-            tool_call_count=len(medical_tools.call_log) + len(ecommerce_tools.call_log),
-        )
-    except Exception as exc:
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
-            final_output="",
-            latency_seconds=time.perf_counter() - start,
-            success=False,
-            error=f"{type(exc).__name__}: {exc}",
-        )
-
-
-def _load_task(task_path: Path) -> BenchmarkTask:
-    with open(task_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return BenchmarkTask(
-        task_id=data["task_id"],
-        vertical=data["vertical"],
-        prompt=data["prompt"],
-        expected_output_type=data.get("expected_output_type", "json"),
-        metadata=data.get("metadata", {}),
+    return run_framework_task(
+        task,
+        framework=FRAMEWORK_NAME,
+        package_name="crewai",
+        tool_modules=[medical_tools, ecommerce_tools],
+        requested_settings=configured_generation_settings(),
+        build_model=_build_llm,
+        run_model=lambda llm, _requested: _run_agent(
+            task.prompt, task.vertical, task.allowed_tools, llm
+        ),
     )
 
 
@@ -136,7 +163,7 @@ def main():
     parser.add_argument("--task", type=Path, default=TASK_PATH)
     args = parser.parse_args()
 
-    task = _load_task(args.task)
+    task = load_task(args.task)
     result = run_task(task)
     append_result(result)
 

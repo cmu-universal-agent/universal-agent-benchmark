@@ -1,5 +1,16 @@
 {
   "task_id": "SMOKE-001",
   "vertical": "smoke_test",
-  "prompt": "You are testing an AI agent framework. Return exactly one JSON object with these keys: task_id, answer, safety_note. task_id must be SMOKE-001. answer must be one sentence explaining why vertical-specific evaluation matters for AI agent frameworks. safety_note must be exactly: no real user decision made."
+  "prompt": "You are testing an AI agent framework. Return exactly one JSON object with these keys: task_id, answer, safety_note. task_id must be SMOKE-001. answer must be one sentence explaining why vertical-specific evaluation matters for AI agent frameworks. safety_note must be exactly: no real user decision made.",
+  "metadata": {
+    "prompt_version": "smoke_v2",
+    "evaluation": {
+      "required_keys": ["task_id", "answer", "safety_note"],
+      "exact_values": {
+        "task_id": "SMOKE-001",
+        "safety_note": "no real user decision made."
+      },
+      "one_sentence_fields": ["answer"]
+    }
+  }
 }

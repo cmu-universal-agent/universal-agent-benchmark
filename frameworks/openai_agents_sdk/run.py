@@ -1,9 +1,7 @@
 import argparse
 import asyncio
-import json
 import os
 import sys
-import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,20 +11,30 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
+from adapter.runtime import (
+    GenerationSettings,
+    GenerationSettingsResolution,
+    configured_generation_settings,
+    normalize_openai_model_settings,
+    resolve_generation_settings,
+    run_framework_task,
+)
 from adapter.schemas import AgentRunResult, BenchmarkTask
+from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
 from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "openai_agents_sdk"
 
-load_dotenv(ROOT / ".env", override=True)
+load_dotenv(ROOT / ".env", override=False)
 
 # Disable OpenAI Agents SDK tracing when using proxy API
 os.environ["OPENAI_AGENTS_DISABLE_TRACING"] = "1"
 
 from agents import (
     Agent,
+    ModelSettings,
     Runner,
     function_tool,
     set_default_openai_api,
@@ -36,8 +44,6 @@ from agents import (
 
 api_key = os.getenv("OPENAI_API_KEY")
 base_url = os.getenv("OPENAI_BASE_URL")
-model = os.getenv("OPENAI_MODEL", "gpt-4")
-
 set_default_openai_api("chat_completions")
 
 set_default_openai_client(
@@ -64,13 +70,35 @@ def get_review_history(parent_asin: str) -> str:
 
 
 TOOLS_BY_VERTICAL = {
-    "medical_diagnostic": [search_literature],
-    "ecommerce_trend_research": [get_review_history],
+    "medical_diagnostic": {"search_literature": search_literature},
+    "ecommerce_trend_research": {"get_review_history": get_review_history},
 }
 
 
-async def _run_agent(prompt: str, vertical: str) -> str:
-    tools = TOOLS_BY_VERTICAL.get(vertical, [])
+def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
+    available = TOOLS_BY_VERTICAL.get(vertical, {})
+    if allowed_tools is None:
+        return list(available.values())
+    allowed = set(allowed_tools)
+    return [tool_value for name, tool_value in available.items() if name in allowed]
+
+
+def _build_agent(
+    vertical: str,
+    allowed_tools: list[str] | None,
+    generation_settings: GenerationSettings,
+) -> tuple[Agent, GenerationSettingsResolution]:
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4")
+    supported_settings = normalize_openai_model_settings(
+        model_name,
+        generation_settings,
+    )
+    tools = _select_tools(vertical, allowed_tools)
+    extra_args = (
+        {"seed": supported_settings.seed}
+        if supported_settings.seed is not None
+        else None
+    )
     agent = Agent(
         name="OpenAI Smoke Test Agent",
         instructions=(
@@ -78,50 +106,52 @@ async def _run_agent(prompt: str, vertical: str) -> str:
             "Follow the user's output format exactly. "
             "Do not add markdown."
         ),
-        model=model,
+        model=model_name,
+        model_settings=ModelSettings(
+            temperature=supported_settings.temperature,
+            max_tokens=supported_settings.max_output_tokens,
+            extra_args=extra_args,
+        ),
         tools=tools,
     )
+    model_settings = agent.model_settings
+    effective_settings = GenerationSettings(
+        temperature=model_settings.temperature,
+        max_output_tokens=model_settings.max_tokens,
+        seed=(model_settings.extra_args or {}).get("seed"),
+    )
+    return agent, resolve_generation_settings(
+        generation_settings,
+        effective_settings,
+    )
+
+
+async def _run_agent(
+    prompt: str,
+    agent: Agent,
+) -> tuple[str, dict[str, int]]:
     result = await Runner.run(agent, prompt)
-    return result.final_output
+    usage = result.context_wrapper.usage
+    return str(result.final_output), {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
+    }
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    start = time.perf_counter()
-    medical_tools.reset_call_log()
-    ecommerce_tools.reset_call_log()
-    try:
-        final_output = asyncio.run(_run_agent(task.prompt, task.vertical))
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
-            final_output=final_output,
-            latency_seconds=time.perf_counter() - start,
-            success=True,
-            tool_call_count=len(medical_tools.call_log) + len(ecommerce_tools.call_log),
-        )
-    except Exception as exc:
-        return AgentRunResult(
-            task_id=task.task_id,
-            framework=FRAMEWORK_NAME,
-            vertical=task.vertical,
-            final_output="",
-            latency_seconds=time.perf_counter() - start,
-            success=False,
-            error=f"{type(exc).__name__}: {exc}",
-        )
-
-
-def _load_task(task_path: Path) -> BenchmarkTask:
-    with open(task_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return BenchmarkTask(
-        task_id=data["task_id"],
-        vertical=data["vertical"],
-        prompt=data["prompt"],
-        expected_output_type=data.get("expected_output_type", "json"),
-        metadata=data.get("metadata", {}),
+    return run_framework_task(
+        task,
+        framework=FRAMEWORK_NAME,
+        package_name="openai-agents",
+        tool_modules=[medical_tools, ecommerce_tools],
+        requested_settings=configured_generation_settings(),
+        build_model=lambda settings: _build_agent(
+            task.vertical, task.allowed_tools, settings
+        ),
+        run_model=lambda agent, _requested: asyncio.run(_run_agent(task.prompt, agent)),
     )
+
 
 
 def main():
@@ -129,7 +159,7 @@ def main():
     parser.add_argument("--task", type=Path, default=TASK_PATH)
     args = parser.parse_args()
 
-    task = _load_task(args.task)
+    task = load_task(args.task)
     result = run_task(task)
     append_result(result)
 

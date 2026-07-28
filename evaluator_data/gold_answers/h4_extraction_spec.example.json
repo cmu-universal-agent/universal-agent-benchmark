@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "status": "template",
+  "task_id": "H4",
+  "source_dataset": null,
+  "source_dataset_version": null,
+  "source_record_field": null,
+  "extractor_name": null,
+  "extractor_version": null,
+  "output_fields": {
+    "symptoms": {"rule": null},
+    "history": {"rule": null},
+    "risks": {"rule": null},
+    "next_steps": {"rule": null}
+  },
+  "missing_value_policy": "reject_conversion",
+  "audit_sample_rate": 0.1,
+  "approved_by": null,
+  "approved_at": null
+}

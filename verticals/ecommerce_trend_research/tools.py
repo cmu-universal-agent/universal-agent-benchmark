@@ -11,6 +11,8 @@ was used.
 
 import gzip
 import json
+import time
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +23,7 @@ REVIEWS_CACHE = CACHE_DIR / "Subscription_Boxes.jsonl.gz"
 
 _yearly_by_asin: dict[str, dict[int, list[float]]] | None = None
 
-call_log: list[str] = []
+call_log: list[dict] = []
 
 _simulate_failure = False
 
@@ -54,14 +56,45 @@ def reset_call_log() -> None:
 
 def get_review_history(parent_asin: str) -> str:
     """Look up the yearly review-count and average-rating history for a product."""
-    call_log.append(parent_asin)
-    if _simulate_failure:
-        raise RuntimeError("Simulated tool failure: review history lookup unavailable")
-    by_year = _load_yearly_by_asin().get(parent_asin)
-    if not by_year:
-        return f"No review history found for product ID {parent_asin}."
-    lines = [
-        f"- {year}: {len(ratings)} reviews, average rating {sum(ratings) / len(ratings):.1f}"
-        for year, ratings in sorted(by_year.items())
-    ]
-    return "\n".join(lines)
+    started_perf = time.perf_counter()
+    record = {
+        "schema_version": "1.0",
+        "tool_call_id": f"tool-{uuid.uuid4().hex}",
+        "tool_name": "get_review_history",
+        "arguments": {"parent_asin": parent_asin},
+        "was_allowed": True,
+        "arguments_valid": bool(parent_asin),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": None,
+        "latency_ms": 0,
+        "outcome": "success",
+        "result": None,
+        "error": None,
+    }
+    call_log.append(record)
+    try:
+        if _simulate_failure:
+            raise RuntimeError("Simulated tool failure: review history lookup unavailable")
+        by_year = _load_yearly_by_asin().get(parent_asin)
+        if not by_year:
+            result = f"No review history found for product ID {parent_asin}."
+        else:
+            lines = [
+                f"- {year}: {len(ratings)} reviews, average rating "
+                f"{sum(ratings) / len(ratings):.1f}"
+                for year, ratings in sorted(by_year.items())
+            ]
+            result = "\n".join(lines)
+        record["result"] = result
+        return result
+    except Exception as exc:
+        record["outcome"] = "error"
+        record["error"] = {
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+            "retryable": isinstance(exc, RuntimeError),
+        }
+        raise
+    finally:
+        record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        record["latency_ms"] = round((time.perf_counter() - started_perf) * 1000)

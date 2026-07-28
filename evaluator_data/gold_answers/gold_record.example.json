@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "status": "template",
+  "case_id": "H1-EXAMPLE-001",
+  "task_id": "H1",
+  "source": {
+    "dataset": null,
+    "dataset_version": null,
+    "source_record_id": null,
+    "source_split": null
+  },
+  "gold_method": "source_derived",
+  "gold": {},
+  "generator": {
+    "name": null,
+    "version": null,
+    "configuration_hash": null,
+    "generated_at": null
+  },
+  "review": {
+    "status": "not_reviewed",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "notes": null
+  }
+}

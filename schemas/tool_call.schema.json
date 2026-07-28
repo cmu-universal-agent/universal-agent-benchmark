@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/tool_call.schema.json",
+  "title": "Benchmark Tool Call Record",
+  "description": "Normalized record of one tool call made during a benchmark run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_call_id",
+    "run_id",
+    "sequence_index",
+    "retry_of",
+    "tool_name",
+    "arguments",
+    "was_allowed",
+    "arguments_valid",
+    "started_at",
+    "completed_at",
+    "latency_ms",
+    "outcome",
+    "result",
+    "result_truncated",
+    "result_bytes",
+    "result_sha256",
+    "error"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "tool_call_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"
+    },
+    "sequence_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retry_of": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$",
+      "description": "Null for the first attempt. A retry points to the root/first attempt's tool_call_id; sequence_index remains run-wide execution order."
+    },
+    "tool_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "arguments": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "was_allowed": {
+      "type": "boolean",
+      "description": "Whether the tool name was listed in the benchmark case's allowed_tools field."
+    },
+    "arguments_valid": {
+      "type": "boolean",
+      "description": "Whether arguments passed the canonical tool's shared input JSON Schema. This does not indicate whether tool execution succeeded; use outcome for that."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock duration of this tool-call attempt in integer milliseconds."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "timeout",
+        "rejected"
+      ]
+    },
+    "result": {
+      "description": "Normalized tool result capped at 50KB serialized. May be null when the call failed or was rejected."
+    },
+    "result_truncated": {
+      "type": "boolean",
+      "description": "Whether result was replaced by a bounded preview because the original serialized result exceeded 50KB."
+    },
+    "result_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "UTF-8 byte length of the full normalized serialized result before truncation."
+    },
+    "result_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the full normalized serialized result when truncated; null otherwise."
+    },
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/errorRecord"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {"const": "success"}
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "error": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {"$ref": "#/$defs/errorRecord"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result_truncated": {"const": true}
+        },
+        "required": ["result_truncated"]
+      },
+      "then": {
+        "properties": {
+          "result_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      },
+      "else": {
+        "properties": {
+          "result_sha256": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "errorRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error_type",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

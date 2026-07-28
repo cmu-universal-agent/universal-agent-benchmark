@@ -1,13 +1,11 @@
 .env
 .venv*
+.crewai/
 __pycache__/
 *.pyc
 .DS_Store
-results/traces/*
-results/metrics/*
-results/framework_suitability_matrix.md
-results/framework_suitability_matrix.pdf
-results/dashboard.html
+results/*
+evaluator_data/local_review_decisions/
 AGENTS.md
 CLAUDE.md
 TODO.md

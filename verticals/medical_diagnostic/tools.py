@@ -10,6 +10,9 @@ was used.
 """
 
 import json
+import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,7 +20,7 @@ CACHE_PATH = ROOT / "data" / "pubmedqa" / "ori_pqal.json"
 
 _dataset: dict | None = None
 
-call_log: list[str] = []
+call_log: list[dict] = []
 
 _simulate_failure = False
 
@@ -43,11 +46,42 @@ def set_simulate_failure(enabled: bool) -> None:
 
 def search_literature(pubmed_id: str) -> str:
     """Look up the research abstract for a given PubMed ID."""
-    call_log.append(pubmed_id)
-    if _simulate_failure:
-        raise RuntimeError("Simulated tool failure: literature search unavailable")
-    dataset = _load_dataset()
-    entry = dataset.get(pubmed_id)
-    if entry is None:
-        return f"No abstract found for PubMed ID {pubmed_id}."
-    return " ".join(entry["CONTEXTS"])
+    started_perf = time.perf_counter()
+    record = {
+        "schema_version": "1.0",
+        "tool_call_id": f"tool-{uuid.uuid4().hex}",
+        "tool_name": "search_literature",
+        "arguments": {"pubmed_id": pubmed_id},
+        "was_allowed": True,
+        "arguments_valid": bool(pubmed_id),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": None,
+        "latency_ms": 0,
+        "outcome": "success",
+        "result": None,
+        "error": None,
+    }
+    call_log.append(record)
+    try:
+        if _simulate_failure:
+            raise RuntimeError("Simulated tool failure: literature search unavailable")
+        dataset = _load_dataset()
+        entry = dataset.get(pubmed_id)
+        result = (
+            f"No abstract found for PubMed ID {pubmed_id}."
+            if entry is None
+            else " ".join(entry["CONTEXTS"])
+        )
+        record["result"] = result
+        return result
+    except Exception as exc:
+        record["outcome"] = "error"
+        record["error"] = {
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+            "retryable": isinstance(exc, RuntimeError),
+        }
+        raise
+    finally:
+        record["completed_at"] = datetime.now(timezone.utc).isoformat()
+        record["latency_ms"] = round((time.perf_counter() - started_perf) * 1000)

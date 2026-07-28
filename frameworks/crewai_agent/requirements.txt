@@ -137,7 +137,7 @@ uc-micro-py==2.0.0
 urllib3==2.7.0
 uv==0.11.27
 uvicorn==0.50.2
-uvloop==0.22.1
+uvloop==0.22.1; sys_platform != "win32"
 watchfiles==1.2.0
 websocket-client==1.9.0
 websockets==16.0
