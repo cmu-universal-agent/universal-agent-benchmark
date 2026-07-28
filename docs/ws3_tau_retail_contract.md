@@ -123,6 +123,33 @@ This validates only the shared contract. Passing it does not mean the simulator
 or any wrapper has been implemented, E5 semantics approved, or benchmark scores
 produced.
 
+## Contract-only meeting demo
+
+The deterministic meeting fallback uses only the synthetic contract fixtures:
+
+```powershell
+& ".\.venv-openai\Scripts\python.exe" ".\scripts\demo_ws3_offline.py" `
+  --evidence-out ".\tmp\ws3-demo-evidence.json"
+```
+
+Expected output:
+
+```text
+WS3_OFFLINE_DEMO technical_validation_only=1 benchmark_scores=0
+CONTRACT_OK version=0.1.0 tools=15
+RESET_OK deterministic=1
+READ_OK tool=get_order_details state_changed=0
+WRITE_OK tool=modify_pending_order_payment mutation_count=1
+DUPLICATE_OK tool=cancel_pending_order error=duplicate_action state_changed=0
+EVIDENCE_OK scenarios=7 calls=8 leakage=0
+```
+
+Suggested six-minute flow: introduce the 15-tool contract, run the command,
+explain the read/write/duplicate state transitions, open the sanitized evidence
+JSON, and finish with the remaining core/wrapper integration gates. This is
+contract evidence only, not a simulator, framework run, E5 semantic approval,
+or benchmark result.
+
 ## Upstream provenance
 
 The tool surface was reconciled on 2026-07-22 against:

@@ -1,6 +1,10 @@
 import copy
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
+from scripts import demo_ws3_offline as demo
 from scripts import validate_ws3_tau_retail_contract as validator
 
 
@@ -43,6 +47,17 @@ class Ws3TauRetailContractTests(unittest.TestCase):
         fixture["scenarios"][-1]["events"][1]["call"]["run_id"] = "run-other-001"
         with self.assertRaisesRegex(AssertionError, "mixed run ids"):
             self.validate(fixture)
+
+    def test_contract_demo_writes_sanitized_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "evidence.json"
+            summary = demo.run_demo(output)
+            evidence = json.loads(output.read_text(encoding="utf-8"))
+
+        self.assertEqual(summary["tools"], 15)
+        self.assertEqual(summary["duplicate_error"], "duplicate_action")
+        self.assertFalse(summary["duplicate_state_changed"])
+        self.assertEqual(evidence["wrapper_version"], "synthetic-contract-fixture")
 
 
 if __name__ == "__main__":
