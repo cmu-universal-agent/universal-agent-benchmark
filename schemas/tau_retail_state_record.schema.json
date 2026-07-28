@@ -15,7 +15,7 @@
     "mutation_count"
   ],
   "properties": {
-    "contract_version": {"const": "0.1.0"},
+    "contract_version": {"const": "0.2.0"},
     "reset_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"},
     "case_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,63}$"},
     "sequence_index": {"type": "integer", "minimum": 0},

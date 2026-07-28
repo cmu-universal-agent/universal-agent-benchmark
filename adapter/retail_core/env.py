@@ -12,6 +12,7 @@ exactly:
 No business logic belongs in a wrapper.
 """
 
+import copy
 import json
 import time
 import uuid
@@ -26,7 +27,7 @@ from adapter.retail_core.tools import TOOL_HANDLERS
 from adapter.retail_core.trace import Trace
 from adapter.validation import validate_tool_arguments
 
-CONTRACT_VERSION = "0.1.0"
+CONTRACT_VERSION = "0.2.0"
 
 
 def _utc_now() -> str:
@@ -89,9 +90,10 @@ class RetailEnv:
         started_at = _utc_now()
         started_perf = time.perf_counter()
         state_before = self.db.state_sha256()
+        safe_arguments = copy.deepcopy(arguments)
 
         was_allowed = name in self.allowed_tools
-        argument_errors = validate_tool_arguments(name, arguments)
+        argument_errors = validate_tool_arguments(name, safe_arguments)
         arguments_valid = not argument_errors
 
         if not was_allowed:
@@ -109,10 +111,11 @@ class RetailEnv:
         else:
             handler = TOOL_HANDLERS[name]
             try:
-                result = handler(self.db, arguments)
+                result = handler(self.db, safe_arguments)
             except Exception as exc:  # a handler bug must never raise to the caller
                 result = ToolResult(ok=False, error_type=errors.INTERNAL_ERROR, error_message=str(exc))
 
+        result = copy.deepcopy(result)
         state_after = self.db.state_sha256()
         completed_at = _utc_now()
         latency_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
@@ -129,7 +132,7 @@ class RetailEnv:
 
         self._trace.record(
             tool_name=name,
-            arguments=arguments,
+            arguments=safe_arguments,
             was_allowed=was_allowed,
             arguments_valid=arguments_valid,
             started_at=started_at,

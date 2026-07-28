@@ -14,7 +14,7 @@
     "scenarios"
   ],
   "properties": {
-    "contract_version": {"const": "0.1.0"},
+    "contract_version": {"const": "0.2.0"},
     "framework": {"type": "string", "enum": ["crewai", "langgraph", "openai_agents_sdk"]},
     "wrapper_version": {"type": "string", "minLength": 1, "maxLength": 100},
     "generated_at": {"type": "string", "format": "date-time"},

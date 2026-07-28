@@ -38,6 +38,7 @@ EXPECTED_TOOLS = {
     "get_order_details",
     "get_product_details",
     "get_user_details",
+    "list_all_product_types",
     "modify_pending_order_address",
     "modify_pending_order_items",
     "modify_pending_order_payment",
@@ -93,7 +94,8 @@ def _validate_registry(contract: dict[str, Any], fixture: dict[str, Any]) -> dic
         validator = jsonschema.Draft202012Validator(schema)
         valid_errors = list(validator.iter_errors(fixture["valid_arguments"][name]))
         _assert(not valid_errors, f"valid argument fixture failed for {name}: {valid_errors}")
-        _assert(list(validator.iter_errors({})), f"empty arguments unexpectedly passed for {name}")
+        if fixture["valid_arguments"][name]:
+            _assert(list(validator.iter_errors({})), f"empty arguments unexpectedly passed for {name}")
     return operations
 
 

@@ -38,6 +38,15 @@ class TestReadTools(unittest.TestCase):
         self.assertFalse(result.state_changed)
         self.assertEqual(result.data["item_id"], "P1001-BLK")
 
+    def test_list_all_product_types_success(self) -> None:
+        result = self.env.call_tool("list_all_product_types", {})
+        self.assertTrue(result.ok)
+        self.assertFalse(result.state_changed)
+        self.assertEqual(
+            result.data,
+            {"Mechanical Keyboard": "P1002", "Wireless Mouse": "P1001"},
+        )
+
     def test_find_user_id_by_email_success(self) -> None:
         result = self.env.call_tool("find_user_id_by_email", {"email": "alice@example.com"})
         self.assertTrue(result.ok)
