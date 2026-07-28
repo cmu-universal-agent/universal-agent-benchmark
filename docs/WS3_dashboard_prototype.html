@@ -299,13 +299,19 @@ const CASES = [
   { id: "RETAIL-E5-008", name: "Exchange out-of-stock variant (refuse + escalate)" },
 ];
 
+// Mirrors adapter/retail_core/errors.py's ERROR_TABLE (contract error_type
+// values) plus the evaluator-computed tier (incorrect_action_order,
+// missing_required_action, incorrect_final_state, evaluator_data_leakage).
 const FAILURE_CLASSES = [
-  "ok","invalid_arguments","disallowed_action","tool_failure","duplicate_mutation",
+  "ok","invalid_arguments","disallowed_tool","not_found","invalid_state",
+  "duplicate_action","policy_rejected","tool_failure","timeout","internal_error",
   "incorrect_action_order","missing_required_action","incorrect_final_state","evaluator_data_leakage",
 ];
 const FC_COLOR = {
-  ok: "#12875A", invalid_arguments: "#5A6472", disallowed_action: "#B08600",
-  tool_failure: "#C25410", duplicate_mutation: "#0E8F8F", incorrect_action_order: "#4C63D2",
+  ok: "#12875A", invalid_arguments: "#5A6472", disallowed_tool: "#B08600",
+  not_found: "#6A7480", invalid_state: "#9A6A00", duplicate_action: "#0E8F8F",
+  policy_rejected: "#8A6D00", tool_failure: "#C25410", timeout: "#C2A410",
+  internal_error: "#7A2E2E", incorrect_action_order: "#4C63D2",
   missing_required_action: "#B0476A", incorrect_final_state: "#CF3A54", evaluator_data_leakage: "#8A34B0",
 };
 
@@ -315,93 +321,93 @@ function run(o){ return Object.assign({ experiment_label:"technical_smoke", runt
 const RUNS = [
   // ---- RETAIL-E5-001 refund eligible ----
   run({ run_id:"r-1a3f", case_id:"RETAIL-E5-001", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:6.2,
-    trace:[{tool:"get_order",args:{order_id:"W309"},ok:true,mut:false},{tool:"refund",args:{order_id:"W309",amount:42.0},ok:true,mut:true}],
-    final_state:{order:"W309",status:"refunded",refund:42.0}, expected_state:{order:"W309",status:"refunded",refund:42.0} }),
+    trace:[{tool:"get_order_details",args:{order_id:"W309"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W309",item_ids:["P1-BLK"],payment_method_id:"credit_card_1"},ok:true,mut:true}],
+    final_state:{order:"W309",status:"return_requested",refund_amount:42.0}, expected_state:{order:"W309",status:"return_requested",refund_amount:42.0} }),
   run({ run_id:"r-1b7c", case_id:"RETAIL-E5-001", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:5.1,
-    trace:[{tool:"get_order",args:{order_id:"W309"},ok:true,mut:false},{tool:"refund",args:{order_id:"W309",amount:42.0},ok:true,mut:true}],
-    final_state:{order:"W309",status:"refunded",refund:42.0}, expected_state:{order:"W309",status:"refunded",refund:42.0} }),
+    trace:[{tool:"get_order_details",args:{order_id:"W309"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W309",item_ids:["P1-BLK"],payment_method_id:"credit_card_1"},ok:true,mut:true}],
+    final_state:{order:"W309",status:"return_requested",refund_amount:42.0}, expected_state:{order:"W309",status:"return_requested",refund_amount:42.0} }),
   run({ run_id:"r-1c22", case_id:"RETAIL-E5-001", framework:"crewai", failure_class:"ok", final_state_correct:true, latency_s:9.8,
-    trace:[{tool:"get_user",args:{email:"m@x.io"},ok:true,mut:false},{tool:"get_order",args:{order_id:"W309"},ok:true,mut:false},{tool:"refund",args:{order_id:"W309",amount:42.0},ok:true,mut:true}],
-    final_state:{order:"W309",status:"refunded",refund:42.0}, expected_state:{order:"W309",status:"refunded",refund:42.0} }),
+    trace:[{tool:"find_user_id_by_email",args:{email:"m@x.io"},ok:true,mut:false},{tool:"get_order_details",args:{order_id:"W309"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W309",item_ids:["P1-BLK"],payment_method_id:"credit_card_1"},ok:true,mut:true}],
+    final_state:{order:"W309",status:"return_requested",refund_amount:42.0}, expected_state:{order:"W309",status:"return_requested",refund_amount:42.0} }),
 
   // ---- RETAIL-E5-002 exchange ----
   run({ run_id:"r-2a10", case_id:"RETAIL-E5-002", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:7.4,
-    trace:[{tool:"get_order",args:{order_id:"W512"},ok:true,mut:false},{tool:"get_product_variants",args:{product_id:"P88"},ok:true,mut:false},{tool:"exchange",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W512"},ok:true,mut:false},{tool:"get_product_details",args:{product_id:"P88"},ok:true,mut:false},{tool:"exchange_delivered_order_items",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:true,mut:true}],
     final_state:{order:"W512",item:"P88-L",status:"exchanged"}, expected_state:{order:"W512",item:"P88-L",status:"exchanged"} }),
   run({ run_id:"r-2b41", case_id:"RETAIL-E5-002", framework:"openai_agents_sdk", failure_class:"incorrect_action_order", final_state_correct:false, latency_s:6.9,
-    trace:[{tool:"exchange",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:false,error_code:"disallowed_action",mut:false},{tool:"get_product_variants",args:{product_id:"P88"},ok:true,mut:false}],
+    trace:[{tool:"exchange_delivered_order_items",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:false,error_code:"invalid_state",mut:false},{tool:"get_product_details",args:{product_id:"P88"},ok:true,mut:false}],
     final_state:{order:"W512",item:"P88-M",status:"delivered"}, expected_state:{order:"W512",item:"P88-L",status:"exchanged"} }),
   run({ run_id:"r-2c88", case_id:"RETAIL-E5-002", framework:"crewai", failure_class:"ok", final_state_correct:true, latency_s:11.2,
-    trace:[{tool:"get_order",args:{order_id:"W512"},ok:true,mut:false},{tool:"get_product_variants",args:{product_id:"P88"},ok:true,mut:false},{tool:"exchange",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W512"},ok:true,mut:false},{tool:"get_product_details",args:{product_id:"P88"},ok:true,mut:false},{tool:"exchange_delivered_order_items",args:{order_id:"W512",item:"P88-M",to:"P88-L"},ok:true,mut:true}],
     final_state:{order:"W512",item:"P88-L",status:"exchanged"}, expected_state:{order:"W512",item:"P88-L",status:"exchanged"} }),
 
   // ---- RETAIL-E5-003 return ----
   run({ run_id:"r-3a55", case_id:"RETAIL-E5-003", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:5.6,
-    trace:[{tool:"get_order",args:{order_id:"W701"},ok:true,mut:false},{tool:"return_item",args:{order_id:"W701",item:"P12"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W701"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W701",item:"P12"},ok:true,mut:true}],
     final_state:{order:"W701",status:"return_initiated"}, expected_state:{order:"W701",status:"return_initiated"} }),
   run({ run_id:"r-3b09", case_id:"RETAIL-E5-003", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:6.0,
-    trace:[{tool:"get_order",args:{order_id:"W701"},ok:true,mut:false},{tool:"return_item",args:{order_id:"W701",item:"P12"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W701"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W701",item:"P12"},ok:true,mut:true}],
     final_state:{order:"W701",status:"return_initiated"}, expected_state:{order:"W701",status:"return_initiated"} }),
   run({ run_id:"r-3c77", case_id:"RETAIL-E5-003", framework:"crewai", failure_class:"missing_required_action", final_state_correct:false, latency_s:8.3,
-    trace:[{tool:"get_order",args:{order_id:"W701"},ok:true,mut:false}],
+    trace:[{tool:"get_order_details",args:{order_id:"W701"},ok:true,mut:false}],
     final_state:{order:"W701",status:"delivered"}, expected_state:{order:"W701",status:"return_initiated"} }),
 
   // ---- RETAIL-E5-004 must refuse (non-refundable) ----
   run({ run_id:"r-4a30", case_id:"RETAIL-E5-004", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:5.4,
-    trace:[{tool:"get_order",args:{order_id:"W150"},ok:true,mut:false},{tool:"refund",args:{order_id:"W150",amount:20.0},ok:false,error_code:"disallowed_action",mut:false}],
+    trace:[{tool:"get_order_details",args:{order_id:"W150"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W150",item_ids:["P12"],payment_method_id:"credit_card_1"},ok:false,error_code:"invalid_state",mut:false}],
     final_state:{order:"W150",status:"delivered"}, expected_state:{order:"W150",status:"delivered"} }),
   run({ run_id:"r-4b62", case_id:"RETAIL-E5-004", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:4.8,
-    trace:[{tool:"get_order",args:{order_id:"W150"},ok:true,mut:false},{tool:"refund",args:{order_id:"W150",amount:20.0},ok:false,error_code:"disallowed_action",mut:false}],
+    trace:[{tool:"get_order_details",args:{order_id:"W150"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W150",item_ids:["P12"],payment_method_id:"credit_card_1"},ok:false,error_code:"invalid_state",mut:false}],
     final_state:{order:"W150",status:"delivered"}, expected_state:{order:"W150",status:"delivered"} }),
   run({ run_id:"r-4c19", case_id:"RETAIL-E5-004", framework:"crewai", failure_class:"incorrect_final_state", final_state_correct:false, latency_s:10.5,
-    trace:[{tool:"get_order",args:{order_id:"W150"},ok:true,mut:false},{tool:"refund",args:{order_id:"W150",amount:20.0},ok:true,mut:true}],
-    final_state:{order:"W150",status:"refunded",refund:20.0}, expected_state:{order:"W150",status:"delivered"} }),
+    trace:[{tool:"get_order_details",args:{order_id:"W150"},ok:true,mut:false},{tool:"return_delivered_order_items",args:{order_id:"W150",item_ids:["P12"],payment_method_id:"credit_card_1"},ok:true,mut:true}],
+    final_state:{order:"W150",status:"return_requested",refund_amount:20.0}, expected_state:{order:"W150",status:"delivered"} }),
 
   // ---- RETAIL-E5-005 escalate ----
   run({ run_id:"r-5a71", case_id:"RETAIL-E5-005", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:6.7,
-    trace:[{tool:"get_order",args:{order_id:"W880"},ok:true,mut:false},{tool:"escalate",args:{order_id:"W880",reason:"ambiguous"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880",reason:"ambiguous"},ok:true,mut:true}],
     final_state:{order:"W880",status:"escalated",ticket:"T-1004"}, expected_state:{order:"W880",status:"escalated"} }),
   run({ run_id:"r-5b25", case_id:"RETAIL-E5-005", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:7.1,
-    trace:[{tool:"get_order",args:{order_id:"W880"},ok:true,mut:false},{tool:"escalate",args:{order_id:"W880",reason:"ambiguous dispute"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880",reason:"ambiguous dispute"},ok:true,mut:true}],
     final_state:{order:"W880",status:"escalated",ticket:"T-1004"}, expected_state:{order:"W880",status:"escalated"} }),
   run({ run_id:"r-5c93", case_id:"RETAIL-E5-005", framework:"crewai", failure_class:"evaluator_data_leakage", final_state_correct:false, latency_s:9.0,
-    trace:[{tool:"get_order",args:{order_id:"W880"},ok:true,mut:false},{tool:"get_user",args:{expected_action:"escalate"},ok:true,mut:false},{tool:"escalate",args:{order_id:"W880"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"get_user_details",args:{user_id:"U880",expected_action:"escalate"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880"},ok:true,mut:true}],
     final_state:{order:"W880",status:"escalated"}, expected_state:{order:"W880",status:"escalated"},
     note:"Agent argument echoed an evaluator-only field (expected_action). Flag to core: gold leaked into an agent-visible tool arg." }),
 
   // ---- RETAIL-E5-006 duplicate refund (idempotent) ----
   run({ run_id:"r-6a44", case_id:"RETAIL-E5-006", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:6.4,
-    trace:[{tool:"refund",args:{order_id:"W222",amount:15.0},ok:true,mut:true},{tool:"refund",args:{order_id:"W222",amount:15.0},ok:false,error_code:"duplicate_mutation",mut:false}],
-    final_state:{order:"W222",status:"refunded",refund:15.0}, expected_state:{order:"W222",status:"refunded",refund:15.0} }),
+    trace:[{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:true,mut:true},{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:false,error_code:"duplicate_action",mut:false}],
+    final_state:{order:"W222",status:"return_requested",refund_amount:15.0}, expected_state:{order:"W222",status:"return_requested",refund_amount:15.0} }),
   run({ run_id:"r-6b18", case_id:"RETAIL-E5-006", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:5.9,
-    trace:[{tool:"refund",args:{order_id:"W222",amount:15.0},ok:true,mut:true},{tool:"refund",args:{order_id:"W222",amount:15.0},ok:false,error_code:"duplicate_mutation",mut:false}],
-    final_state:{order:"W222",status:"refunded",refund:15.0}, expected_state:{order:"W222",status:"refunded",refund:15.0} }),
-  run({ run_id:"r-6c51", case_id:"RETAIL-E5-006", framework:"crewai", failure_class:"duplicate_mutation", final_state_correct:false, latency_s:12.1,
-    trace:[{tool:"refund",args:{order_id:"W222",amount:15.0},ok:true,mut:true},{tool:"refund",args:{order_id:"W222",amount:15.0},ok:true,mut:true}],
-    final_state:{order:"W222",status:"refunded",refund:30.0}, expected_state:{order:"W222",status:"refunded",refund:15.0},
+    trace:[{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:true,mut:true},{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:false,error_code:"duplicate_action",mut:false}],
+    final_state:{order:"W222",status:"return_requested",refund_amount:15.0}, expected_state:{order:"W222",status:"return_requested",refund_amount:15.0} }),
+  run({ run_id:"r-6c51", case_id:"RETAIL-E5-006", framework:"crewai", failure_class:"duplicate_action", final_state_correct:false, latency_s:12.1,
+    trace:[{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:true,mut:true},{tool:"return_delivered_order_items",args:{order_id:"W222",item_ids:["P7"],payment_method_id:"credit_card_1"},ok:true,mut:true}],
+    final_state:{order:"W222",status:"return_requested",refund_amount:30.0}, expected_state:{order:"W222",status:"return_requested",refund_amount:15.0},
     note:"Second refund double-mutated in the wrapper's own state — core's idempotency guard was bypassed. Business logic must live only in the core." }),
 
   // ---- RETAIL-E5-007 no-action ----
   run({ run_id:"r-7a02", case_id:"RETAIL-E5-007", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:3.9,
-    trace:[{tool:"get_order",args:{order_id:"W019"},ok:true,mut:false}],
+    trace:[{tool:"get_order_details",args:{order_id:"W019"},ok:true,mut:false}],
     final_state:{order:"W019",status:"delivered"}, expected_state:{order:"W019",status:"delivered"} }),
   run({ run_id:"r-7b60", case_id:"RETAIL-E5-007", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:3.2,
     trace:[], final_state:{order:"W019",status:"delivered"}, expected_state:{order:"W019",status:"delivered"} }),
   run({ run_id:"r-7c88", case_id:"RETAIL-E5-007", framework:"crewai", failure_class:"ok", final_state_correct:true, latency_s:4.7,
-    trace:[{tool:"get_order",args:{order_id:"W019"},ok:true,mut:false}],
+    trace:[{tool:"get_order_details",args:{order_id:"W019"},ok:true,mut:false}],
     final_state:{order:"W019",status:"delivered"}, expected_state:{order:"W019",status:"delivered"} }),
 
   // ---- RETAIL-E5-008 out-of-stock (refuse + escalate) ----
   run({ run_id:"r-8a35", case_id:"RETAIL-E5-008", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:7.8, schema_valid:false,
-    trace:[{tool:"get_product_variants",args:{product_id:"P40"},ok:true,mut:false},{tool:"exchange",args:{order_id:"W640",to:"P40-XL"},ok:false,error_code:"disallowed_action",mut:false},{tool:"escalate",args:{order_id:"W640",reason:"out_of_stock"},ok:true,mut:true}],
+    trace:[{tool:"get_product_details",args:{product_id:"P40"},ok:true,mut:false},{tool:"exchange_delivered_order_items",args:{order_id:"W640",to:"P40-XL"},ok:false,error_code:"policy_rejected",mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W640",reason:"out_of_stock"},ok:true,mut:true}],
     final_state:{order:"W640",status:"escalated"}, expected_state:{order:"W640",status:"escalated"},
     note:"Correct behavior, but the emitted trace failed schema validation (missing 'index' on step 2). Counts as schema-invalid — excluded from rate denominators until fixed." }),
   run({ run_id:"r-8b77", case_id:"RETAIL-E5-008", framework:"openai_agents_sdk", failure_class:"tool_failure", final_state_correct:false, runtime_status:"error", latency_s:2.1,
-    trace:[{tool:"get_product_variants",args:{product_id:"P40"},ok:false,error_code:"tool_failure",mut:false}],
+    trace:[{tool:"get_product_details",args:{product_id:"P40"},ok:false,error_code:"tool_failure",mut:false}],
     final_state:{order:"W640",status:"delivered"}, expected_state:{order:"W640",status:"escalated"},
     note:"Simulated tool_failure surfaced as a structured error; the agent aborted instead of escalating." }),
   run({ run_id:"r-8c14", case_id:"RETAIL-E5-008", framework:"crewai", failure_class:"invalid_arguments", final_state_correct:false, latency_s:8.9,
-    trace:[{tool:"exchange",args:{order:"W640"},ok:false,error_code:"invalid_arguments",mut:false}],
+    trace:[{tool:"exchange_delivered_order_items",args:{order_id:"W640"},ok:false,error_code:"invalid_arguments",mut:false}],
     final_state:{order:"W640",status:"delivered"}, expected_state:{order:"W640",status:"escalated"} }),
 ];
 

@@ -440,14 +440,22 @@ HTML_TEMPLATE = r"""<!doctype html>
  * ------------------------------------------------------------------ */
 const DATA = __DASHBOARD_DATA_JSON__;
 
+// Mirrors adapter/retail_core/errors.py's ERROR_TABLE (contract error_type
+// values) plus the evaluator-computed tier (incorrect_action_order,
+// missing_required_action, incorrect_final_state, evaluator_data_leakage) --
+// see that module's docstring. Keep this list in sync if the contract adds
+// or renames an error_type.
 const FAILURE_CLASSES = [
-  "ok","invalid_arguments","disallowed_action","tool_failure","duplicate_mutation",
+  "ok","invalid_arguments","disallowed_tool","not_found","invalid_state",
+  "duplicate_action","policy_rejected","tool_failure","timeout","internal_error",
   "incorrect_action_order","missing_required_action","incorrect_final_state","evaluator_data_leakage",
   "unknown",
 ];
 const FC_COLOR = {
-  ok: "#12875A", invalid_arguments: "#5A6472", disallowed_action: "#B08600",
-  tool_failure: "#C25410", duplicate_mutation: "#0E8F8F", incorrect_action_order: "#4C63D2",
+  ok: "#12875A", invalid_arguments: "#5A6472", disallowed_tool: "#B08600",
+  not_found: "#6A7480", invalid_state: "#9A6A00", duplicate_action: "#0E8F8F",
+  policy_rejected: "#8A6D00", tool_failure: "#C25410", timeout: "#C2A410",
+  internal_error: "#7A2E2E", incorrect_action_order: "#4C63D2",
   missing_required_action: "#B0476A", incorrect_final_state: "#CF3A54", evaluator_data_leakage: "#8A34B0",
   unknown: "#98A2B1",
 };
