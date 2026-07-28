@@ -19,7 +19,20 @@ V1_TO_RUNTIME_VERTICAL = {
     "healthcare": "medical_diagnostic",
     "ecommerce": "ecommerce_trend_research",
     "smoke_test": "smoke_test",
+    "retail": "retail",
+    "tau_retail": "retail",
 }
+
+
+def _is_retail_case_file(data: dict[str, Any]) -> bool:
+    case_id = data.get("case_id")
+    return (
+        data.get("schema_version") is None
+        and isinstance(case_id, str)
+        and case_id.startswith("RETAIL-")
+        and isinstance(data.get("prompt"), str)
+        and isinstance(data.get("allowed_tools"), list)
+    )
 
 
 def render_v1_prompt(
@@ -62,6 +75,21 @@ def render_v1_prompt(
 
 def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
     """Convert a task dictionary from either supported format."""
+    if _is_retail_case_file(data):
+        case_id = data["case_id"]
+        metadata = dict(data.get("metadata", {}))
+        metadata["case_id"] = case_id
+        return BenchmarkTask(
+            task_id=data.get("task_id", case_id),
+            vertical="retail",
+            prompt=data["prompt"],
+            expected_output_type=data.get("expected_output_type", "json"),
+            metadata=metadata,
+            case_id=case_id,
+            allowed_tools=list(data["allowed_tools"]),
+            input_data=dict(data.get("input_data", {})),
+        )
+
     if data.get("schema_version") == "1.0":
         constraint_errors = validate_benchmark_case_constraints(data)
         if constraint_errors:
