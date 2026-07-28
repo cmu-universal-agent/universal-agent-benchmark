@@ -1065,9 +1065,9 @@ def convert_e2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     for index in range(count):
         start = (index * 7) % max(1, len(shuffled))
         candidates = (shuffled + shuffled)[start:start + 7]
-        eligible = [row for row in candidates if row["average_rating"] >= 4.0 and row["verified_review_count"] >= 3]
-        if not eligible:
-            eligible = list(candidates)
+        constrained = [row for row in candidates if row["average_rating"] >= 4.0 and row["verified_review_count"] >= 3]
+        constraints_satisfied = bool(constrained)
+        eligible = constrained if constrained else list(candidates)
         ranked = sorted(eligible, key=lambda row: (-row["average_rating"], -row["verified_review_count"], row["product_id"]))[:3]
         case = _case(
             case_id=f"E2-REVIEW-{index + 1:03d}", task_id="E2", vertical="ecommerce",
@@ -1077,7 +1077,7 @@ def convert_e2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         )
         expected = [{"product_id": row["product_id"], "rank": rank} for rank, row in enumerate(ranked, 1)]
         cases.append(case)
-        gold.append(_gold(case, {"result": {"recommendations": expected, "constraints_satisfied": bool(ranked)}, "ranking_rule": "average_rating desc, verified_review_count desc, product_id asc"}, "source_derived"))
+        gold.append(_gold(case, {"result": {"recommendations": expected, "constraints_satisfied": constraints_satisfied}, "ranking_rule": "average_rating desc, verified_review_count desc, product_id asc"}, "source_derived"))
     return cases, gold, {"source_reviews": len(reviews), "eligible_products": len(products), "candidate_sets": len(cases)}
 
 
@@ -1226,6 +1226,42 @@ def _write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _new_coverage_report(count: int, seed: int) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "status": "review_samples_not_approved",
+        "generator": GENERATOR_VERSION,
+        "seed": seed,
+        "requested_per_task": count,
+        "total_cases": 0,
+        "total_gold_records": 0,
+        "tasks": {},
+        "known_gaps": [],
+    }
+
+
+def _new_split_manifest(seed: int) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "status": "local_review_manifest",
+        "seed": seed,
+        "total_cases": 0,
+        "tasks": {},
+    }
+
+
+def _split_manifest_entries(cases: list[dict]) -> list[dict[str, str]]:
+    return [
+        {
+            "case_id": case["case_id"],
+            "source_record_id": case["metadata"]["source_record_id"],
+            "source_split": case["metadata"]["source_split"],
+            "benchmark_split": case["metadata"]["split"],
+        }
+        for case in cases
+    ]
+
+
 def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool) -> dict[str, Any]:
     if output.exists():
         if not overwrite:
@@ -1237,12 +1273,8 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
         shutil.rmtree(output)
     cases_dir = output / "cases"
     gold_dir = output / "gold"
-    report = {
-        "schema_version": "1.0", "status": "review_samples_not_approved",
-        "generator": GENERATOR_VERSION, "seed": seed, "requested_per_task": count,
-        "tasks": {}, "known_gaps": [],
-    }
-    manifest = {"schema_version": "1.0", "status": "local_review_manifest", "seed": seed, "tasks": {}}
+    report = _new_coverage_report(count, seed)
+    manifest = _new_split_manifest(seed)
     failures = {}
     for task_id in tasks:
         try:
@@ -1256,11 +1288,13 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
         gold_path = gold_dir / f"{task_id}.jsonl"
         gold_path.parent.mkdir(parents=True, exist_ok=True)
         gold_path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in gold), encoding="utf-8")
-        report["tasks"][task_id] = {"status": "generated_for_review", "cases": len(cases), **stats}
-        manifest["tasks"][task_id] = [
-            {"case_id": case["case_id"], "source_record_id": case["metadata"]["source_record_id"], "source_split": case["metadata"]["source_split"], "benchmark_split": case["metadata"]["split"]}
-            for case in cases
-        ]
+        report["tasks"][task_id] = {
+            "status": "generated_for_review",
+            "cases": len(cases),
+            "gold_records": len(gold),
+            **stats,
+        }
+        manifest["tasks"][task_id] = _split_manifest_entries(cases)
     if "H5" in tasks:
         h5_status = report["tasks"].get("H5", {})
         if (
@@ -1278,6 +1312,15 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
             )
     if "E5" in tasks:
         report["known_gaps"].append("E5 live runs require a shared tau retail simulator/tool bridge across all framework adapters.")
+    report["total_cases"] = sum(
+        status.get("cases", 0) for status in report["tasks"].values()
+    )
+    report["total_gold_records"] = sum(
+        status.get("gold_records", 0) for status in report["tasks"].values()
+    )
+    manifest["total_cases"] = sum(
+        len(entries) for entries in manifest["tasks"].values()
+    )
     _write_json(output / "split_manifest.json", manifest)
     _write_json(output / "coverage_report.json", report)
     return {"output": str(output), "failures": failures, "report": report}

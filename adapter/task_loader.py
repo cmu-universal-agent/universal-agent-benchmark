@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from adapter.schemas import BenchmarkTask
+from adapter.validation import validate_benchmark_case_constraints
 
 
 V1_TO_RUNTIME_VERTICAL = {
@@ -62,6 +63,11 @@ def render_v1_prompt(
 def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
     """Convert a task dictionary from either supported format."""
     if data.get("schema_version") == "1.0":
+        constraint_errors = validate_benchmark_case_constraints(data)
+        if constraint_errors:
+            details = "; ".join(constraint_errors)
+            raise ValueError(f"invalid Benchmark Case v1.0: {details}")
+
         input_value = data["input"]
         schema_vertical = data["vertical"]
         runtime_vertical = V1_TO_RUNTIME_VERTICAL.get(schema_vertical, schema_vertical)
@@ -81,7 +87,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
             metadata=metadata,
             schema_version="1.0",
             case_id=data["case_id"],
-            allowed_tools=list(data.get("allowed_tools", [])),
+            allowed_tools=(
+                list(data["allowed_tools"])
+                if data.get("allowed_tools") is not None
+                else None
+            ),
             stress_type=data["stress_type"],
             input_data=dict(input_value.get("data", {})),
         )
@@ -92,6 +102,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
         prompt=data["prompt"],
         expected_output_type=data.get("expected_output_type", "json"),
         metadata=dict(data.get("metadata", {})),
+        allowed_tools=(
+            list(data["allowed_tools"])
+            if data.get("allowed_tools") is not None
+            else None
+        ),
     )
 
 

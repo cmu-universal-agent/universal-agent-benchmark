@@ -18,6 +18,7 @@ cffi==2.1.0
 charset-normalizer==3.4.7
 chromadb==1.1.1
 click==8.4.2
+colorama==0.4.6; sys_platform == "win32"
 crewai==1.15.1
 crewai-cli==1.15.1
 crewai-core==1.15.1
@@ -109,6 +110,7 @@ python-docx==1.2.0
 python-dotenv==1.2.2
 python-multipart==0.0.32
 pytube==15.0.0
+pywin32==312; sys_platform == "win32"
 PyYAML==6.0.3
 referencing==0.37.0
 regex==2026.1.15
