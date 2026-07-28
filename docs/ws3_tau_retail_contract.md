@@ -132,6 +132,9 @@ The deterministic meeting fallback uses only the synthetic contract fixtures:
   --evidence-out ".\tmp\ws3-demo-evidence.json"
 ```
 
+Then double-click `results/ws3_demo.html`. The generated page is self-contained
+and needs no server or network connection.
+
 Expected output:
 
 ```text
@@ -142,13 +145,15 @@ READ_OK tool=get_order_details state_changed=0
 WRITE_OK tool=modify_pending_order_payment mutation_count=1
 DUPLICATE_OK tool=cancel_pending_order error=duplicate_action state_changed=0
 EVIDENCE_OK scenarios=7 calls=8 leakage=0
+EVIDENCE_FILE path=tmp\ws3-demo-evidence.json
+DEMO_FILE path=results\ws3_demo.html
 ```
 
 Suggested six-minute flow: introduce the 15-tool contract, run the command,
-explain the read/write/duplicate state transitions, open the sanitized evidence
-JSON, and finish with the remaining core/wrapper integration gates. This is
-contract evidence only, not a simulator, framework run, E5 semantic approval,
-or benchmark result.
+open the generated page, explain the read/write/duplicate state transitions,
+open the sanitized evidence JSON, and finish with the remaining core/wrapper
+integration gates. This is contract evidence only, not a simulator, framework
+run, E5 semantic approval, or benchmark result.
 
 ## Upstream provenance
 

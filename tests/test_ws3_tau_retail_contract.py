@@ -51,13 +51,18 @@ class Ws3TauRetailContractTests(unittest.TestCase):
     def test_contract_demo_writes_sanitized_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "evidence.json"
+            html_output = Path(temporary) / "demo.html"
             summary = demo.run_demo(output)
+            demo.write_html(summary, html_output)
             evidence = json.loads(output.read_text(encoding="utf-8"))
+            html = html_output.read_text(encoding="utf-8")
 
         self.assertEqual(summary["tools"], 15)
         self.assertEqual(summary["duplicate_error"], "duplicate_action")
         self.assertFalse(summary["duplicate_state_changed"])
         self.assertEqual(evidence["wrapper_version"], "synthetic-contract-fixture")
+        self.assertIn("NOT BENCHMARK SCORES", html)
+        self.assertNotIn("evaluator_only", html)
 
 
 if __name__ == "__main__":
