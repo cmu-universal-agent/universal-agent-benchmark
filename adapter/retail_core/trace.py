@@ -9,6 +9,7 @@ only fills it via setdefault) so it stays stable no matter how many times
 get_trace()/get_session_evidence() re-normalize the accumulated log.
 """
 
+import copy
 import uuid
 from typing import Any
 
@@ -41,20 +42,22 @@ class Trace:
     ) -> str:
         tool_call_id = f"tool-{uuid.uuid4().hex}"
         self._raw.append(
-            {
-                "tool_call_id": tool_call_id,
-                "tool_name": tool_name,
-                "arguments": arguments,
-                "was_allowed": was_allowed,
-                "arguments_valid": arguments_valid,
-                "started_at": started_at,
-                "completed_at": completed_at,
-                "latency_ms": latency_ms,
-                "outcome": outcome,
-                "result": result,
-                "error": error,
-                "retry_of": retry_of,
-            }
+            copy.deepcopy(
+                {
+                    "tool_call_id": tool_call_id,
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "was_allowed": was_allowed,
+                    "arguments_valid": arguments_valid,
+                    "started_at": started_at,
+                    "completed_at": completed_at,
+                    "latency_ms": latency_ms,
+                    "outcome": outcome,
+                    "result": result,
+                    "error": error,
+                    "retry_of": retry_of,
+                }
+            )
         )
         self._state_before.append(state_before_sha256)
         self._state_after.append(state_after_sha256)
@@ -62,7 +65,7 @@ class Trace:
 
     def to_tool_calls(self) -> list[dict[str, Any]]:
         """schemas/tool_call.schema.json-conformant records, run-wide order."""
-        return normalize_tool_calls(self._raw, self.run_id)
+        return normalize_tool_calls(copy.deepcopy(self._raw), self.run_id)
 
     def to_session_events(self) -> list[dict[str, Any]]:
         """schemas/tau_retail_session_evidence.schema.json 'events' entries."""

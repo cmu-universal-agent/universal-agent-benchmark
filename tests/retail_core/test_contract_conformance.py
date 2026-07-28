@@ -112,7 +112,7 @@ class TestCanonicalToolRegistry(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         contract_tools = {tool["name"] for tool in contract["tools"]}
         self.assertEqual(set(TOOL_HANDLERS), contract_tools)
-        self.assertEqual(len(contract_tools), 15)
+        self.assertEqual(len(contract_tools), 16)
 
 
 class TestWrapperEvidenceConformance(unittest.TestCase):

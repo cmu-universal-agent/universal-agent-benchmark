@@ -1,7 +1,7 @@
 # WS3 Tau-Retail Canonical Contract
 
 Status: **candidate for owner review**
-Contract version: `0.1.0`
+Contract version: `0.2.0`
 Owner: Jessica
 Scope: framework-neutral tool, reset, state-evidence, and error behavior
 
@@ -139,7 +139,7 @@ Expected output:
 
 ```text
 WS3_OFFLINE_DEMO technical_validation_only=1 benchmark_scores=0
-CONTRACT_OK version=0.1.0 tools=15
+CONTRACT_OK version=0.2.0 tools=16
 RESET_OK deterministic=1
 READ_OK tool=get_order_details state_changed=0
 WRITE_OK tool=modify_pending_order_payment mutation_count=1
@@ -149,7 +149,7 @@ EVIDENCE_FILE path=tmp\ws3-demo-evidence.json
 DEMO_FILE path=results\ws3_demo.html
 ```
 
-Suggested six-minute flow: introduce the 15-tool contract, run the command,
+Suggested six-minute flow: introduce the 16-tool contract, run the command,
 open the generated page, explain the read/write/duplicate state transitions,
 open the sanitized evidence JSON, and finish with the remaining core/wrapper
 integration gates. This is contract evidence only, not a simulator, framework
@@ -160,11 +160,10 @@ run, E5 semantic approval, or benchmark result.
 The tool surface was reconciled on 2026-07-22 against:
 
 - local tau-retail cache: 114 tasks, 15 unique expected action names;
-- local prepared E5 cases: the same 15 `allowed_tools`;
+- Chloe's E5 v0.2 owner review: the full 16-tool retail registry;
 - upstream `sierra-research/tau2-bench` retail toolkit at
   `src/tau2/domains/retail/tools.py`, blob
   `eba01ab32dca0d4ef33328c22358b794d859f2b6`.
 
-Upstream currently also exposes `list_all_product_types`, but it is outside the
-frozen MVP surface because neither the local task action set nor prepared E5
-cases require it. Adding it requires a contract-version update.
+Contract v0.2.0 adds upstream's read-only `list_all_product_types` so the
+canonical surface matches the full registry approved in Chloe's E5 review.

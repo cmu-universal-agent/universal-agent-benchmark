@@ -1,5 +1,5 @@
 {
-  "contract_version": "0.1.0",
+  "contract_version": "0.2.0",
   "status": "candidate_for_owner_review",
   "domain": "tau_retail",
   "source": {
@@ -41,6 +41,7 @@
     {"name": "get_order_details", "operation": "read", "input_schema": "tools/schemas/get_order_details.schema.json"},
     {"name": "get_product_details", "operation": "read", "input_schema": "tools/schemas/get_product_details.schema.json"},
     {"name": "get_user_details", "operation": "read", "input_schema": "tools/schemas/get_user_details.schema.json"},
+    {"name": "list_all_product_types", "operation": "read", "input_schema": "tools/schemas/list_all_product_types.schema.json"},
     {"name": "modify_pending_order_address", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_address.schema.json"},
     {"name": "modify_pending_order_items", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_items.schema.json"},
     {"name": "modify_pending_order_payment", "operation": "write", "input_schema": "tools/schemas/modify_pending_order_payment.schema.json"},
