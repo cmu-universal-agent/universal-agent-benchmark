@@ -412,7 +412,11 @@ def run_framework_task(
     tool_modules: Sequence[Any],
     requested_settings: GenerationSettings,
     build_model: Callable[[GenerationSettings], tuple[Any, GenerationSettingsResolution]],
-    run_model: Callable[[Any, GenerationSettings], tuple[str, dict[str, int | None]]],
+    run_model: Callable[
+        [Any, GenerationSettings],
+        tuple[str, dict[str, int | None]]
+        | tuple[str, dict[str, int | None], dict[str, Any]],
+    ],
 ) -> AgentRunResult:
     """Shared run_task control flow for every framework adapter.
 
@@ -427,10 +431,11 @@ def run_framework_task(
     case since no setting was ever attempted, let alone rejected. On success,
     ``run_model``
     receives the constructed object and the originally requested settings,
-    and returns (final_output, token_usage). A ``run_model`` failure is
-    recorded as a run error. ``tool_modules`` are reset before the attempt
-    and their call logs are collected into the result regardless of outcome
-    (except when model construction itself failed).
+    and returns ``(final_output, token_usage)`` with optional third wrapper
+    metadata mapping. A ``run_model`` failure is recorded as a run error.
+    ``tool_modules`` are reset before the attempt and their call logs are
+    collected into the result regardless of outcome (except when model
+    construction itself failed).
     """
     timing = start_run_timing()
     model_error: Exception | None = None
@@ -461,8 +466,17 @@ def run_framework_task(
         )
 
     try:
-        final_output, token_usage = run_model(model, requested_settings)
-        return finish_run(
+        run_output = run_model(model, requested_settings)
+        if len(run_output) == 2:
+            final_output, token_usage = run_output
+            wrapper_metadata = {}
+        elif len(run_output) == 3:
+            final_output, token_usage, wrapper_metadata = run_output
+        else:
+            raise ValueError(
+                "run_model must return output, usage, and optional metadata"
+            )
+        result = finish_run(
             context,
             task,
             final_output=final_output,
@@ -470,6 +484,8 @@ def run_framework_task(
             raw_tool_logs=[log for module in tool_modules for log in module.call_log],
             token_usage=token_usage,
         )
+        result.raw_metadata.update(wrapper_metadata)
+        return result
     except Exception as exc:
         return finish_run(
             context,

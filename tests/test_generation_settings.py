@@ -192,6 +192,27 @@ class RunFrameworkTaskModelConstructionTests(unittest.TestCase):
         self.assertIn("agent run blew up", result.error)
         self.assertFalse(result.raw_metadata["model_construction_failed"])
 
+    def test_run_model_metadata_is_added_to_result(self):
+        def _build_model_ok(settings):
+            return object(), resolve_generation_settings(settings, settings)
+
+        result = run_framework_task(
+            _task(),
+            framework="test",
+            package_name="missing-test-package",
+            tool_modules=(),
+            requested_settings=_settings(),
+            build_model=_build_model_ok,
+            run_model=lambda _model, _settings: (
+                "{}",
+                {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+                {"wrapper_detail": "recorded"},
+            ),
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.raw_metadata["wrapper_detail"], "recorded")
+
 
 @unittest.skipUnless(
     OPENAI_AGENTS_AVAILABLE,

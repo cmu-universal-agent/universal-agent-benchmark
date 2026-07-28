@@ -2,20 +2,45 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
 
-# CrewAI resolves its storage directory while the package is imported. Load
-# local configuration first and keep its writable state inside the project so
-# the adapter also works in sandboxed runners that cannot write to AppData.
+# CrewAI resolves storage and tracing dependencies while the package is
+# imported. Keep both configurable state and its 1.15.1 credential store in a
+# project-local directory so Windows/Linux runners do not require writes to a
+# user profile outside the checkout.
 load_dotenv(ROOT / ".env", override=False)
+os.environ.setdefault("OPENAI_MODEL", "gpt-4")
+os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")
+os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")
 storage_dir = Path(os.getenv("CREWAI_STORAGE_DIR", ".crewai"))
 if not storage_dir.is_absolute():
     storage_dir = ROOT / storage_dir
 os.environ["CREWAI_STORAGE_DIR"] = str(storage_dir.resolve())
+
+credential_dir = Path(
+    os.getenv("CREWAI_CREDENTIAL_STORAGE_DIR", str(storage_dir / "credentials"))
+)
+if not credential_dir.is_absolute():
+    credential_dir = ROOT / credential_dir
+credential_dir = credential_dir.resolve()
+credential_dir.mkdir(parents=True, exist_ok=True)
+try:
+    credential_dir.chmod(0o700)
+except OSError:
+    pass
+
+# CrewAI 1.15.1 has no environment variable for this path and initializes the
+# token manager even when tracing is disabled. Patch only that path provider;
+# encryption, atomic writes, permissions, and token handling stay in CrewAI.
+from crewai_core.token_manager import TokenManager
+
+TokenManager._get_secure_storage_path = staticmethod(lambda: credential_dir)
 
 from crewai import Agent, Crew, LLM, Process, Task
 from crewai.tools import tool
@@ -36,6 +61,12 @@ from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "crewai"
+_EXTRA_USAGE_FIELDS = (
+    "cached_prompt_tokens",
+    "reasoning_tokens",
+    "cache_creation_tokens",
+    "successful_requests",
+)
 
 
 @tool("search_literature")
@@ -62,6 +93,56 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
         return list(available.values())
     allowed = set(allowed_tools)
     return [tool_value for name, tool_value in available.items() if name in allowed]
+
+
+def _usage_value(usage: Any, name: str) -> int | None:
+    """Read one non-negative integer without assuming a field is present."""
+    try:
+        value = getattr(usage, name)
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def _extract_token_usage(
+    crew_output: Any,
+) -> tuple[dict[str, int | None], dict[str, Any]]:
+    """Normalize CrewAI usage and distinguish missing usage from real zeroes."""
+    unavailable = {
+        "input_tokens": None,
+        "output_tokens": None,
+        "total_tokens": None,
+    }
+    try:
+        usage = crew_output.token_usage
+    except (AttributeError, TypeError, ValueError):
+        return unavailable, {"available": False, "crew_fields": {}}
+    if usage is None:
+        return unavailable, {"available": False, "crew_fields": {}}
+
+    prompt = _usage_value(usage, "prompt_tokens")
+    completion = _usage_value(usage, "completion_tokens")
+    total = _usage_value(usage, "total_tokens")
+    requests = _usage_value(usage, "successful_requests")
+    if requests in (0, None) and all(
+        value in (0, None) for value in (prompt, completion, total)
+    ):
+        return unavailable, {"available": False, "crew_fields": {}}
+    if total is None and prompt is not None and completion is not None:
+        total = prompt + completion
+
+    extra = {
+        name: value
+        for name in _EXTRA_USAGE_FIELDS
+        if (value := _usage_value(usage, name)) is not None
+    }
+    return {
+        "input_tokens": prompt,
+        "output_tokens": completion,
+        "total_tokens": total,
+    }, {"available": True, "crew_fields": extra}
 
 
 def _build_llm(
@@ -103,7 +184,7 @@ def _run_agent(
     vertical: str,
     allowed_tools: list[str] | None,
     llm: LLM,
-) -> tuple[str, dict[str, int]]:
+) -> tuple[str, dict[str, int | None], dict[str, Any]]:
     tools = _select_tools(vertical, allowed_tools)
 
     agent = Agent(
@@ -118,7 +199,6 @@ def _run_agent(
         verbose=False,
         allow_delegation=False,
     )
-
     task = Task(
         description=prompt,
         expected_output=(
@@ -127,20 +207,16 @@ def _run_agent(
         ),
         agent=agent,
     )
-
-    crew = Crew(
+    crew_output = Crew(
         agents=[agent],
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-    )
-
-    result = crew.kickoff()
-    usage = result.token_usage
-    return str(result), {
-        "input_tokens": usage.prompt_tokens,
-        "output_tokens": usage.completion_tokens,
-        "total_tokens": usage.total_tokens,
+    ).kickoff()
+    token_usage, usage_metadata = _extract_token_usage(crew_output)
+    return str(crew_output), token_usage, {
+        "crewai_token_usage": usage_metadata,
+        "selected_tool_names": [getattr(value, "name", "unknown") for value in tools],
     }
 
 
@@ -158,7 +234,7 @@ def run_task(task: BenchmarkTask) -> AgentRunResult:
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=Path, default=TASK_PATH)
     args = parser.parse_args()

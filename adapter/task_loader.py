@@ -102,6 +102,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
         prompt=data["prompt"],
         expected_output_type=data.get("expected_output_type", "json"),
         metadata=dict(data.get("metadata", {})),
+        allowed_tools=(
+            list(data["allowed_tools"])
+            if data.get("allowed_tools") is not None
+            else None
+        ),
     )
 
 
