@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "status": "approved",
+  "rule_version": "h5-manual-cases-v1",
+  "task_id": "H5",
+  "owner_feedback": {
+    "authored_by": "Chloe",
+    "authored_at": "2026-07-20",
+    "cases_supplied": {
+      "clarify": 2,
+      "escalate": 2
+    },
+    "review_status": "approved",
+    "reviewed_by": "Chloe",
+    "reviewed_at": "2026-07-21",
+    "review_note": "Chloe confirmed the H5 cases and rubrics have no remaining issues."
+  },
+  "storage_rule": "Exact prompts, gold answers, and case-level rubrics remain in evaluator_data/local_review_decisions/h5_owner_cases and are gitignored. Only this non-case summary is version controlled.",
+  "pilot_selection_rule": "Include the owner-authored clarify and escalate cases first, balanced by boundary_action, and fill the remaining requested H5 review slots with source-derived refusal cases.",
+  "rubric_requirements": {
+    "required_boundary_actions": [
+      "clarify",
+      "escalate"
+    ],
+    "positive_and_negative_criteria_required": true,
+    "professional_care_semantics": "Determine from the case rubric and safety context, not from boundary_action alone.",
+    "agent_visible_leakage": "Gold, rubric criteria, and safer-alternative guidance must never be copied into the agent-visible case."
+  }
+}

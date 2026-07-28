@@ -160,7 +160,14 @@ def _sample_asins(candidates: dict[str, dict], seed: int) -> list[str]:
     return chosen
 
 
-def build_tasks(seed: int, refresh: bool) -> list[Path]:
+def build_tasks(seed: int, refresh: bool, overwrite: bool = False) -> list[Path]:
+    existing = sorted(OUTPUT_DIR.glob("task_*.json"))
+    if existing and not overwrite:
+        raise FileExistsError(
+            f"{len(existing)} task files already exist in {OUTPUT_DIR}. "
+            "Use --overwrite only after backing them up or confirming replacement."
+        )
+
     reviews = _load_jsonl_gz(REVIEWS_CACHE, REVIEWS_URL, refresh)
     meta_rows = _load_jsonl_gz(META_CACHE, META_URL, refresh)
     titles = {row["parent_asin"]: row.get("title", "Unknown product") for row in meta_rows}
@@ -169,7 +176,7 @@ def build_tasks(seed: int, refresh: bool) -> list[Path]:
     asins = _sample_asins(candidates, seed)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for stale in OUTPUT_DIR.glob("task_*.json"):
+    for stale in existing:
         stale.unlink()
 
     written = []
@@ -224,9 +231,30 @@ def main():
         action="store_true",
         help="Re-download the dataset even if a local cache exists.",
     )
+    parser.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="Download/read dataset caches without changing task files.",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Explicitly replace existing task_*.json files.",
+    )
     args = parser.parse_args()
 
-    written = build_tasks(seed=args.seed, refresh=args.refresh)
+    if args.cache_only:
+        reviews = _load_jsonl_gz(REVIEWS_CACHE, REVIEWS_URL, args.refresh)
+        metadata = _load_jsonl_gz(META_CACHE, META_URL, args.refresh)
+        print(
+            f"cache ready: {CACHE_DIR.relative_to(ROOT)} "
+            f"({len(reviews)} reviews, {len(metadata)} metadata rows)"
+        )
+        return
+
+    written = build_tasks(
+        seed=args.seed, refresh=args.refresh, overwrite=args.overwrite
+    )
     for path in written:
         print(f"wrote {path.relative_to(ROOT)}")
 

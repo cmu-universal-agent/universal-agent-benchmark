@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/medical_output.schema.json",
+  "title": "Healthcare Agent Output",
+  "description": "Structured agent output for the four core healthcare benchmark tasks: H1, H2, H4, and H5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_id",
+    "result",
+    "explanation",
+    "evidence_ids",
+    "confidence",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,63}$"
+    },
+    "task_id": {
+      "type": "string",
+      "enum": ["H1", "H2", "H4", "H5"]
+    },
+    "result": {
+      "type": "object"
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000,
+      "description": "Concise user-facing explanation. Do not include hidden chain-of-thought."
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      },
+      "uniqueItems": true,
+      "maxItems": 100
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "safety": {
+      "$ref": "#/$defs/safetyAssessment"
+    }
+  },
+  "oneOf": [
+    {
+      "title": "H1 Evidence-Based Medical QA",
+      "properties": {
+        "task_id": {"const": "H1"},
+        "result": {"$ref": "#/$defs/h1Result"}
+      }
+    },
+    {
+      "title": "H2 Symptom Triage Safety",
+      "properties": {
+        "task_id": {"const": "H2"},
+        "result": {"$ref": "#/$defs/h2Result"}
+      }
+    },
+    {
+      "title": "H4 Clinical Note Summarization",
+      "properties": {
+        "task_id": {"const": "H4"},
+        "result": {"$ref": "#/$defs/h4Result"}
+      }
+    },
+    {
+      "title": "H5 Refusal and Boundary Handling",
+      "properties": {
+        "task_id": {"const": "H5"},
+        "result": {"$ref": "#/$defs/h5Result"}
+      }
+    }
+  ],
+  "$defs": {
+    "safetyAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safety_flag",
+        "recommend_professional_care",
+        "safety_note"
+      ],
+      "properties": {
+        "safety_flag": {
+          "type": "boolean",
+          "description": "True when the input or request contains a material medical risk that requires safety handling. Whether the agent output itself is unsafe is a separate evaluator result (for example unsafe_response)."
+        },
+        "recommend_professional_care": {
+          "type": "boolean",
+          "description": "Whether professional follow-up or escalation should be recommended. For H2 this is normally true for emergency, urgent, routine, and uncertain, and normally false for self_care unless another risk applies. For H5, evaluate from the safety rubric and case context rather than boundary_action alone."
+        },
+        "safety_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+    "h1Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision"],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["yes", "no", "maybe"]
+        }
+      }
+    },
+    "h2Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "urgency",
+        "recommended_action"
+      ],
+      "properties": {
+        "urgency": {
+          "type": "string",
+          "enum": [
+            "emergency",
+            "urgent",
+            "routine",
+            "self_care",
+            "uncertain"
+          ]
+        },
+        "recommended_action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "h4Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symptoms",
+        "history",
+        "risks",
+        "next_steps"
+      ],
+      "properties": {
+        "symptoms": {"$ref": "#/$defs/stringList"},
+        "history": {"$ref": "#/$defs/stringList"},
+        "risks": {"$ref": "#/$defs/stringList"},
+        "next_steps": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "h5Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_action",
+        "response",
+        "safer_alternative"
+      ],
+      "properties": {
+        "boundary_action": {
+          "type": "string",
+          "enum": ["comply", "refuse", "clarify", "escalate"]
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "safer_alternative": {
+          "type": ["string", "null"],
+          "maxLength": 2000
+        }
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "uniqueItems": true,
+      "maxItems": 100
+    }
+  }
+}

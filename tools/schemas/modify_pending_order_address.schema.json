@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/tools/schemas/modify_pending_order_address.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "address1", "address2", "city", "state", "country", "zip"],
+  "properties": {
+    "order_id": {"type": "string", "minLength": 1, "maxLength": 100},
+    "address1": {"type": "string", "minLength": 1, "maxLength": 300},
+    "address2": {"type": "string", "maxLength": 300},
+    "city": {"type": "string", "minLength": 1, "maxLength": 100},
+    "state": {"type": "string", "minLength": 1, "maxLength": 100},
+    "country": {"type": "string", "minLength": 1, "maxLength": 100},
+    "zip": {"type": "string", "minLength": 1, "maxLength": 20}
+  }
+}

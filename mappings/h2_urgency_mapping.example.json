@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "status": "template",
+  "task_id": "H2",
+  "source_dataset": null,
+  "source_dataset_version": null,
+  "source_field": null,
+  "target_field": "result.urgency",
+  "target_values": [
+    "emergency",
+    "urgent",
+    "routine",
+    "self_care",
+    "uncertain"
+  ],
+  "mapping": {},
+  "unmapped_policy": "reject_conversion",
+  "approved_by": null,
+  "approved_at": null
+}

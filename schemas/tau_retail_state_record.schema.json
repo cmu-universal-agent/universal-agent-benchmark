@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/tau_retail_state_record.schema.json",
+  "title": "Tau-Retail Bounded State Evidence",
+  "description": "Evaluator-side, non-agent-visible state evidence. Raw database values are deliberately excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "reset_id",
+    "case_id",
+    "sequence_index",
+    "state_sha256",
+    "entity_counts",
+    "mutation_count"
+  ],
+  "properties": {
+    "contract_version": {"const": "0.1.0"},
+    "reset_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$"},
+    "case_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,63}$"},
+    "sequence_index": {"type": "integer", "minimum": 0},
+    "state_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "entity_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orders", "products", "users"],
+      "properties": {
+        "orders": {"type": "integer", "minimum": 0},
+        "products": {"type": "integer", "minimum": 0},
+        "users": {"type": "integer", "minimum": 0}
+      }
+    },
+    "mutation_count": {"type": "integer", "minimum": 0}
+  }
+}

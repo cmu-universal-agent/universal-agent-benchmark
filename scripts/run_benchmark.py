@@ -8,8 +8,10 @@ prints an aggregated evaluation summary per (task, framework) pair.
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -19,23 +21,33 @@ sys.path.insert(0, str(ROOT))
 from adapter.evaluator import evaluate_result
 from adapter.result_writer import default_result_path
 from adapter.schemas import AgentRunResult
+from adapter.task_loader import load_task
 
 DEFAULT_TASK = ROOT / "verticals" / "smoke_test" / "task_001.json"
+
+
+def _venv_python(venv_name: str) -> Path:
+    """Return the platform-specific Python path for a local virtual environment."""
+    venv_root = ROOT / venv_name
+    windows_python = venv_root / "Scripts" / "python.exe"
+    posix_python = venv_root / "bin" / "python"
+    return windows_python if windows_python.exists() else posix_python
+
 
 FRAMEWORKS = [
     (
         "openai_agents_sdk",
-        ROOT / ".venv-openai" / "bin" / "python",
+        _venv_python(".venv-openai"),
         ROOT / "frameworks" / "openai_agents_sdk" / "run.py",
     ),
     (
         "langgraph",
-        ROOT / ".venv-langgraph" / "bin" / "python",
+        _venv_python(".venv-langgraph"),
         ROOT / "frameworks" / "langgraph_agent" / "run.py",
     ),
     (
         "crewai",
-        ROOT / ".venv-crewai" / "bin" / "python",
+        _venv_python(".venv-crewai"),
         ROOT / "frameworks" / "crewai_agent" / "run.py",
     ),
 ]
@@ -56,6 +68,16 @@ def main():
         help="A task JSON file, or a directory of task JSON files.",
     )
     parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name for this benchmark session. Overrides OPENAI_MODEL from .env.",
+    )
+    parser.add_argument(
+        "--experiment-id",
+        default=None,
+        help="Stable ID grouping all runs in this invocation. Generated when omitted.",
+    )
+    parser.add_argument(
         "--repeats",
         type=int,
         default=1,
@@ -69,22 +91,54 @@ def main():
         "Omit to skip the required-keys check (useful when sweeping "
         "tasks from more than one vertical at once).",
     )
+    parser.add_argument(
+        "--list-only",
+        action="store_true",
+        help="Load and list resolved cases without calling a model or writing results.",
+    )
     args = parser.parse_args()
+
+    experiment_id = args.experiment_id or f"exp-{uuid.uuid4().hex}"
+    child_env = os.environ.copy()
+    child_env["BENCHMARK_EXPERIMENT_ID"] = experiment_id
+    if args.model:
+        child_env["OPENAI_MODEL"] = args.model
+
+    configured_model = child_env.get("OPENAI_MODEL", "from-.env")
+    print(f"experiment_id={experiment_id} model={configured_model}")
 
     task_paths = _resolve_task_paths(args.task)
     if not task_paths:
         print(f"no task files found at {args.task}")
         return
 
-    # (vertical, task_id, framework) once per run, in the order they ran
+    if args.list_only:
+        seen: set[str] = set()
+        for task_path in task_paths:
+            task = load_task(task_path)
+            case_key = task.case_id or task.task_id
+            if case_key in seen:
+                raise SystemExit(f"duplicate case identity: {case_key}")
+            seen.add(case_key)
+            print(
+                f"CASE {case_key} task={task.task_id} vertical={task.vertical} "
+                f"allowed_tools={len(task.allowed_tools or [])}"
+            )
+        print(f"LIST_ONLY_OK cases={len(seen)} model_calls=0 result_writes=0")
+        return
+
+    tasks_by_key = {}
+
+    # (vertical, case identity, framework) once per run, in run order.
     run_records: list[tuple[str, str, str]] = []
     for task_path in task_paths:
-        with open(task_path, "r", encoding="utf-8") as f:
-            task_data = json.load(f)
-        vertical = task_data["vertical"]
-        task_id = task_data["task_id"]
+        task = load_task(task_path)
+        vertical = task.vertical
+        task_id = task.task_id
+        case_key = task.case_id or task_id
+        tasks_by_key[(vertical, case_key)] = task
 
-        print(f"\n=== Task {task_id} ({task_path.name}) ===")
+        print(f"\n=== Case {case_key} / Task {task_id} ({task_path.name}) ===")
         for name, python_bin, script in FRAMEWORKS:
             if not python_bin.exists():
                 print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
@@ -96,13 +150,14 @@ def main():
                     [str(python_bin), str(script), "--task", str(task_path)],
                     cwd=ROOT,
                     check=False,
+                    env=child_env,
                 )
-                run_records.append((vertical, task_id, name))
+                run_records.append((vertical, case_key, name))
 
     print("\n--- Summary ---")
     by_vertical: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for vertical, task_id, name in run_records:
-        by_vertical[vertical].append((task_id, name))
+    for vertical, case_key, name in run_records:
+        by_vertical[vertical].append((case_key, name))
 
     failure_modes_by_framework: dict[str, Counter] = defaultdict(Counter)
 
@@ -116,7 +171,8 @@ def main():
         with open(results_path, "r", encoding="utf-8") as f:
             for line in f:
                 d = json.loads(line)
-                all_by_key[(d["task_id"], d["framework"])].append(d)
+                result_case_key = d.get("case_id") or d["task_id"]
+                all_by_key[(result_case_key, d["framework"])].append(d)
 
         key_counts = Counter(records)
         seen: set[tuple[str, str]] = set()
@@ -125,17 +181,43 @@ def main():
                 continue
             seen.add(key)
 
-            task_id, name = key
+            case_key, name = key
             n = key_counts[key]
             # this session's runs are the most recently appended n entries
             session_runs = all_by_key[key][-n:]
             results_objs = [AgentRunResult(**d) for d in session_runs]
+            task = tasks_by_key[(vertical, case_key)]
+            evaluation = task.metadata.get("evaluation", {})
+            required_keys = (
+                args.required_keys
+                if args.required_keys is not None
+                else evaluation.get("required_keys")
+            )
             metrics_list = [
-                evaluate_result(r, required_keys=args.required_keys) for r in results_objs
+                evaluate_result(
+                    r,
+                    required_keys=required_keys,
+                    exact_values=evaluation.get("exact_values"),
+                    one_sentence_fields=evaluation.get("one_sentence_fields"),
+                )
+                for r in results_objs
             ]
 
             success_rate = sum(m["success"] for m in metrics_list) / n
             json_valid_rate = sum(m["json_valid"] for m in metrics_list) / n
+            schema_checked = [
+                metric for metric in metrics_list
+                if metric["output_schema_checked"]
+            ]
+            output_schema_field = ""
+            if schema_checked:
+                output_schema_rate = (
+                    sum(metric["output_schema_valid"] for metric in schema_checked)
+                    / len(schema_checked)
+                )
+                output_schema_field = (
+                    f"output_schema_valid_rate={output_schema_rate:.0%} "
+                )
             instruction_following_rate = (
                 sum(m["instruction_following_score"] for m in metrics_list) / n
             )
@@ -143,13 +225,14 @@ def main():
             failure_modes_by_framework[name].update(m["failure_mode"] for m in metrics_list)
 
             required_keys_field = ""
-            if args.required_keys:
+            if required_keys:
                 req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
 
             print(
-                f"{task_id:>10} {name:>18} (n={n}): success_rate={success_rate:.0%} "
+                f"{case_key:>18} {name:>18} (n={n}): success_rate={success_rate:.0%} "
                 f"json_valid_rate={json_valid_rate:.0%} "
+                f"{output_schema_field}"
                 f"instruction_following_rate={instruction_following_rate:.0%} "
                 f"{required_keys_field}"
                 f"avg_latency={avg_latency:.2f}s"

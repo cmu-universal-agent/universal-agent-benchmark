@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/ecommerce_output.schema.json",
+  "title": "E-commerce Agent Output",
+  "description": "Structured agent output for the four core e-commerce benchmark tasks: E1, E2, E3, and E5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_id",
+    "result",
+    "explanation",
+    "evidence_ids",
+    "confidence",
+    "risk_or_uncertainty"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,63}$"
+    },
+    "task_id": {
+      "type": "string",
+      "enum": ["E1", "E2", "E3", "E5"]
+    },
+    "result": {
+      "type": "object"
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      },
+      "uniqueItems": true,
+      "maxItems": 100
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "risk_or_uncertainty": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    }
+  },
+  "oneOf": [
+    {
+      "title": "E1 Product Trend Research",
+      "properties": {
+        "task_id": {"const": "E1"},
+        "result": {"$ref": "#/$defs/e1Result"}
+      }
+    },
+    {
+      "title": "E2 Product Recommendation",
+      "properties": {
+        "task_id": {"const": "E2"},
+        "result": {"$ref": "#/$defs/e2Result"}
+      }
+    },
+    {
+      "title": "E3 Return and Refund Policy Decision",
+      "properties": {
+        "task_id": {"const": "E3"},
+        "result": {"$ref": "#/$defs/e3Result"}
+      }
+    },
+    {
+      "title": "E5 Customer Support Tool Use",
+      "properties": {
+        "task_id": {"const": "E5"},
+        "result": {"$ref": "#/$defs/e5Result"}
+      }
+    }
+  ],
+  "$defs": {
+    "e1Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trend_direction",
+        "key_trends"
+      ],
+      "properties": {
+        "trend_direction": {
+          "type": "string",
+          "enum": [
+            "increasing",
+            "decreasing",
+            "stable",
+            "mixed",
+            "insufficient_evidence"
+          ]
+        },
+        "key_trends": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "e2Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendations",
+        "constraints_satisfied"
+      ],
+      "properties": {
+        "recommendations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/productRecommendation"
+          }
+        },
+        "constraints_satisfied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "e3Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "policy_reason"
+      ],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "refund_allowed",
+            "exchange_allowed",
+            "return_allowed",
+            "not_allowed",
+            "needs_review"
+          ]
+        },
+        "policy_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        }
+      }
+    },
+    "e5Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_status",
+        "customer_message",
+        "final_state"
+      ],
+      "properties": {
+        "resolution_status": {
+          "type": "string",
+          "enum": [
+            "resolved",
+            "partially_resolved",
+            "unresolved",
+            "escalated"
+          ]
+        },
+        "customer_message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000
+        },
+        "final_state": {
+          "$ref": "#/$defs/e5FinalState"
+        }
+      }
+    },
+    "e5FinalState": {
+      "description": "Agent-reported final business state. The evaluator must verify it against the simulator. The final order_status enum remains simulator-owned; this draft constrains only its canonical string format.",
+      "oneOf": [
+        {"$ref": "#/$defs/e5RefundState"},
+        {"$ref": "#/$defs/e5ExchangeState"},
+        {"$ref": "#/$defs/e5ReturnState"},
+        {"$ref": "#/$defs/e5EscalationState"},
+        {"$ref": "#/$defs/e5NoActionState"}
+      ]
+    },
+    "e5RefundState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "refund_amount", "refund_currency"],
+      "properties": {
+        "action_taken": {"const": "refund"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "refund_amount": {"type": "number", "minimum": 0},
+        "refund_currency": {"type": "string", "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "e5ExchangeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "new_item_id"],
+      "properties": {
+        "action_taken": {"const": "exchange"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "new_item_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "e5ReturnState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "return_authorization_id"],
+      "properties": {
+        "action_taken": {"const": "return"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "return_authorization_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "e5EscalationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status", "ticket_id", "escalation_reason"],
+      "properties": {
+        "action_taken": {"const": "escalate"},
+        "order_status": {"$ref": "#/$defs/orderStatus"},
+        "ticket_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "escalation_reason": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "e5NoActionState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_taken", "order_status"],
+      "properties": {
+        "action_taken": {"const": "no_action"},
+        "order_status": {"$ref": "#/$defs/orderStatus"}
+      }
+    },
+    "orderStatus": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "description": "Canonical simulator-controlled order status. Replace this pattern-only draft with the confirmed simulator enum before schema freeze."
+    },
+    "productRecommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_id",
+        "rank",
+        "rationale"
+      ],
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "uniqueItems": true,
+      "maxItems": 100
+    }
+  }
+}

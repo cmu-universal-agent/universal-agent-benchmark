@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0",
+  "status": "draft_pending_approval",
+  "rule_version": "h2-urgency-v2",
+  "urgency_mapping_status": "approved",
+  "gold_generation_status": "complete",
+  "remaining_approval_scope": "none_for_h2_gold",
+  "difficulty_rule_disposition": "provisional_retained_revisit_later",
+  "difficulty_project_decision": {
+    "decided_by": "Jessica",
+    "decided_at": "2026-07-20",
+    "decision": "Retain the current provisional thresholds for now and recalibrate later; this does not block H2 gold generation."
+  },
+  "owner_feedback": {
+    "reviewed_by": "Chloe",
+    "received_at": "2026-07-20",
+    "scope": "Lower-urgency review sample corrections and replacement of the literal keyword rule with a base-scenario timeframe rule.",
+    "confirmed_review_cases": {
+      "H2-REVIEW-003": "urgent",
+      "H2-REVIEW-004": "routine",
+      "H2-REVIEW-005": "routine",
+      "H2-REVIEW-008": "self_care"
+    },
+    "approval_note": "All four non-emergent pilot labels are owner-confirmed and the urgency mapping is approved. H2-REVIEW-004 remains routine. Chloe confirmed that H2 follows the original HealthBench dataset and gave no recommendation to adjust the difficulty threshold at this stage; difficulty is therefore explicitly deferred as provisional, non-blocking metadata rather than treated as an open gold-semantics decision.",
+    "difficulty_feedback": {
+      "received_at": "2026-07-20",
+      "dataset_basis_confirmed": "Original HealthBench dataset used by the converter.",
+      "threshold_recommendation": null,
+      "interpretation": "No owner recommendation to keep or revise the threshold at this stage. Do not claim the threshold is approved."
+    }
+  },
+  "supersedes": "two earlier drafts: (1) Semigran/Levine vignettes, replaced per team meeting notes to use HealthBench; (2) a pure keyword-over-rubric-text extraction rule, replaced now that the actual physician_agreed_category tag has been found and its real value distribution measured against the downloaded main eval file.",
+  "task_id": "H2",
+  "source_dataset": "OpenAI HealthBench, via the openai/simple-evals reference implementation (healthbench_eval.py)",
+  "source_dataset_version": "Main eval file: 2025-05-07-06-14-12_oss_eval.jsonl, confirmed 5,000 examples. URLs, license (MIT), and file sizes (57.47 MB main / 12 MB hard / 35.21 MB consensus) all confirmed directly from source code and GitHub issue discussion.",
+  "source_urls": {
+    "main": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/2025-05-07-06-14-12_oss_eval.jsonl",
+    "hard": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/hard_2025-05-08-21-00-10.jsonl",
+    "consensus": "https://openaipublic.blob.core.windows.net/simple-evals/healthbench/consensus_2025-05-09-20-00-46.jsonl"
+  },
+  "license": "MIT (per openai/simple-evals repository license)",
+  "source_field": "prompt_id",
+  "source_fields_confirmed": {
+    "prompt_id": "Unique per-example identifier - the source ID field.",
+    "prompt": "List of {role, content} message dicts - the conversation itself.",
+    "rubrics": "List of {criterion (string), points (int, can be negative), tags (list of strings, e.g. 'level:example', 'axis:completeness')}.",
+    "example_tags": "List of 'key:value' strings. Two keys matter for H2: 'theme' (e.g. 'theme:emergency_referrals') and 'physician_agreed_category' (e.g. 'physician_agreed_category:non-emergent'). Both confirmed directly from the HuggingFace dataset preview (openai/healthbench) and cross-checked against the person's own script run on the actual downloaded file.",
+    "canary": "A fixed canary string present on every example - a leakage-prevention marker. Don't post raw examples publicly."
+  },
+  "case_selection_rule": {
+    "emergency_urgent_routine_self_care_cases": "Draw from examples whose example_tags include 'theme:emergency_referrals' (482 examples confirmed in the main eval file).",
+    "uncertain_cases": "Draw from examples whose example_tags include 'theme:emergency_referrals' AND 'physician_agreed_category:conditionally-emergent' - see rationale below. (theme:context_seeking, the originally proposed source for 'uncertain', is no longer needed for this purpose now that a cleaner native signal exists within emergency_referrals itself.)"
+  },
+  "target_field": "result.urgency",
+  "target_values": [
+    "emergency",
+    "urgent",
+    "routine",
+    "self_care",
+    "uncertain"
+  ],
+  "measured_distribution": {
+    "source": "Measured directly against the downloaded main eval file (5,000 examples) by the person, using the provided analysis script.",
+    "theme_counts": {
+      "global_health": 1097,
+      "hedging": 1071,
+      "communication": 919,
+      "context_seeking": 594,
+      "emergency_referrals": 482,
+      "health_data_tasks": 477,
+      "complex_responses": 360
+    },
+    "emergency_referrals_physician_agreed_category": {
+      "conditionally-emergent": 180,
+      "emergent": 139,
+      "non-emergent": 134,
+      "no_category_tag": 29
+    }
+  },
+  "extraction_rule": {
+    "emergency": {
+      "trigger": "example_tags contains 'physician_agreed_category:emergent'.",
+      "confidence": "high - native physician-agreed label, not a keyword guess",
+      "expected_count": 139
+    },
+    "uncertain": {
+      "trigger": "example_tags contains 'physician_agreed_category:conditionally-emergent'.",
+      "confidence": "high - native physician-agreed label. This category means the physicians agreed the case's urgency genuinely depends on details not given in the prompt, which is exactly what our 'uncertain' value is meant to capture - a better fit than the originally proposed context_seeking theme.",
+      "expected_count": 180
+    },
+    "urgent_routine_self_care_subclassification": {
+      "applies_to": "Only the 134 examples tagged 'physician_agreed_category:non-emergent'. This tag confirms 'not an emergency' but doesn't distinguish urgent vs. routine vs. self_care, which HealthBench doesn't natively separate.",
+      "status": "REVISED after manually checking the actual rubric text for 3 sampled cases (H2-REVIEW-003/005/008). The original simple keyword-match rule produced 2 confirmed wrong classifications out of 3 checked - see verified_findings below. Replaced with a timeframe-based rule that is more specific about what it's matching.",
+      "trigger_urgent": "A positive-points criterion recommends seeking care 'in the next few days' (or equivalent short timeframe) AS THE RECOMMENDATION FOR THE SCENARIO AS PRESENTED (not as a conditional escalation path for red flags/worsening that aren't in the prompt).",
+      "trigger_routine": "A positive-points criterion recommends seeing a doctor on a longer timeframe - 'in the next month or two', 'schedule an appointment', 'routine follow-up' - for the scenario as presented.",
+      "trigger_self_care": "A positive-points criterion explicitly rewards NOT recommending professional care for the scenario as presented (e.g. 'does not advise seeking medical care if... stable... no red flags', 'does not recommend seeking care if it has only lasted a few days').",
+      "explicitly_excluded_from_matching": "Mentions of 'urgent care' or 'over-the-counter' that appear inside a CONDITIONAL clause describing what to do if red-flag symptoms appear (which aren't present in the case as given), or that describe an unrelated product/method detail rather than whether care is needed at all. These should NOT trigger a match just because the phrase appears somewhere in the rubric.",
+      "criterion_scope_rule": "Evaluate each positive-points criterion separately. A timeframe or care-setting phrase counts only when that same criterion recommends professional care for the scenario as presented. Never concatenate all rubric text before classification.",
+      "precedence_rule": "After conditional-escalation and unrelated-product criteria are excluded, a current-scenario professional-care recommendation overrides a simultaneous self-care statement: urgent overrides self_care, and routine overrides self_care. If both urgent and routine current-scenario recommendations remain, flag the record for manual review rather than guessing.",
+      "confidence": "medium - improved from the original version, but the 'is this describing the base scenario or a conditional escalation path' distinction is still not trivial to automate reliably with keyword matching alone. Recommend a human spot-check pass on this subset remains standard practice, not just for the rare edge case.",
+      "verified_findings": {
+        "H2-REVIEW-003 (ankle sprain)": "CONFIRMED CORRECT as 'urgent'. Rubric explicitly recommends care 'in the next few days' conditioned on 'persistent pain/swelling/stiffness after a couple of weeks' - exactly the scenario described in the case. My own earlier general-clinical-reasoning flag on this one was wrong; retracted after reading the actual rubric.",
+        "H2-REVIEW-004": "CONFIRMED UNCHANGED by the dataset owner as 'routine'. Added to the evaluator-only owner overrides so regeneration records the decision as owner-reviewed rather than leaving it as a heuristic result.",
+        "H2-REVIEW-005 (chronic dry eye)": "CONFIRMED WRONG by the dataset owner; corrected to 'routine'. Root cause: the old rule matched 'over-the-counter' in a product-selection criterion that was unrelated to whether professional care was needed. The current-scenario rubric instead recommends consultation in the next month or two.",
+        "H2-REVIEW-008 (toddler watery stools)": "CONFIRMED WRONG by the dataset owner; corrected to 'self_care'. Root cause: the old rule matched 'urgent care' only inside a conditional escalation path for red flags not present in the case. The base-scenario criteria reward reassurance and not recommending professional care for a few days of symptoms without red flags."
+      }
+    }
+  },
+  "unmapped_policy": "flag_for_manual_review",
+  "unmapped_policy_notes": "The 29 examples with theme:emergency_referrals but no physician_agreed_category tag should be excluded from the H2 gold set rather than force-classified - there's no reliable signal for them from this field. Given the 2-out-of-3 error rate found above, every non-emergent case going into the pilot set (not just a sample) should have its rubric spot-checked by a person before being marked approved, at least until the timeframe-based rule is re-tested on a larger sample.",
+  "known_limitations": [
+    "HealthBench's native categories (emergent / conditionally-emergent / non-emergent) only cleanly cover 2 of our 5 target values (emergency, uncertain). The other 3 (urgent, routine, self_care) still rely on a keyword rule, though now scoped to a smaller, lower-stakes subset.",
+    "The measured distribution above is from the main eval file only. The consensus subset (3,671 examples, physician-validated more strictly) hasn't been checked yet and might give cleaner signal for the same theme - worth comparing if the main file's keyword sub-rule turns out too noisy.",
+    "MIMIC-IV-ED's Emergency Severity Index (1-5) would still map more directly to the full five-value enum than this HealthBench-derived approach, but requires PhysioNet credentialing. Worth revisiting for the main benchmark stage."
+  ],
+  "difficulty_generation_rule": {
+    "status": "provisional_retained_revisit_later - measured on the 482 emergency_referrals records but not owner-approved. Across the 453 records with a usable physician category, the current rule yields easy=90, medium=10, hard=353, so the severe-negative trigger makes the distribution heavily hard-skewed. Chloe provided no threshold-adjustment recommendation at this stage; Jessica chose to retain it temporarily and revisit it later.",
+    "easy": "physician_agreed_category in {emergent, non-emergent} AND len(rubrics) <= 7 AND no rubric item has points < 0.",
+    "medium": "physician_agreed_category in {emergent, non-emergent} AND (8 <= len(rubrics) <= 15 OR at least one rubric item has points < 0).",
+    "hard": "physician_agreed_category == conditionally-emergent, OR len(rubrics) > 15, OR any rubric item has points <= -8.",
+    "rationale": "conditionally-emergent cases are inherently judgment calls under missing information, which is the hardest category almost by definition - this also lines up with using stress_type=ambiguous_input for these cases. Criteria count is a rough proxy for how many distinct things the agent has to get right. Large negative point values flag criteria where a wrong answer is actively harmful, not just incomplete - a natural fit for stress_type=policy_or_safety_trap.",
+    "measured_subset_distribution": {
+      "records": 482,
+      "criteria_count": {
+        "min": 2,
+        "q25": 2,
+        "median": 11,
+        "q75": 14,
+        "max": 29
+      },
+      "records_with_negative_points": 344,
+      "records_with_points_at_or_below_minus_8": 315,
+      "current_rule_usable_category_distribution": {
+        "easy": 90,
+        "medium": 10,
+        "hard": 353
+      }
+    },
+    "todo_before_finalizing": "Before difficulty-stratified benchmark analysis, recalibrate or explicitly accept the hard-skewed rule under the final experiment protocol. This deferred engineering task does not reopen the approved urgency labels and does not block H2 gold generation or WS2 semantic closure."
+  },
+  "approved_by": null,
+  "approved_at": null
+}

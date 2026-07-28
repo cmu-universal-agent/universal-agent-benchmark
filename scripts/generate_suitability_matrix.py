@@ -3,7 +3,7 @@
 CLAUDE.md, comparing LangGraph, CrewAI, and OpenAI Agents SDK across the
 Medical Diagnostic and E-commerce Trend Researcher verticals.
 
-Pulls from the latest result per (task_id, framework) in
+Pulls from the latest result per (task_id, framework, model) in
 results/metrics/*.jsonl and writes a single Markdown report with summary
 tables and ASCII bar charts to results/framework_suitability_matrix.md.
 """
@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from adapter.evaluator import evaluate_hallucination_risk, evaluate_medical_safety, evaluate_result
 from adapter.ground_truth import GROUND_TRUTH_CONFIG, load_ground_truth
-from adapter.result_writer import load_latest_results
+from adapter.result_writer import load_latest_results, result_models
 from adapter.schemas import AgentRunResult
 
 FRAMEWORKS = ["openai_agents_sdk", "langgraph", "crewai"]
@@ -48,10 +48,10 @@ def _bar(pct: float, width: int = 20) -> str:
     return "#" * filled + "-" * (width - filled)
 
 
-def _vertical_stats(vertical: str) -> dict[str, dict | None]:
+def _vertical_stats(vertical: str, model_name: str) -> dict[str, dict | None]:
     config = GROUND_TRUTH_CONFIG.get(vertical)
     ground_truth = load_ground_truth(vertical) if config else {}
-    results = load_latest_results(vertical)
+    results = load_latest_results(vertical, model_name=model_name)
 
     by_framework: dict[str, list[dict]] = defaultdict(list)
     for (_task_id, framework), r in results.items():
@@ -229,29 +229,37 @@ conflict is fixed -- all three produced clean flat JSON in the latest sweep.
 
 def main():
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    current_model = _read_env_var("OPENAI_MODEL", "unknown")
+    verticals = ["smoke_test", "medical_diagnostic", "ecommerce_trend_research"]
+    models = sorted({model for vertical in verticals for model in result_models(vertical)})
 
     lines = [
         "# Framework Suitability Matrix",
         "",
         f"Generated: {generated_at}",
         "",
-        f"**Note:** results below reflect the latest recorded run per (task, framework) in "
-        f"`results/metrics/*.jsonl`, which may not match the model currently configured in "
-        f"`.env` (currently `{current_model}`) -- results aren't tagged with which model "
-        "produced them, and this session tested gpt-4o-mini, gpt-5-nano, and gpt-5.4-mini. "
-        "Re-run `scripts/run_benchmark.py` and regenerate this report for numbers matching "
-        "the current model.",
+        "**Grouping rule:** results are separated by the model recorded at execution time. "
+        "Legacy rows created before model metadata was added appear only under `unknown` and "
+        "must not be used for model-controlled framework comparisons.",
         "",
     ]
 
-    lines += _render_vertical_section("Smoke Test", "smoke_test", _vertical_stats("smoke_test"))
-    lines += _render_vertical_section(
-        "Medical Diagnostic Assistant", "medical_diagnostic", _vertical_stats("medical_diagnostic")
-    )
-    lines += _render_vertical_section(
-        "E-commerce Trend Researcher", "ecommerce_trend_research", _vertical_stats("ecommerce_trend_research")
-    )
+    if not models:
+        lines += ["No recorded runs were found.", ""]
+    for model_name in models:
+        lines += [f"# Model: `{model_name}`", ""]
+        lines += _render_vertical_section(
+            "Smoke Test", "smoke_test", _vertical_stats("smoke_test", model_name)
+        )
+        lines += _render_vertical_section(
+            "Medical Diagnostic Assistant",
+            "medical_diagnostic",
+            _vertical_stats("medical_diagnostic", model_name),
+        )
+        lines += _render_vertical_section(
+            "E-commerce Trend Researcher",
+            "ecommerce_trend_research",
+            _vertical_stats("ecommerce_trend_research", model_name),
+        )
 
     lines.append(QUALITATIVE_FINDINGS)
 

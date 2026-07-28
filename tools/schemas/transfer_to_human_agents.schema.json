@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/tools/schemas/transfer_to_human_agents.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary"],
+  "properties": {
+    "summary": {"type": "string", "minLength": 1, "maxLength": 5000}
+  }
+}
