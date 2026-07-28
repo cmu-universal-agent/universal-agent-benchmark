@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/schemas/tau_retail_wrapper_evidence.schema.json",
+  "title": "Tau-Retail Wrapper Offline Evidence",
+  "description": "Common evidence envelope emitted by each framework wrapper for offline parity validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "framework",
+    "wrapper_version",
+    "generated_at",
+    "reset_determinism",
+    "scenarios"
+  ],
+  "properties": {
+    "contract_version": {"const": "0.1.0"},
+    "framework": {"type": "string", "enum": ["crewai", "langgraph", "openai_agents_sdk"]},
+    "wrapper_version": {"type": "string", "minLength": 1, "maxLength": 100},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "reset_determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "first", "second"],
+      "properties": {
+        "seed": {"type": ["integer", "null"]},
+        "first": {"$ref": "tau_retail_state_record.schema.json"},
+        "second": {"$ref": "tau_retail_state_record.schema.json"}
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {"$ref": "tau_retail_session_evidence.schema.json"}
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://universal-agent-benchmark.local/tools/schemas/get_item_details.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["item_id"],
+  "properties": {
+    "item_id": {"type": "string", "minLength": 1, "maxLength": 100}
+  }
+}

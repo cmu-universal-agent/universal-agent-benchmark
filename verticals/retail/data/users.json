@@ -1,0 +1,43 @@
+{
+  "U100": {
+    "user_id": "U100",
+    "first_name": "Alice",
+    "last_name": "Chen",
+    "name": "Alice Chen",
+    "email": "alice@example.com",
+    "zip": "94107",
+    "address": {
+      "address1": "1 Market St",
+      "address2": "",
+      "city": "San Francisco",
+      "state": "CA",
+      "country": "USA",
+      "zip": "94107"
+    },
+    "payment_methods": {
+      "credit_card_100": {"source": "credit_card", "brand": "visa", "last_four": "1111"},
+      "paypal_100": {"source": "paypal"}
+    },
+    "order_ids": ["O5001"]
+  },
+  "U101": {
+    "user_id": "U101",
+    "first_name": "Ben",
+    "last_name": "Ortiz",
+    "name": "Ben Ortiz",
+    "email": "ben@example.com",
+    "zip": "10001",
+    "address": {
+      "address1": "22 Broadway",
+      "address2": "",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "zip": "10001"
+    },
+    "payment_methods": {
+      "credit_card_101": {"source": "credit_card", "brand": "mastercard", "last_four": "2222"}
+    },
+    "order_ids": ["O5002", "O5003"]
+  }
+}
