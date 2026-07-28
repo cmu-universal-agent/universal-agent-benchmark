@@ -128,12 +128,19 @@ def _validate_scenarios(
         format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
     )
     errors_by_type = {row["error_type"]: row for row in contract["errors"]}
+    argument_validators = {
+        tool["name"]: jsonschema.Draft202012Validator(
+            _load(ROOT / tool["input_schema"])
+        )
+        for tool in contract["tools"]
+    }
 
     reset = fixture["reset_determinism"]
     for state in (reset["first"], reset["second"]):
         _validate_state(state_validator, state)
         _assert(state["mutation_count"] == 0, "reset must clear mutation count")
     _assert(reset["first"]["case_id"] == reset["second"]["case_id"], "reset cases differ")
+    _assert(reset["first"]["reset_id"] != reset["second"]["reset_id"], "reset ids must differ")
     _assert(reset["first"]["state_sha256"] == reset["second"]["state_sha256"], "same case/seed reset is not deterministic")
     _assert(reset["first"]["entity_counts"] == reset["second"]["entity_counts"], "same case/seed reset counts differ")
 
@@ -151,12 +158,15 @@ def _validate_scenarios(
         _validate_state(state_validator, final)
         _assert(initial["reset_id"] == final["reset_id"], f"reset id drift in {fixture_id}")
         _assert(initial["case_id"] == final["case_id"], f"case id drift in {fixture_id}")
+        _assert(initial["sequence_index"] == 0, f"initial sequence is not zero in {fixture_id}")
+        _assert(initial["mutation_count"] == 0, f"initial mutation count is not zero in {fixture_id}")
 
         events = scenario["events"]
         _assert(final["sequence_index"] == len(events), f"final sequence mismatch in {fixture_id}")
         expected_before = initial["state_sha256"]
         successful_writes = 0
-        call_ids: set[str] = set()
+        calls_by_id: dict[str, dict[str, Any]] = {}
+        run_id: str | None = None
         for index, event in enumerate(events):
             call = event["call"]
             calls += 1
@@ -164,10 +174,24 @@ def _validate_scenarios(
             _assert(not schema_errors, f"tool-call schema failure in {fixture_id}: {schema_errors}")
             _assert(not validate_tool_call_constraints(call), f"tool-call semantic failure in {fixture_id}")
             _assert(call["sequence_index"] == index, f"non-contiguous call order in {fixture_id}")
-            _assert(call["tool_call_id"] not in call_ids, f"duplicate call id in {fixture_id}")
+            _assert(call["tool_call_id"] not in calls_by_id, f"duplicate call id in {fixture_id}")
+            _assert(call["tool_name"] in operations, f"unknown canonical tool in {fixture_id}")
+            computed_allowed = call["tool_name"] in scenario["allowed_tools"]
+            computed_valid = not list(
+                argument_validators[call["tool_name"]].iter_errors(call["arguments"])
+            )
+            _assert(call["was_allowed"] == computed_allowed, f"allowed-tools mismatch in {fixture_id}")
+            _assert(call["arguments_valid"] == computed_valid, f"argument-validity mismatch in {fixture_id}")
+            if run_id is None:
+                run_id = call["run_id"]
+            _assert(call["run_id"] == run_id, f"mixed run ids in {fixture_id}")
             if call["retry_of"] is not None:
-                _assert(call["retry_of"] in call_ids, f"retry does not reference an earlier call in {fixture_id}")
-            call_ids.add(call["tool_call_id"])
+                _assert(call["retry_of"] in calls_by_id, f"retry does not reference an earlier call in {fixture_id}")
+                _assert(
+                    calls_by_id[call["retry_of"]]["retry_of"] is None,
+                    f"retry does not reference the root attempt in {fixture_id}",
+                )
+            calls_by_id[call["tool_call_id"]] = call
             _assert(event["state_before_sha256"] == expected_before, f"state chain break in {fixture_id}")
 
             operation = operations[call["tool_name"]]
@@ -188,6 +212,10 @@ def _validate_scenarios(
                 _assert(rule is not None, f"unknown structured error in {fixture_id}")
                 _assert(rule["outcome"] == call["outcome"], f"error/outcome mismatch in {fixture_id}")
                 _assert(rule["retryable"] == error["retryable"], f"retry default mismatch in {fixture_id}")
+                if error["error_type"] == "invalid_arguments":
+                    _assert(not call["arguments_valid"], f"invalid_arguments lacks invalid arguments in {fixture_id}")
+                if error["error_type"] == "disallowed_tool":
+                    _assert(not call["was_allowed"], f"disallowed_tool was allowed in {fixture_id}")
                 if call["outcome"] == "rejected":
                     _assert(not call["was_allowed"] or not call["arguments_valid"], f"rejection lacks cause in {fixture_id}")
             expected_before = event["state_after_sha256"]

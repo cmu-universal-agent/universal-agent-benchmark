@@ -5,9 +5,15 @@
   "description": "Evaluator-side binding of reset state, normalized tool attempts, and final bounded state evidence.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["fixture_id", "initial_state", "events", "final_state"],
+  "required": ["fixture_id", "allowed_tools", "initial_state", "events", "final_state"],
   "properties": {
     "fixture_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,99}$"},
+    "allowed_tools": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 15,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+    },
     "initial_state": {"$ref": "tau_retail_state_record.schema.json"},
     "events": {
       "type": "array",

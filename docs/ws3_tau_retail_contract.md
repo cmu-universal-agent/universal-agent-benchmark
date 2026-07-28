@@ -55,7 +55,8 @@ Required reset behavior:
 
 Each tool attempt records `state_before_sha256` and `state_after_sha256` in the
 evaluator-side session evidence fixture. The existing normalized tool-call
-schema remains unchanged.
+schema remains unchanged. Each session also records `allowed_tools`, allowing
+the validator to derive `was_allowed` instead of trusting wrapper metadata.
 
 - Read/non-mutating success: state hashes are equal.
 - Successful mutation: hashes differ and mutation count increases once.
