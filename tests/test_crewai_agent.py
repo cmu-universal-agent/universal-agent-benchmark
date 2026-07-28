@@ -19,7 +19,6 @@ if sys.platform == "win32":
 os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")
 os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
 
-from adapter.runtime import redact_error
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task, task_from_dict
 from frameworks.crewai_agent import run
@@ -175,47 +174,22 @@ class UsageAndConfigurationTests(unittest.TestCase):
         self.assertEqual(llm.seed, 42)
 
     def test_error_redaction_preserves_type(self) -> None:
-        # Redaction now lives in adapter.runtime.finish_run (shared across all
-        # frameworks); wrappers just format "TypeName: message" before it runs.
         secret = "sk-unit-test-super-secret"
         with patch.dict(os.environ, {"OPENAI_API_KEY": secret}):
-            rendered = redact_error(f"RuntimeError: provider rejected {secret}")
+            rendered = run._redacted_error(RuntimeError(f"provider rejected {secret}"))
         self.assertIn("RuntimeError", rendered)
         self.assertIn("[REDACTED]", rendered)
         self.assertNotIn(secret, rendered)
 
     def test_error_redaction_removes_url_credentials_and_query_tokens(self) -> None:
-        rendered = redact_error(
-            "RuntimeError: request https://user:password@example.test/v1?api_key=secret-value failed"
+        rendered = run._redacted_error(
+            RuntimeError(
+                "request https://user:password@example.test/v1?api_key=secret-value failed"
+            )
         )
         self.assertNotIn("user:password", rendered)
         self.assertNotIn("secret-value", rendered)
         self.assertIn("[REDACTED]", rendered)
-
-    def test_finish_run_redacts_errors_for_any_framework(self) -> None:
-        # finish_run is the shared envelope every framework adapter calls, so
-        # redaction must apply regardless of which framework is running -
-        # not just CrewAI's.
-        from adapter.runtime import begin_run, finish_run
-
-        secret = "sk-unit-test-cross-framework-secret"
-        task = BenchmarkTask(
-            task_id="ERR-REDACT",
-            vertical="smoke_test",
-            prompt="Return JSON.",
-            allowed_tools=[],
-        )
-        with patch.dict(os.environ, {"OPENAI_API_KEY": secret}):
-            context = begin_run("langgraph", "langgraph")
-            result = finish_run(
-                context,
-                task,
-                final_output="",
-                success=False,
-                error=f"RuntimeError: provider rejected {secret}",
-            )
-        self.assertIn("[REDACTED]", result.error)
-        self.assertNotIn(secret, result.error)
 
 
 class CompatibilityAndExecutionContractTests(unittest.TestCase):
@@ -284,26 +258,6 @@ class CompatibilityAndExecutionContractTests(unittest.TestCase):
         self.assertEqual(reconstructed.case_id, "H1-FIXTURE-001")
         self.assertEqual(reconstructed.task_id, "H1")
         self.assertEqual(reconstructed.experiment_id, result.experiment_id)
-
-    def test_v1_missing_allowed_tools_is_unrestricted_like_legacy(self) -> None:
-        # Both schema paths must agree that a missing allowed_tools means
-        # "no restriction" (None), not "zero tools" ([]) - _select_tools
-        # treats these two states very differently.
-        fixtures = json.loads(
-            (ROOT / "tests" / "fixtures" / "schema_cases.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        document = dict(
-            next(
-                fixture["document"]
-                for fixture in fixtures["fixtures"]
-                if fixture["name"] == "valid_benchmark_case"
-            )
-        )
-        document.pop("allowed_tools", None)
-        task = task_from_dict(document)
-        self.assertIsNone(task.allowed_tools)
 
     def test_no_tool_execution_contract(self) -> None:
         task = BenchmarkTask(

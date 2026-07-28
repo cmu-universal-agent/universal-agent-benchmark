@@ -1019,9 +1019,9 @@ def convert_e2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     for index in range(count):
         start = (index * 7) % max(1, len(shuffled))
         candidates = (shuffled + shuffled)[start:start + 7]
-        constrained = [row for row in candidates if row["average_rating"] >= 4.0 and row["verified_review_count"] >= 3]
-        constraints_satisfied = bool(constrained)
-        eligible = constrained if constrained else list(candidates)
+        eligible = [row for row in candidates if row["average_rating"] >= 4.0 and row["verified_review_count"] >= 3]
+        if not eligible:
+            eligible = list(candidates)
         ranked = sorted(eligible, key=lambda row: (-row["average_rating"], -row["verified_review_count"], row["product_id"]))[:3]
         case = _case(
             case_id=f"E2-REVIEW-{index + 1:03d}", task_id="E2", vertical="ecommerce",
@@ -1031,7 +1031,7 @@ def convert_e2(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         )
         expected = [{"product_id": row["product_id"], "rank": rank} for rank, row in enumerate(ranked, 1)]
         cases.append(case)
-        gold.append(_gold(case, {"result": {"recommendations": expected, "constraints_satisfied": constraints_satisfied}, "ranking_rule": "average_rating desc, verified_review_count desc, product_id asc"}, "source_derived"))
+        gold.append(_gold(case, {"result": {"recommendations": expected, "constraints_satisfied": bool(ranked)}, "ranking_rule": "average_rating desc, verified_review_count desc, product_id asc"}, "source_derived"))
     return cases, gold, {"source_reviews": len(reviews), "eligible_products": len(products), "candidate_sets": len(cases)}
 
 

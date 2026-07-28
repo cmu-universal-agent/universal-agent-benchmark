@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -165,30 +164,6 @@ def normalize_tool_calls(
     return normalized
 
 
-def redact_error(message: str) -> str:
-    """Strip likely credentials from an error message before it is stored.
-
-    Applied centrally so every framework adapter gets the same guarantee
-    against leaking API keys/tokens into results/metrics/*.jsonl, instead of
-    each wrapper having to remember to redact its own exception text.
-    """
-    redacted = message
-    for name, value in os.environ.items():
-        if value and len(value) >= 8 and any(
-            marker in name.upper() for marker in ("KEY", "TOKEN", "SECRET", "PASSWORD")
-        ):
-            redacted = redacted.replace(value, "[REDACTED]")
-    redacted = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", redacted)
-    redacted = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}\b", "[REDACTED]", redacted)
-    redacted = re.sub(r"(https?://)[^/@\s]+@", r"\1[REDACTED]@", redacted)
-    redacted = re.sub(
-        r"(?i)([?&](?:api_?key|token|access_?token|secret|password)=)[^&\s]+",
-        r"\1[REDACTED]",
-        redacted,
-    )
-    return redacted
-
-
 def finish_run(
     context: RunContext,
     task: BenchmarkTask,
@@ -225,7 +200,7 @@ def finish_run(
         final_output=raw_output,
         latency_seconds=time.perf_counter() - context.started_perf_counter,
         success=success,
-        error=redact_error(error) if error is not None else None,
+        error=error,
         tool_call_count=len(tool_calls),
         raw_metadata={
             "adapter_version": ADAPTER_VERSION,

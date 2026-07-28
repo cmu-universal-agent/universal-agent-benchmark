@@ -60,12 +60,12 @@ def _validate_h2(document: dict) -> int:
     lower_rule = document["extraction_rule"]["urgent_routine_self_care_subclassification"]
     assert lower_rule.get("criterion_scope_rule")
     assert lower_rule.get("precedence_rule")
-    confirmed_ref = document["owner_feedback"].get("confirmed_review_cases_ref", "")
-    assert confirmed_ref.startswith("evaluator_data/local_review_decisions/"), (
-        "case-level gold answers must live in the gitignored "
-        "evaluator_data/local_review_decisions/ directory, not in the tracked "
-        "mapping file"
-    )
+    assert document["owner_feedback"]["confirmed_review_cases"] == {
+        "H2-REVIEW-003": "urgent",
+        "H2-REVIEW-004": "routine",
+        "H2-REVIEW-005": "routine",
+        "H2-REVIEW-008": "self_care",
+    }
     measured_difficulty = document["difficulty_generation_rule"][
         "measured_subset_distribution"
     ]

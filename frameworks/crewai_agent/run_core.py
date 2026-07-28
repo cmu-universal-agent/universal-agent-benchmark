@@ -14,10 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
-from adapter.runtime import redact_error
 from adapter.schemas import BenchmarkTask
 from adapter.task_loader import load_task
-from frameworks.crewai_agent.run import run_task
+from frameworks.crewai_agent.run import _redacted_error, run_task
 
 
 DEFAULT_CASES = ROOT / "data" / "generated" / "core_pilot" / "cases"
@@ -164,8 +163,7 @@ def main() -> int:
             # later independent cases from running.
             runner_errors += 1
             print(
-                f"RUNNER_ERROR {case_id} "
-                f"{redact_error(f'{type(exc).__name__}: {exc}')}",
+                f"RUNNER_ERROR {case_id} {_redacted_error(exc)}",
                 file=sys.stderr,
             )
             continue

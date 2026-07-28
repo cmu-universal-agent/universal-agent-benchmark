@@ -15,7 +15,12 @@
     "reviewed_by": "Chloe",
     "received_at": "2026-07-20",
     "scope": "Lower-urgency review sample corrections and replacement of the literal keyword rule with a base-scenario timeframe rule.",
-    "confirmed_review_cases_ref": "evaluator_data/local_review_decisions/h2_owner_review_decisions.json#confirmed_review_cases",
+    "confirmed_review_cases": {
+      "H2-REVIEW-003": "urgent",
+      "H2-REVIEW-004": "routine",
+      "H2-REVIEW-005": "routine",
+      "H2-REVIEW-008": "self_care"
+    },
     "approval_note": "All four non-emergent pilot labels are owner-confirmed and the urgency mapping is approved. H2-REVIEW-004 remains routine. Chloe confirmed that H2 follows the original HealthBench dataset and gave no recommendation to adjust the difficulty threshold at this stage; difficulty is therefore explicitly deferred as provisional, non-blocking metadata rather than treated as an open gold-semantics decision.",
     "difficulty_feedback": {
       "received_at": "2026-07-20",
@@ -93,7 +98,12 @@
       "criterion_scope_rule": "Evaluate each positive-points criterion separately. A timeframe or care-setting phrase counts only when that same criterion recommends professional care for the scenario as presented. Never concatenate all rubric text before classification.",
       "precedence_rule": "After conditional-escalation and unrelated-product criteria are excluded, a current-scenario professional-care recommendation overrides a simultaneous self-care statement: urgent overrides self_care, and routine overrides self_care. If both urgent and routine current-scenario recommendations remain, flag the record for manual review rather than guessing.",
       "confidence": "medium - improved from the original version, but the 'is this describing the base scenario or a conditional escalation path' distinction is still not trivial to automate reliably with keyword matching alone. Recommend a human spot-check pass on this subset remains standard practice, not just for the rare edge case.",
-      "verified_findings_ref": "evaluator_data/local_review_decisions/h2_owner_review_decisions.json#verified_findings"
+      "verified_findings": {
+        "H2-REVIEW-003 (ankle sprain)": "CONFIRMED CORRECT as 'urgent'. Rubric explicitly recommends care 'in the next few days' conditioned on 'persistent pain/swelling/stiffness after a couple of weeks' - exactly the scenario described in the case. My own earlier general-clinical-reasoning flag on this one was wrong; retracted after reading the actual rubric.",
+        "H2-REVIEW-004": "CONFIRMED UNCHANGED by the dataset owner as 'routine'. Added to the evaluator-only owner overrides so regeneration records the decision as owner-reviewed rather than leaving it as a heuristic result.",
+        "H2-REVIEW-005 (chronic dry eye)": "CONFIRMED WRONG by the dataset owner; corrected to 'routine'. Root cause: the old rule matched 'over-the-counter' in a product-selection criterion that was unrelated to whether professional care was needed. The current-scenario rubric instead recommends consultation in the next month or two.",
+        "H2-REVIEW-008 (toddler watery stools)": "CONFIRMED WRONG by the dataset owner; corrected to 'self_care'. Root cause: the old rule matched 'urgent care' only inside a conditional escalation path for red flags not present in the case. The base-scenario criteria reward reassurance and not recommending professional care for a few days of symptoms without red flags."
+      }
     }
   },
   "unmapped_policy": "flag_for_manual_review",
