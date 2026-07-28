@@ -66,8 +66,8 @@ in force until she releases it and repository review is complete.
 - Remaining external gates are live-model smoke with local API configuration,
   native Linux/CI confirmation, formal generated cases/gold, and E5 integration
   with the shared tau-retail simulator/tool registry.
-- Keep PR #2 separate and stacked. GitHub currently reports it as
-  non-mergeable against the advanced PR #1 base; confirm its base update and
+- Keep PR #2 separate and stacked. Its recorded base is behind the current
+  PR #1 head; update the branch, resolve any resulting conflicts, and confirm
   integration sequence before any merge or retarget.
 
 ### Xiaoxia / Dashboard Owner
