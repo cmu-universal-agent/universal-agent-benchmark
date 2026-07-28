@@ -3,7 +3,7 @@
 over standardized result rows, matching docs/WS3_dashboard_prototype.html
 (the approved visual reference).
 
-Pulls the latest result per (task_id, framework) from
+Pulls the latest result per (case_id, framework, experiment_label) from
 results/metrics/<vertical>_results.jsonl via adapter.result_writer and
 writes a single self-contained results/dashboard.html. Renders only what
 the rows already contain -- no pass/fail, failure_class, or final-state
@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from adapter.result_writer import load_latest_results
+from adapter.result_writer import default_result_path
 
 OUTPUT_PATH = ROOT / "results" / "dashboard.html"
 
@@ -94,7 +94,7 @@ def _build_run(row: dict) -> dict:
 
     return {
         "run_id": run_id if run_id is not None else "unknown",
-        "case_id": row["task_id"],
+        "case_id": row.get("case_id") or row["task_id"],
         "framework": row["framework"],
         "experiment_label": experiment_label if experiment_label is not None else "unknown",
         "runtime_status": runtime_status if runtime_status is not None else "unknown",
@@ -110,6 +110,28 @@ def _build_run(row: dict) -> dict:
         "tool_call_count": row.get("tool_call_count"),
         "note": note,
     }
+
+
+def _load_latest_dashboard_results(vertical: str) -> list[dict]:
+    """Keep one row per dashboard cell and experiment label.
+
+    ``adapter.result_writer.load_latest_results`` groups by task, which is too
+    coarse for benchmark tasks such as E5 that contain multiple case IDs.
+    """
+    path = default_result_path(vertical)
+    latest: dict[tuple[str, str, str], dict] = {}
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            raw = row.get("raw_metadata") or {}
+            case_id = row.get("case_id") or row["task_id"]
+            label = _first_present(row, raw, "experiment_label") or "unknown"
+            latest[(case_id, row["framework"], label)] = row
+    return list(latest.values())
 
 
 def _collect_frameworks(runs: list[dict]) -> list[dict]:
@@ -140,8 +162,8 @@ def _default_label(labels: list[str]) -> str | None:
 
 
 def build_payload(vertical: str) -> dict:
-    rows = load_latest_results(vertical)  # {(task_id, framework): dict}, latest per key
-    runs = [_build_run(d) for d in rows.values()]
+    rows = _load_latest_dashboard_results(vertical)
+    runs = [_build_run(row) for row in rows]
     labels = sorted({r["experiment_label"] for r in runs})
     return {
         "vertical": vertical,
