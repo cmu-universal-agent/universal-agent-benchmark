@@ -25,4 +25,8 @@ echo "===== Framework Suitability Matrix ====="
 python3 scripts/generate_suitability_matrix.py
 
 echo ""
-echo "Done. See results/framework_suitability_matrix.md"
+echo "===== Retail Run Console (dashboard) ====="
+python3 scripts/generate_dashboard.py --vertical retail
+
+echo ""
+echo "Done. See results/framework_suitability_matrix.md and results/dashboard.html"
