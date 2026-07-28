@@ -101,14 +101,15 @@ def run_retail_task(task: BenchmarkTask, *, seed: int | None = None) -> AgentRun
         raise ValueError("retail tasks require case_id")
 
     context = begin_run(FRAMEWORK_NAME, "langgraph")
-    env = RetailEnv(data_dir=DATA_DIR, seed=seed or task.seed or 42)
-    run_seed = seed if seed is not None else task.seed
+    run_seed = seed if seed is not None else context.seed
+    environment_seed = run_seed if run_seed is not None else 42
+    env = RetailEnv(data_dir=DATA_DIR, seed=environment_seed)
 
     try:
         env.reset(
             task.case_id,
             reset_id=f"run-{uuid.uuid4().hex}",
-            seed=run_seed or 42,
+            seed=environment_seed,
         )
         final_output, token_usage, tool_trace, final_state = _run_retail_agent(
             env,
