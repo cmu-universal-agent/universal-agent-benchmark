@@ -14,9 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
+from adapter.runtime import redact_error
 from adapter.schemas import BenchmarkTask
 from adapter.task_loader import load_task
-from frameworks.crewai_agent.run import _redacted_error, run_task
+from frameworks.crewai_agent.run import run_task
 
 
 DEFAULT_CASES = ROOT / "data" / "generated" / "core_pilot" / "cases"
@@ -162,8 +163,9 @@ def main() -> int:
             # A setup/serialization failure outside run_task must not prevent
             # later independent cases from running.
             runner_errors += 1
+            error_message = redact_error(f"{type(exc).__name__}: {exc}")
             print(
-                f"RUNNER_ERROR {case_id} {_redacted_error(exc)}",
+                f"RUNNER_ERROR {case_id} {error_message}",
                 file=sys.stderr,
             )
             continue

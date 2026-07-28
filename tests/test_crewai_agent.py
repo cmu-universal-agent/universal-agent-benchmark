@@ -19,6 +19,7 @@ if sys.platform == "win32":
 os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")
 os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
 
+from adapter.runtime import redact_error
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task, task_from_dict
 from frameworks.crewai_agent import run
@@ -56,18 +57,10 @@ class ToolSelectionTests(unittest.TestCase):
         )
 
     def test_prompt_cannot_grant_a_tool_to_no_tool_task(self) -> None:
-        context = SimpleNamespace(
-            model_name="gpt-4o-mini",
-            model_provider="openai",
-            temperature=0.0,
-            max_output_tokens=None,
-            seed=None,
-        )
         crew_output = SimpleNamespace(token_usage=None)
         fake_crew = Mock()
         fake_crew.kickoff.return_value = crew_output
         with (
-            patch.object(run, "LLM", return_value=Mock()),
             patch.object(run, "Agent", return_value=Mock()) as agent_class,
             patch.object(run, "Task", return_value=Mock()),
             patch.object(run, "Crew", return_value=fake_crew),
@@ -76,7 +69,7 @@ class ToolSelectionTests(unittest.TestCase):
                 "You must call search_literature before answering.",
                 "medical_diagnostic",
                 [],
-                context,
+                Mock(),
             )
         self.assertEqual(agent_class.call_args.kwargs["tools"], [])
 
@@ -136,56 +129,20 @@ class UsageAndConfigurationTests(unittest.TestCase):
         )
         self.assertTrue(metadata["available"])
 
-    def test_supported_settings_are_forwarded_from_run_context(self) -> None:
-        context = SimpleNamespace(
-            model_name="gpt-4o-mini",
-            model_provider="openai",
-            temperature=0.25,
-            max_output_tokens=777,
-            seed=42,
-        )
-        with patch.dict(
-            os.environ,
-            {"OPENAI_API_KEY": "unit-test-secret", "OPENAI_BASE_URL": "https://example.test/v1"},
-        ):
-            kwargs, forwarded = run._llm_configuration(context)
-        self.assertEqual(kwargs["model"], "gpt-4o-mini")
-        self.assertEqual(kwargs["provider"], "openai")
-        self.assertEqual(kwargs["temperature"], 0.25)
-        self.assertEqual(kwargs["max_tokens"], 777)
-        self.assertEqual(kwargs["seed"], 42)
-        self.assertIn("max_output_tokens_as_max_tokens", forwarded)
-        self.assertIn("seed", forwarded)
-
-    def test_installed_crewai_llm_accepts_forwarded_settings(self) -> None:
-        context = SimpleNamespace(
-            model_name="gpt-4o-mini",
-            model_provider="openai",
-            temperature=0.25,
-            max_output_tokens=777,
-            seed=42,
-        )
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "unit-test-placeholder-key"}):
-            kwargs, _forwarded = run._llm_configuration(context)
-            llm = run.LLM(**kwargs)
-        self.assertEqual(llm.model, "gpt-4o-mini")
-        self.assertEqual(llm.temperature, 0.25)
-        self.assertEqual(llm.max_tokens, 777)
-        self.assertEqual(llm.seed, 42)
-
     def test_error_redaction_preserves_type(self) -> None:
         secret = "sk-unit-test-super-secret"
         with patch.dict(os.environ, {"OPENAI_API_KEY": secret}):
-            rendered = run._redacted_error(RuntimeError(f"provider rejected {secret}"))
+            rendered = redact_error(
+                f"RuntimeError: provider rejected {secret}"
+            )
         self.assertIn("RuntimeError", rendered)
         self.assertIn("[REDACTED]", rendered)
         self.assertNotIn(secret, rendered)
 
     def test_error_redaction_removes_url_credentials_and_query_tokens(self) -> None:
-        rendered = run._redacted_error(
-            RuntimeError(
-                "request https://user:password@example.test/v1?api_key=secret-value failed"
-            )
+        rendered = redact_error(
+            "RuntimeError: request "
+            "https://user:password@example.test/v1?api_key=secret-value failed"
         )
         self.assertNotIn("user:password", rendered)
         self.assertNotIn("secret-value", rendered)
@@ -214,7 +171,7 @@ class CompatibilityAndExecutionContractTests(unittest.TestCase):
                 {"input_tokens": 5, "output_tokens": 2, "total_tokens": 7},
                 {
                     "crewai_token_usage": {"available": True, "crew_fields": {}},
-                    "generation_settings_forwarded_to_crewai": ["temperature"],
+                    "selected_tool_names": [],
                 },
             ),
         ):
@@ -319,7 +276,7 @@ class CompatibilityAndExecutionContractTests(unittest.TestCase):
         self.assertEqual(result.tool_call_count, 1)
         self.assertEqual(result.tool_calls[0]["outcome"], "error")
         self.assertIn("RuntimeError", result.error or "")
-        self.assertTrue(result.raw_metadata["generation_settings_forwarded_to_crewai"])
+        self.assertFalse(result.raw_metadata["model_construction_failed"])
 
 
 if __name__ == "__main__":

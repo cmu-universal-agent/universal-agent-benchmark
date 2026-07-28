@@ -1,6 +1,5 @@
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,7 +46,14 @@ from crewai import Agent, Crew, LLM, Process, Task
 from crewai.tools import tool
 
 from adapter.result_writer import append_result
-from adapter.runtime import RunContext, begin_run, finish_run
+from adapter.runtime import (
+    GenerationSettings,
+    GenerationSettingsResolution,
+    configured_generation_settings,
+    normalize_openai_model_settings,
+    resolve_generation_settings,
+    run_framework_task,
+)
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
@@ -139,55 +145,46 @@ def _extract_token_usage(
     }, {"available": True, "crew_fields": extra}
 
 
-def _llm_configuration(context: RunContext) -> tuple[dict[str, Any], list[str]]:
-    """Build arguments accepted by the installed CrewAI 1.15.1 LLM."""
-    kwargs: dict[str, Any] = {
-        "model": context.model_name,
-        "provider": context.model_provider,
-        "temperature": context.temperature,
-    }
-    forwarded = ["model", "provider", "temperature"]
-    if api_key := os.getenv("OPENAI_API_KEY"):
-        kwargs["api_key"] = api_key
-    if base_url := os.getenv("OPENAI_BASE_URL"):
-        kwargs["base_url"] = base_url
-    if context.max_output_tokens is not None:
-        kwargs["max_tokens"] = context.max_output_tokens
-        forwarded.append("max_output_tokens_as_max_tokens")
-    if context.seed is not None:
-        kwargs["seed"] = context.seed
-        forwarded.append("seed")
-    return kwargs, forwarded
+def _build_llm(
+    generation_settings: GenerationSettings,
+) -> tuple[LLM, GenerationSettingsResolution]:
+    api_key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL")
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4")
 
-
-def _redacted_error(exc: Exception) -> str:
-    """Keep useful exception details while removing likely credentials."""
-    message = str(exc)
-    for name, value in os.environ.items():
-        if value and len(value) >= 8 and any(
-            marker in name.upper() for marker in ("KEY", "TOKEN", "SECRET", "PASSWORD")
-        ):
-            message = message.replace(value, "[REDACTED]")
-    message = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", message)
-    message = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}\b", "[REDACTED]", message)
-    message = re.sub(r"(https?://)[^/@\s]+@", r"\1[REDACTED]@", message)
-    message = re.sub(
-        r"(?i)([?&](?:api_?key|token|access_?token|secret|password)=)[^&\s]+",
-        r"\1[REDACTED]",
-        message,
+    # CrewAI often expects OpenAI models in this form:
+    # openai/gpt-4, openai/gpt-4o-mini, etc.
+    crewai_model_name = model_name if "/" in model_name else f"openai/{model_name}"
+    supported_settings = normalize_openai_model_settings(
+        crewai_model_name,
+        generation_settings,
     )
-    return f"{type(exc).__name__}: {message}"
+
+    llm = LLM(
+        model=crewai_model_name,
+        api_key=api_key,
+        base_url=base_url,
+        temperature=supported_settings.temperature,
+        max_tokens=supported_settings.max_output_tokens,
+        seed=supported_settings.seed,
+    )
+    effective_settings = GenerationSettings(
+        temperature=llm.temperature,
+        max_output_tokens=llm.max_tokens,
+        seed=llm.seed,
+    )
+    return llm, resolve_generation_settings(
+        generation_settings,
+        effective_settings,
+    )
 
 
 def _run_agent(
     prompt: str,
     vertical: str,
-    allowed_tools: list[str] | None = None,
-    context: RunContext | None = None,
+    allowed_tools: list[str] | None,
+    llm: LLM,
 ) -> tuple[str, dict[str, int | None], dict[str, Any]]:
-    context = context or begin_run(FRAMEWORK_NAME, "crewai")
-    llm_kwargs, forwarded_settings = _llm_configuration(context)
-    llm = LLM(**llm_kwargs)
     tools = _select_tools(vertical, allowed_tools)
 
     agent = Agent(
@@ -219,50 +216,22 @@ def _run_agent(
     token_usage, usage_metadata = _extract_token_usage(crew_output)
     return str(crew_output), token_usage, {
         "crewai_token_usage": usage_metadata,
-        "generation_settings_forwarded_to_crewai": forwarded_settings,
         "selected_tool_names": [getattr(value, "name", "unknown") for value in tools],
     }
 
 
-def _raw_tool_logs() -> list[Any]:
-    return [*medical_tools.call_log, *ecommerce_tools.call_log]
-
-
 def run_task(task: BenchmarkTask) -> AgentRunResult:
-    context = begin_run(FRAMEWORK_NAME, "crewai")
-    _, forwarded_settings = _llm_configuration(context)
-    medical_tools.reset_call_log()
-    ecommerce_tools.reset_call_log()
-    try:
-        final_output, token_usage, crewai_metadata = _run_agent(
-            task.prompt, task.vertical, task.allowed_tools, context
-        )
-        result = finish_run(
-            context,
-            task,
-            final_output=final_output,
-            success=True,
-            raw_tool_logs=_raw_tool_logs(),
-            token_usage=token_usage,
-        )
-        result.raw_metadata.update(crewai_metadata)
-        return result
-    except Exception as exc:
-        result = finish_run(
-            context,
-            task,
-            final_output="",
-            success=False,
-            error=_redacted_error(exc),
-            raw_tool_logs=_raw_tool_logs(),
-        )
-        result.raw_metadata.update(
-            {
-                "crewai_token_usage": {"available": False, "crew_fields": {}},
-                "generation_settings_forwarded_to_crewai": forwarded_settings,
-            }
-        )
-        return result
+    return run_framework_task(
+        task,
+        framework=FRAMEWORK_NAME,
+        package_name="crewai",
+        tool_modules=[medical_tools, ecommerce_tools],
+        requested_settings=configured_generation_settings(),
+        build_model=_build_llm,
+        run_model=lambda llm, _requested: _run_agent(
+            task.prompt, task.vertical, task.allowed_tools, llm
+        ),
+    )
 
 
 def main() -> None:
