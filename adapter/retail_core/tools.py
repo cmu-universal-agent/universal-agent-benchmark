@@ -1,7 +1,7 @@
 """Canonical tool handlers: thin business-rule logic against RetailDB.
 
 Tool names and input shapes here are pinned by tools/tau_retail_contract.json
-/ tools/schemas/*.schema.json (WS3 canonical contract v0.1.0, candidate for
+/ tools/schemas/*.schema.json (WS3 canonical contract v0.2.0, candidate for
 owner review) -- do not rename or reshape without a contract-version update.
 
 RetailEnv.call_tool() already rejected disallowed tools and schema-invalid
@@ -101,6 +101,13 @@ def get_item_details(db: RetailDB, arguments: dict[str, Any]) -> ToolResult:
         return _not_found(f"unknown item_id: {item_id}")
     _, variant = found
     return ToolResult(ok=True, data=variant, state_changed=False)
+
+
+def list_all_product_types(db: RetailDB, arguments: dict[str, Any]) -> ToolResult:
+    products = sorted(
+        (product["name"], product["product_id"]) for product in db.products.values()
+    )
+    return ToolResult(ok=True, data=dict(products), state_changed=False)
 
 
 def find_user_id_by_email(db: RetailDB, arguments: dict[str, Any]) -> ToolResult:
@@ -381,6 +388,7 @@ TOOL_HANDLERS = {
     "get_order_details": get_order_details,
     "get_product_details": get_product_details,
     "get_user_details": get_user_details,
+    "list_all_product_types": list_all_product_types,
     "modify_pending_order_address": modify_pending_order_address,
     "modify_pending_order_items": modify_pending_order_items,
     "modify_pending_order_payment": modify_pending_order_payment,

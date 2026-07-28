@@ -1,4 +1,4 @@
-# Retail core: wrapper integration interface (v1, WS3 contract 0.1.0)
+# Retail core: wrapper integration interface (v1, WS3 contract 0.2.0)
 
 Owner: Xiaoxia (WS3, shared core). Consumers: CrewAI (Mickey), LangGraph
 (Chloe), OpenAI Agents SDK (Lanfang).

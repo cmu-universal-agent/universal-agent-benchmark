@@ -74,6 +74,26 @@ class TestEvaluatorDataLeakage(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             env.get_evaluator_view()
 
+    def test_call_boundaries_do_not_alias_db_or_trace(self) -> None:
+        env = RetailEnv(DATA_DIR, seed=42)
+        env.reset(CASE_ID, reset_id="reset-isolation")
+        arguments = {"order_id": "O5001"}
+        result = env.call_tool("get_order_details", arguments)
+        trace = env.get_trace()
+        state_before = env.get_final_state()
+
+        arguments["order_id"] = "changed-after-call"
+        result.data["status"] = "changed-after-call"
+        trace[0]["arguments"]["order_id"] = "changed-after-call"
+        trace[0]["result"]["status"] = "changed-after-call"
+
+        state_after = env.get_final_state()
+        recorded = env.get_trace()[0]
+        self.assertEqual(state_after["state_sha256"], state_before["state_sha256"])
+        self.assertEqual(state_after["mutation_count"], 0)
+        self.assertEqual(recorded["arguments"]["order_id"], "O5001")
+        self.assertEqual(recorded["result"]["status"], "delivered")
+
 
 if __name__ == "__main__":
     unittest.main()
