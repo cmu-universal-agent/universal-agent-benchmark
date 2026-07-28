@@ -437,3 +437,50 @@ Final benchmark scoring is not part of this approval gate.
 | Integration owner | Mickey | Pending |  | Confirm runner integration after revised schemas and fixtures land. |
 
 Final schema status: **Field design approved and frozen for pilot implementation — formal v1.0 release pending integration and smoke-test gates.**
+
+## 10. Stress Variant Tracking (Lanfang — 2026-07-21, pending Chloe confirmation)
+
+These fields support stress case fixtures described in
+`docs/stress_testing_strategy.md` and `docs/eight_core_stress_matrix.md`.
+**Do not add to JSON Schemas until Chloe approves.** Do not modify core pilot
+cases in place — variants are separate files.
+
+### Benchmark Case (`benchmark_case.schema.json`)
+
+| Field | Required | Producer | Purpose | Decision |
+|---|---|---|---|---|
+| `metadata.stress_variant_of` | No | Stress fixture author | Base `case_id` this variant derives from | **Pending** — links variant to core pilot case without editing original |
+| `metadata.controlled_change` | No | Stress fixture author | One-sentence description of the single deliberate edit | **Pending** — documents one-factor rule for audit |
+| `metadata.stress_fixture_version` | No | Stress fixture author | Variant revision (`v001`, `v002`) | **Pending** — version stress JSON independently of base case |
+
+Notes:
+
+- Primary `stress_type` remains the single required enum on the case root.
+- Secondary stress conditions continue in `metadata.tags` only.
+- `metadata.difficulty` must still be assigned from complexity rules, not copied from base case without re-evaluation.
+
+### Run Log (`run_log.schema.json`)
+
+| Field | Required | Producer | Purpose | Decision |
+|---|---|---|---|---|
+| `repeat_index` | No | Runner | 0-based index within `--repeats` group | **Pending** — required for `repeated_run_inconsistency` analysis |
+| `stress_type` | No | Runner (copy from case) | Denormalized filter field for dashboards | **Pending** — optional convenience; case file remains source of truth |
+
+### Evaluator extensions (evaluator-only, not agent schema)
+
+| Artifact | Purpose | Decision |
+|---|---|---|
+| `evaluator_data/rubrics/{task_id}_stress.json` | Optional rubric overlays for trap/failure scenarios | **Pending** — keep separate from base rubrics |
+| `tests/fixtures/stress_gold/*.jsonl` | Gold deltas when stress changes acceptable answers (e.g. H1 `maybe`) | **Pending** |
+
+### Evaluator code gaps (documentation only — no schema change)
+
+Track in `docs/stress_failure_rubric.md` implementation table:
+
+- `disallowed_tool` from `tool_calls[].was_allowed`
+- `tool_failure` from tool trace + recovery rubric
+- `timeout` from run/tool error stage
+- `repeated_run_inconsistency` from repeat groups
+- `unsafe_response` wired to H5/E3 rubrics beyond legacy medical helpers
+
+**Chloe action requested:** Confirm field names, fixture paths (`tests/fixtures/stress_cases/`), and whether `repeat_index` belongs on run log before Lanfang authors fixtures.
