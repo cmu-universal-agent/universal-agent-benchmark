@@ -91,20 +91,17 @@ team reconfirms owners, scope, and dates.
 
 ### Repository and PR
 
-As verified on 2026-07-27 (`gh pr view` and `git fetch` against the official
-remote):
+As verified on 2026-07-21:
 
 - The official repository is public and Jessica has push permission.
-- Official `main` is at `98818c7`.
-- PR #1 is open, Ready for Review, and mergeable at head `136f9a2` (a merge of
-  `main` into `jessica/infrastructure-schema-compat`).
+- Official `main` is at `15ebb8a`.
+- PR #1 is open, Ready for Review, and mergeable at head `ee545af`.
 - PR #1 uses `jessica/infrastructure-schema-compat`; inspect the live PR for
   its current head rather than relying on a cached commit hash.
 - PR #2 contains Mickey's CrewAI integration and is stacked on PR #1's branch.
-  It remains separate and unmerged. GitHub reports it mergeable, but its
-  recorded base `494b506` predates PR #1's current head `136f9a2`; treat
-  mergeability and base synchronization as separate gates and confirm the
-  integration sequence before rebasing, retargeting, or merging it.
+  It remains separate and unmerged. GitHub currently reports it as
+  non-mergeable against the advanced PR #1 base, so confirm the integration
+  sequence before rebasing, retargeting, or merging it.
 - This guide and the WS2 owner-feedback batch are intended for that existing
   PR, not a new pull request.
 - H4 owner review and final validation are complete. PR #1 was moved from Draft

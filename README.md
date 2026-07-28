@@ -311,10 +311,11 @@ evaluator gold lives under `data/generated/core_pilot/gold/` and
 
 | Branch | Role |
 |---|---|
-| `main` | Stable 20-case legacy benchmark |
-| `jessica/infrastructure-schema-compat` | WS2 infrastructure (schemas, loaders, core pilot converters) — PR #1 |
-| `mickey/crewai-integration` | CrewAI integration stacked on PR #1 — PR #2 |
-| `lanfang/stress-testing-plan` | Stress-testing design docs (stacked on Jessica’s branch) |
+| `main` | Integration base; includes the merged WS2 infrastructure (PR #1) and CrewAI integration (PR #2) |
+| `lanfang/stress-testing-plan` | Stress-testing design documentation proposed in PR #3 |
+| `jessica/ws3-canonical-contract` | WS3 canonical retail contract proposed in PR #4 |
+| `xiaoxia/shared_core` | Shared retail simulator proposed in PR #8, dependent on PR #4 |
+| `xiaoxia/dashboard` | Retail dashboard proposed in PR #9, dependent on PR #8 |
 
 Before opening a PR:
 

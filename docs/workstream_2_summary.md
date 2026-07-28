@@ -66,8 +66,8 @@ in force until she releases it and repository review is complete.
 - Remaining external gates are live-model smoke with local API configuration,
   native Linux/CI confirmation, formal generated cases/gold, and E5 integration
   with the shared tau-retail simulator/tool registry.
-- Keep PR #2 separate and stacked. Its recorded base is behind the current
-  PR #1 head; update the branch, resolve any resulting conflicts, and confirm
+- Keep PR #2 separate and stacked. GitHub currently reports it as
+  non-mergeable against the advanced PR #1 base; confirm its base update and
   integration sequence before any merge or retarget.
 
 ### Xiaoxia / Dashboard Owner
@@ -86,8 +86,9 @@ in force until she releases it and repository review is complete.
 
 ### Repository / Integration Owner
 
-- Review the Workstream 2 PRs. PR #1 is Ready for Review; do not merge while
-  Jessica's current hold is active.
+- Review the Workstream 2 PRs. PR #1 is eligible to move out of Draft after the
+  final validation evidence is confirmed, but do not merge while Jessica's
+  current hold is active.
 - Grant or confirm contributor access to the official
   `cmu-universal-agent/universal-agent-benchmark` repository before the next
   upstream synchronization.
