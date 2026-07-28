@@ -216,6 +216,38 @@ class CorePilotCompletenessTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("manifest case IDs do not match generated cases", result.stdout)
 
+    def test_reports_non_object_case_json_instead_of_crashing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            _write_complete_output(output)
+            case_path = output / "cases" / "task_h1_001.json"
+            case_path.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
+
+            result = _validate(output)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn(
+            "task_h1_001.json: expected a JSON object, found list",
+            result.stdout + result.stderr,
+        )
+
+    def test_reports_non_object_gold_json_instead_of_crashing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            _write_complete_output(output)
+            gold_path = output / "gold" / "h1.jsonl"
+            gold_path.write_text(json.dumps([1, 2, 3]) + "\n", encoding="utf-8")
+
+            result = _validate(output)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertIn(
+            "h1.jsonl:1: expected a JSON object, found list",
+            result.stdout + result.stderr,
+        )
+
     def test_rejects_incorrect_report_counts(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)

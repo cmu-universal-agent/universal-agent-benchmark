@@ -119,6 +119,9 @@ def main() -> None:
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
             continue
+        if not isinstance(case, dict):
+            errors.append(f"{path.name}: expected a JSON object, found {type(case).__name__}")
+            continue
         case_id = case.get("case_id", path.name)
         if case_id in cases:
             errors.append(f"duplicate case_id: {case_id}")
@@ -147,6 +150,12 @@ def main() -> None:
                 row = json.loads(line)
             except json.JSONDecodeError as exc:
                 errors.append(f"{path.name}:{line_number}: {exc}")
+                continue
+            if not isinstance(row, dict):
+                errors.append(
+                    f"{path.name}:{line_number}: expected a JSON object, "
+                    f"found {type(row).__name__}"
+                )
                 continue
             case_id = row.get("case_id")
             if case_id in gold:

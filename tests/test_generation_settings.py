@@ -9,6 +9,7 @@ from adapter.runtime import (
     begin_run,
     configured_generation_settings,
     resolve_generation_settings,
+    run_framework_task,
     start_run_timing,
 )
 from adapter.schemas import BenchmarkTask
@@ -143,6 +144,53 @@ class ResolveGenerationSettingsTests(unittest.TestCase):
         resolution = resolve_generation_settings(requested, effective)
 
         self.assertEqual(resolution.unsupported, ("temperature",))
+
+
+class RunFrameworkTaskModelConstructionTests(unittest.TestCase):
+    def test_build_model_failure_is_not_reported_as_unsupported_settings(self):
+        def _build_model_raises(_settings):
+            raise RuntimeError("invalid API key")
+
+        def _run_model_never_called(_model, _settings):
+            self.fail("run_model must not be called when build_model fails")
+
+        result = run_framework_task(
+            _task(),
+            framework="test",
+            package_name="missing-test-package",
+            tool_modules=(),
+            requested_settings=_settings(),
+            build_model=_build_model_raises,
+            run_model=_run_model_never_called,
+        )
+
+        self.assertFalse(result.success)
+        self.assertIn("invalid API key", result.error)
+        self.assertEqual(
+            result.raw_metadata["unsupported_generation_settings"], []
+        )
+        self.assertTrue(result.raw_metadata["model_construction_failed"])
+
+    def test_run_model_failure_does_not_set_model_construction_failed(self):
+        def _build_model_ok(settings):
+            return object(), resolve_generation_settings(settings, settings)
+
+        def _run_model_raises(_model, _settings):
+            raise RuntimeError("agent run blew up")
+
+        result = run_framework_task(
+            _task(),
+            framework="test",
+            package_name="missing-test-package",
+            tool_modules=(),
+            requested_settings=_settings(),
+            build_model=_build_model_ok,
+            run_model=_run_model_raises,
+        )
+
+        self.assertFalse(result.success)
+        self.assertIn("agent run blew up", result.error)
+        self.assertFalse(result.raw_metadata["model_construction_failed"])
 
 
 @unittest.skipUnless(

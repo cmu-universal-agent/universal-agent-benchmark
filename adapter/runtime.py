@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import time
 import uuid
 from dataclasses import asdict, dataclass, fields
@@ -150,17 +151,27 @@ def _generation_value_matches(
     return requested == effective
 
 
-def unsupported_generation_settings(
+def failed_model_construction_settings(
     requested: GenerationSettings,
 ) -> GenerationSettingsResolution:
-    """Represent a model construction that applied no generation settings."""
-    return resolve_generation_settings(
-        requested,
-        GenerationSettings(
+    """Represent generation settings when the model was never constructed.
+
+    A ``build_model`` failure (bad credentials, import error, invalid model
+    name, ...) means no generation setting was ever attempted, let alone
+    rejected. Recording that as "unsupported" would misreport a total build
+    failure as evidence that the framework doesn't support a specific
+    setting, corrupting any suitability comparison drawn from the metadata.
+    ``unsupported`` is therefore always empty here; ``model_construction_failed``
+    on the resulting run is the correct signal for "no settings apply."
+    """
+    return GenerationSettingsResolution(
+        requested=requested,
+        effective=GenerationSettings(
             temperature=None,
             max_output_tokens=None,
             seed=None,
         ),
+        unsupported=(),
     )
 
 
@@ -212,6 +223,7 @@ class RunContext:
     seed: int | None
     requested_generation_settings: GenerationSettings
     unsupported_generation_settings: tuple[str, ...]
+    model_construction_failed: bool
     started_at: str
     started_perf_counter: float
 
@@ -221,6 +233,8 @@ def begin_run(
     package_name: str,
     generation_settings: GenerationSettings | GenerationSettingsResolution | None = None,
     timing: RunTiming | None = None,
+    *,
+    model_construction_failed: bool = False,
 ) -> RunContext:
     """Capture configuration at execution time, never during report generation."""
     run_timing = timing or start_run_timing()
@@ -245,6 +259,7 @@ def begin_run(
         seed=effective_settings.seed,
         requested_generation_settings=resolution.requested,
         unsupported_generation_settings=resolution.unsupported,
+        model_construction_failed=model_construction_failed,
         started_at=run_timing.started_at,
         started_perf_counter=run_timing.started_perf_counter,
     )
@@ -292,6 +307,30 @@ def normalize_tool_calls(
     return normalized
 
 
+def redact_error(message: str) -> str:
+    """Strip likely credentials from an error message before it is stored.
+
+    Applied centrally so every framework adapter gets the same guarantee
+    against leaking API keys/tokens into results/metrics/*.jsonl, instead of
+    each wrapper having to remember to redact its own exception text.
+    """
+    redacted = message
+    for name, value in os.environ.items():
+        if value and len(value) >= 8 and any(
+            marker in name.upper() for marker in ("KEY", "TOKEN", "SECRET", "PASSWORD")
+        ):
+            redacted = redacted.replace(value, "[REDACTED]")
+    redacted = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1[REDACTED]", redacted)
+    redacted = re.sub(r"\bsk-[A-Za-z0-9_-]{8,}\b", "[REDACTED]", redacted)
+    redacted = re.sub(r"(https?://)[^/@\s]+@", r"\1[REDACTED]@", redacted)
+    redacted = re.sub(
+        r"(?i)([?&](?:api_?key|token|access_?token|secret|password)=)[^&\s]+",
+        r"\1[REDACTED]",
+        redacted,
+    )
+    return redacted
+
+
 def finish_run(
     context: RunContext,
     task: BenchmarkTask,
@@ -328,7 +367,7 @@ def finish_run(
         final_output=raw_output,
         latency_seconds=time.perf_counter() - context.started_perf_counter,
         success=success,
-        error=error,
+        error=redact_error(error) if error is not None else None,
         tool_call_count=len(tool_calls),
         raw_metadata={
             "adapter_version": ADAPTER_VERSION,
@@ -344,6 +383,7 @@ def finish_run(
             "unsupported_generation_settings": list(
                 context.unsupported_generation_settings
             ),
+            "model_construction_failed": context.model_construction_failed,
         },
         case_id=task.case_id,
         run_id=context.run_id,
@@ -382,7 +422,10 @@ def run_framework_task(
     tests. ``build_model`` receives the requested generation settings and
     returns the constructed model/agent object plus its resolved generation
     settings. A ``build_model`` failure is recorded as a model-construction
-    error and ``run_model`` is never called. On success, ``run_model``
+    error (``raw_metadata.model_construction_failed=True``) and ``run_model``
+    is never called; ``unsupported_generation_settings`` stays empty in that
+    case since no setting was ever attempted, let alone rejected. On success,
+    ``run_model``
     receives the constructed object and the originally requested settings,
     and returns (final_output, token_usage). A ``run_model`` failure is
     recorded as a run error. ``tool_modules`` are reset before the attempt
@@ -396,9 +439,15 @@ def run_framework_task(
         model, generation_settings = build_model(requested_settings)
     except Exception as exc:
         model_error = exc
-        generation_settings = unsupported_generation_settings(requested_settings)
+        generation_settings = failed_model_construction_settings(requested_settings)
 
-    context = begin_run(framework, package_name, generation_settings, timing)
+    context = begin_run(
+        framework,
+        package_name,
+        generation_settings,
+        timing,
+        model_construction_failed=model_error is not None,
+    )
     for module in tool_modules:
         module.reset_call_log()
 
