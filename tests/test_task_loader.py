@@ -124,6 +124,26 @@ class TaskLoaderSemanticValidationTests(unittest.TestCase):
         self.assertIsNone(task.schema_version)
         self.assertEqual(task.prompt, "Return JSON.")
 
+    def test_retail_case_loads_without_evaluator_payload(self):
+        task = task_from_dict(
+            {
+                "case_id": "RETAIL-E5-001",
+                "prompt": "Resolve the retail request.",
+                "allowed_tools": ["get_order_details"],
+                "evaluator_only": {
+                    "status": "pending_approval",
+                    "expected_final_state": {"must_not": "leak"},
+                },
+            }
+        )
+
+        self.assertEqual(task.task_id, "RETAIL-E5-001")
+        self.assertEqual(task.case_id, "RETAIL-E5-001")
+        self.assertEqual(task.vertical, "retail")
+        self.assertEqual(task.allowed_tools, ["get_order_details"])
+        self.assertNotIn("evaluator_only", task.metadata)
+        self.assertNotIn("expected_final_state", task.prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
