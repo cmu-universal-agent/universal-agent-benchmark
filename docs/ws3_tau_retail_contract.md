@@ -119,9 +119,8 @@ evidence with:
 The same seven fixture IDs are required for every wrapper, so parity is checked
 against one matrix rather than framework-specific test interpretations.
 
-This validates only the shared contract. Passing it does not mean the simulator
-or any wrapper has been implemented, E5 semantics approved, or benchmark scores
-produced.
+This validates only the shared contract. Passing it does not validate the E5
+evaluator or mean that benchmark scores have been produced.
 
 ## Contract-only meeting demo
 
@@ -153,14 +152,14 @@ Suggested six-minute flow: introduce the 16-tool contract, run the command,
 open the generated page, explain the read/write/duplicate state transitions,
 open the sanitized evidence JSON, and finish with the remaining core/wrapper
 integration gates. This is contract evidence only, not a simulator, framework
-run, E5 semantic approval, or benchmark result.
+run, E5 evaluator result, or benchmark result.
 
 ## Upstream provenance
 
 The tool surface was reconciled on 2026-07-22 against:
 
 - local tau-retail cache: 114 tasks, 15 unique expected action names;
-- Chloe's E5 v0.2 owner review: the full 16-tool retail registry;
+- Chloe's E5 v0.3 owner review: the full 16-tool retail registry;
 - upstream `sierra-research/tau2-bench` retail toolkit at
   `src/tau2/domains/retail/tools.py`, blob
   `eba01ab32dca0d4ef33328c22358b794d859f2b6`.
