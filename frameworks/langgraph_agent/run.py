@@ -3,7 +3,7 @@ import operator
 import os
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -31,6 +31,7 @@ from verticals.medical_diagnostic import tools as medical_tools
 
 TASK_PATH = ROOT / "verticals" / "smoke_test" / "task_001.json"
 FRAMEWORK_NAME = "langgraph"
+RECURSION_LIMIT = int(os.getenv("LANGGRAPH_RECURSION_LIMIT", "25"))
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -63,6 +64,31 @@ def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
         return list(available.values())
     allowed = set(allowed_tools)
     return [tool_value for name, tool_value in available.items() if name in allowed]
+
+
+def _extract_token_usage(messages: list[Any]) -> dict[str, int | None]:
+    rows = [
+        row
+        for message in messages
+        if isinstance(row := getattr(message, "usage_metadata", None), dict)
+    ]
+    usage: dict[str, int | None] = {}
+    for key in ("input_tokens", "output_tokens", "total_tokens"):
+        values = [
+            value
+            for row in rows
+            if isinstance((value := row.get(key)), int)
+            and not isinstance(value, bool)
+            and value >= 0
+        ]
+        usage[key] = sum(values) if values else None
+    if (
+        usage["total_tokens"] is None
+        and usage["input_tokens"] is not None
+        and usage["output_tokens"] is not None
+    ):
+        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+    return usage
 
 
 def _build_llm(
@@ -134,16 +160,11 @@ def _run_agent(
 
     agent_graph = graph_builder.compile()
 
-    result = agent_graph.invoke({"messages": [HumanMessage(content=prompt)]})
-    usage_rows = [
-        message.usage_metadata
-        for message in result["messages"]
-        if getattr(message, "usage_metadata", None)
-    ]
-    token_usage = {
-        key: sum(int(row.get(key, 0) or 0) for row in usage_rows) if usage_rows else None
-        for key in ("input_tokens", "output_tokens", "total_tokens")
-    }
+    result = agent_graph.invoke(
+        {"messages": [HumanMessage(content=prompt)]},
+        config={"recursion_limit": RECURSION_LIMIT},
+    )
+    token_usage = _extract_token_usage(result["messages"])
     return str(result["messages"][-1].content), token_usage
 
 

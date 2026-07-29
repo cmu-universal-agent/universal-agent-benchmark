@@ -2,6 +2,7 @@ import importlib
 import importlib.util
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, patch
 
 from adapter.runtime import (
@@ -359,13 +360,32 @@ class LangGraphGenerationSettingsTests(unittest.TestCase):
         self.assertEqual(result.max_output_tokens, settings.max_output_tokens)
         self.assertEqual(result.seed, settings.seed)
 
+    def test_token_usage_preserves_missing_fields(self):
+        usage = self.runner._extract_token_usage(
+            [
+                SimpleNamespace(
+                    usage_metadata={"input_tokens": 4, "output_tokens": 2}
+                ),
+                SimpleNamespace(usage_metadata={"input_tokens": 3}),
+            ]
+        )
+
+        self.assertEqual(
+            usage,
+            {"input_tokens": 7, "output_tokens": 2, "total_tokens": 9},
+        )
+
     def test_gpt5_records_real_wrapper_normalization(self):
         from langchain_core.messages import AIMessage
 
         class OfflineGraph:
-            def invoke(self, _state):
+            config = None
+
+            def invoke(self, _state, config=None):
+                self.config = config
                 return {"messages": [AIMessage(content="{}")]}
 
+        offline_graph = OfflineGraph()
         requested = GenerationSettings(
             temperature=0.0,
             max_output_tokens=321,
@@ -388,12 +408,16 @@ class LangGraphGenerationSettingsTests(unittest.TestCase):
             patch.object(
                 self.runner.StateGraph,
                 "compile",
-                return_value=OfflineGraph(),
+                return_value=offline_graph,
             ),
         ):
             result = self.runner.run_task(_task())
 
         self.assertTrue(result.success, result.error)
+        self.assertEqual(
+            offline_graph.config,
+            {"recursion_limit": self.runner.RECURSION_LIMIT},
+        )
         self.assertIsNone(result.temperature)
         self.assertEqual(result.max_output_tokens, 321)
         self.assertEqual(result.seed, 17)
