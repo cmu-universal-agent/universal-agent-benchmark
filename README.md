@@ -375,11 +375,10 @@ open results/dashboard.html                                # macOS; or just doub
 
 Reads the latest row per `(case_id, framework, experiment_label)` from
 `results/metrics/retail_results.jsonl` and renders a self-contained, read-only
-HTML page — no server, nothing to deploy. It's a rendering layer only:
-pass/fail, failure class, and final-state correctness are never recomputed, only
-displayed. `results/dashboard.html` is generated (gitignored), so it isn't
-checked in or viewable on GitHub — regenerate it locally and open the file to
-view it. See `docs/WS3_dashboard_prototype.html` for the approved visual
-reference.
+HTML page — no server, nothing to deploy. The public view is explicitly
+synthetic technical validation, not benchmark scoring: it publishes sanitized
+trace summaries and aggregate final-state verdicts only. `results/dashboard.html`
+is generated (gitignored), so it isn't checked in or viewable on GitHub —
+regenerate it locally and open the file to view it.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>

@@ -365,13 +365,13 @@ const RUNS = [
 
   // ---- RETAIL-E5-005 escalate ----
   run({ run_id:"r-5a71", case_id:"RETAIL-E5-005", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:6.7,
-    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880",reason:"ambiguous"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{summary:"Ambiguous customer dispute requires human review."},ok:true,mut:false}],
     final_state:{order:"W880",status:"escalated",ticket:"T-1004"}, expected_state:{order:"W880",status:"escalated"} }),
   run({ run_id:"r-5b25", case_id:"RETAIL-E5-005", framework:"openai_agents_sdk", failure_class:"ok", final_state_correct:true, latency_s:7.1,
-    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880",reason:"ambiguous dispute"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{summary:"Ambiguous customer dispute requires human review."},ok:true,mut:false}],
     final_state:{order:"W880",status:"escalated",ticket:"T-1004"}, expected_state:{order:"W880",status:"escalated"} }),
   run({ run_id:"r-5c93", case_id:"RETAIL-E5-005", framework:"crewai", failure_class:"evaluator_data_leakage", final_state_correct:false, latency_s:9.0,
-    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"get_user_details",args:{user_id:"U880",expected_action:"escalate"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W880"},ok:true,mut:true}],
+    trace:[{tool:"get_order_details",args:{order_id:"W880"},ok:true,mut:false},{tool:"get_user_details",args:{user_id:"U880",expected_action:"escalate"},ok:true,mut:false},{tool:"transfer_to_human_agents",args:{summary:"Ambiguous customer dispute requires human review."},ok:true,mut:false}],
     final_state:{order:"W880",status:"escalated"}, expected_state:{order:"W880",status:"escalated"},
     note:"Agent argument echoed an evaluator-only field (expected_action). Flag to core: gold leaked into an agent-visible tool arg." }),
 
@@ -399,7 +399,7 @@ const RUNS = [
 
   // ---- RETAIL-E5-008 out-of-stock (refuse + escalate) ----
   run({ run_id:"r-8a35", case_id:"RETAIL-E5-008", framework:"langgraph", failure_class:"ok", final_state_correct:true, latency_s:7.8, schema_valid:false,
-    trace:[{tool:"get_product_details",args:{product_id:"P40"},ok:true,mut:false},{tool:"exchange_delivered_order_items",args:{order_id:"W640",to:"P40-XL"},ok:false,error_code:"policy_rejected",mut:false},{tool:"transfer_to_human_agents",args:{order_id:"W640",reason:"out_of_stock"},ok:true,mut:true}],
+    trace:[{tool:"get_product_details",args:{product_id:"P40"},ok:true,mut:false},{tool:"exchange_delivered_order_items",args:{order_id:"W640",to:"P40-XL"},ok:false,error_code:"policy_rejected",mut:false},{tool:"transfer_to_human_agents",args:{summary:"Requested exchange item is out of stock; human review required."},ok:true,mut:false}],
     final_state:{order:"W640",status:"escalated"}, expected_state:{order:"W640",status:"escalated"},
     note:"Correct behavior, but the emitted trace failed schema validation (missing 'index' on step 2). Counts as schema-invalid — excluded from rate denominators until fixed." }),
   run({ run_id:"r-8b77", case_id:"RETAIL-E5-008", framework:"openai_agents_sdk", failure_class:"tool_failure", final_state_correct:false, runtime_status:"error", latency_s:2.1,
