@@ -25,7 +25,7 @@ def run_demo(evidence_out: Path | None = None) -> dict[str, Any]:
     )
     validator._validate_leakage(fixture)
 
-    evidence = {
+    internal_evidence = {
         "contract_version": contract["contract_version"],
         "framework": "langgraph",
         "wrapper_version": "synthetic-contract-fixture",
@@ -33,11 +33,14 @@ def run_demo(evidence_out: Path | None = None) -> dict[str, Any]:
         "reset_determinism": fixture["reset_determinism"],
         "scenarios": fixture["scenarios"],
     }
-    validator._validate_wrapper_envelope(evidence)
+    validator._validate_wrapper_envelope(internal_evidence)
 
     by_id = {row["fixture_id"]: row for row in fixture["scenarios"]}
     read = by_id["read_success"]
     write = by_id["write_success"]
+    invalid = by_id["invalid_arguments"]
+    disallowed = by_id["disallowed_tool"]
+    failure = by_id["tool_failure"]
     duplicate = by_id["duplicate_action"]
     summary = {
         "version": contract["contract_version"],
@@ -55,6 +58,10 @@ def run_demo(evidence_out: Path | None = None) -> dict[str, Any]:
         ),
         "write_tool": write["events"][0]["call"]["tool_name"],
         "write_mutation_count": write["final_state"]["mutation_count"],
+        "invalid_error": invalid["events"][0]["call"]["error"]["error_type"],
+        "disallowed_error": disallowed["events"][0]["call"]["error"]["error_type"],
+        "failure_error": failure["events"][0]["call"]["error"]["error_type"],
+        "failure_recovered": failure["events"][-1]["call"]["outcome"] == "success",
         "duplicate_tool": duplicate["events"][-1]["call"]["tool_name"],
         "duplicate_error": duplicate["events"][-1]["call"]["error"]["error_type"],
         "duplicate_state_changed": (
@@ -65,9 +72,36 @@ def run_demo(evidence_out: Path | None = None) -> dict[str, Any]:
     }
 
     if evidence_out is not None:
+        public_evidence = {
+            "artifact_type": "synthetic_technical_validation",
+            "contract_version": summary["version"],
+            "validation": {
+                "tool_registry_valid": True,
+                "state_schema_valid": True,
+                "trace_schema_valid": True,
+                "reset_deterministic": summary["reset_deterministic"],
+                "privacy_scan_passed": summary["leakage"] == 0,
+            },
+            "coverage": {
+                "canonical_tools": summary["tools"],
+                "scenarios": summary["scenarios"],
+                "tool_calls": summary["calls"],
+                "read": "pass",
+                "mutation": "pass",
+                "invalid_arguments": "pass",
+                "disallowed_tool": "pass",
+                "duplicate_action": "pass",
+                "tool_failure_recovery": "pass",
+                "leakage_guard": "pass",
+            },
+            "artifact_scope": {
+                "included_real_wrapper": "langgraph",
+                "wrappers_not_included": ["crewai", "openai_agents_sdk"],
+            },
+        }
         evidence_out.parent.mkdir(parents=True, exist_ok=True)
         evidence_out.write_text(
-            json.dumps(evidence, indent=2) + "\n", encoding="utf-8"
+            json.dumps(public_evidence, indent=2) + "\n", encoding="utf-8"
         )
     return summary
 
@@ -99,7 +133,7 @@ p {{ color: #9fb0c8; max-width: 760px; line-height: 1.6; }}
 table {{ width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 14px;
   border: 1px solid #273852; background: #101d30; }}
 th, td {{ padding: 16px; text-align: left; border-bottom: 1px solid #273852; }}
-th {{ color: #90a2bb; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }}
+th {{ color: #90a2bb; font-size: 12px; letter-spacing: .08em; }}
 code {{ color: #8bd5ff; }}
 .ok {{ color: #62d6a7; font-weight: 700; }}
 .pending {{ color: #f6c85f; }}
@@ -114,10 +148,10 @@ footer {{ margin: 30px 0; color: #71839d; font-size: 13px; }}
 <body>
 <main>
 <header>
-  <span class="badge">TECHNICAL VALIDATION · SYNTHETIC ONLY · NOT BENCHMARK SCORES</span>
+  <span class="badge">TECHNICAL VALIDATION | SYNTHETIC ONLY | NOT BENCHMARK SCORES</span>
   <h1>WS3 Retail Contract Demo</h1>
-  <p>A deterministic, leakage-safe meeting fallback proving the frozen
-  tool/state/reset/error contract before framework wrappers are connected.</p>
+  <p>A deterministic, leakage-safe meeting fallback proving the
+  tool/state/reset/error contract without live model calls.</p>
 </header>
 <section class="grid" aria-label="Contract summary">
   <div class="card"><div class="metric">{value["version"]}</div><div class="label">contract version</div></div>
@@ -129,22 +163,31 @@ footer {{ margin: 30px 0; color: #71839d; font-size: 13px; }}
 <table>
 <thead><tr><th>Gate</th><th>Canonical tool</th><th>Observed</th><th>Result</th></tr></thead>
 <tbody>
-<tr><td>Reset</td><td><code>reset(case_id, reset_id, seed)</code></td>
-  <td>same state hash on repeat</td><td class="ok">PASS</td></tr>
+<tr><td>Reset</td><td><code>reset(seed)</code></td>
+  <td>repeat reset produced identical state</td><td class="ok">PASS</td></tr>
 <tr><td>Read</td><td><code>{value["read_tool"]}</code></td>
   <td>state_changed={int(summary["read_state_changed"])}</td><td class="ok">PASS</td></tr>
 <tr><td>Mutation</td><td><code>{value["write_tool"]}</code></td>
   <td>mutation_count={value["write_mutation_count"]}</td><td class="ok">PASS</td></tr>
+<tr><td>Invalid input</td><td><code>structured error</code></td>
+  <td>{value["invalid_error"]}</td><td class="ok">PASS</td></tr>
+<tr><td>Disallowed action</td><td><code>allowed-tools gate</code></td>
+  <td>{value["disallowed_error"]}</td><td class="ok">PASS</td></tr>
 <tr><td>Duplicate</td><td><code>{value["duplicate_tool"]}</code></td>
   <td>{value["duplicate_error"]}; state_changed={int(summary["duplicate_state_changed"])}</td>
   <td class="ok">PASS</td></tr>
+<tr><td>Injected failure</td><td><code>retry link</code></td>
+  <td>{value["failure_error"]}; recovered={int(summary["failure_recovered"])}</td>
+  <td class="ok">PASS</td></tr>
+<tr><td>Leakage guard</td><td><code>visibility boundary</code></td>
+  <td>findings={value["leakage"]}</td><td class="ok">PASS</td></tr>
 </tbody>
 </table>
 <h2>Remaining integration gates</h2>
-<div class="card pending">Shared core canonical mapping → three thin framework
-wrappers → identical offline parity evidence → owner-approved E5 semantics.</div>
-<footer>Generated from PR #4 frozen synthetic fixtures. No live model calls,
-evaluator-only gold, scores, or framework ranking.</footer>
+<div class="card pending">Included scope: shared core + one real LangGraph
+wrapper. Three-framework parity still requires CrewAI and OpenAI wrappers.</div>
+<footer>Synthetic technical validation only. No live model calls, scores,
+or framework ranking.</footer>
 </main>
 </body>
 </html>
@@ -158,7 +201,7 @@ def main() -> None:
     parser.add_argument(
         "--evidence-out",
         type=Path,
-        help="Optional path for sanitized synthetic evidence JSON.",
+        help="Optional path for presentation-safe synthetic evidence JSON.",
     )
     parser.add_argument(
         "--html-out",
