@@ -14,6 +14,30 @@ PREPARE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(PREPARE)
 
+REPLAY_SPEC = importlib.util.spec_from_file_location(
+    "fill_e5_replay", ROOT / "scripts" / "fill_e5_replay.py"
+)
+REPLAY = importlib.util.module_from_spec(REPLAY_SPEC)
+assert REPLAY_SPEC.loader is not None
+REPLAY_SPEC.loader.exec_module(REPLAY)
+
+
+class FakeReplayEnv:
+    def __init__(self, fail: bool = False):
+        self.actions = []
+        self.fail = fail
+
+    def make_tool_call(self, tool_name, requestor, **arguments):
+        if self.fail:
+            raise ValueError("synthetic failure")
+        self.actions.append((tool_name, requestor, arguments))
+
+    def get_db_hash(self):
+        return f"agent-{len(self.actions)}"
+
+    def get_user_db_hash(self):
+        return None
+
 
 class E5ConversionTests(unittest.TestCase):
     def test_owner_batch_converts_without_publishing_gold(self):
@@ -86,6 +110,67 @@ class E5ConversionTests(unittest.TestCase):
             "write-1",
         )
         self.assertEqual(stats["retail_tool_registry_size"], 3)
+
+    def test_replay_fill_preserves_input_and_hard_fails(self):
+        action = {
+            "action_id": "1_0",
+            "tool": "cancel_pending_order",
+            "arguments": {"order_id": "ORDER-SYNTH"},
+        }
+        document = {
+            "pending_fill": "source.version, initial_state_hash, user_simulator.model",
+            "cases": [
+                {
+                    "case_id": "E5-001",
+                    "source": {"task_ref": "1", "version": "<pin>"},
+                    "initial_state_ref": "<snapshot>",
+                    "initial_state_hash": None,
+                    "gold_write_actions": [action],
+                    "final_state": {
+                        "expect_unchanged": False,
+                        "gold_replay_clean": False,
+                    },
+                }
+            ],
+        }
+        tasks = {
+            "1": {
+                "evaluation_criteria": {
+                    "actions": [
+                        {
+                            "action_id": "1_0",
+                            "name": action["tool"],
+                            "arguments": action["arguments"],
+                        }
+                    ]
+                }
+            }
+        }
+
+        filled = REPLAY.fill_replay_fields(
+            document,
+            FakeReplayEnv,
+            tasks,
+            "pinned-commit",
+            "data/retail/db.json",
+        )
+
+        self.assertEqual(filled["cases"][0]["initial_state_hash"], "agent-0")
+        self.assertEqual(
+            filled["cases"][0]["final_state"]["expected_agent_db_hash"],
+            "agent-1",
+        )
+        self.assertTrue(filled["cases"][0]["final_state"]["gold_replay_clean"])
+        self.assertEqual(filled["pending_fill"], "user_simulator.model")
+        self.assertIsNone(document["cases"][0]["initial_state_hash"])
+        with self.assertRaises(REPLAY.ReplayError):
+            REPLAY.fill_replay_fields(
+                document,
+                lambda: FakeReplayEnv(fail=True),
+                tasks,
+                "pinned-commit",
+                "data/retail/db.json",
+            )
 
 
 if __name__ == "__main__":
