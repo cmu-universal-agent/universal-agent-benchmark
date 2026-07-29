@@ -23,7 +23,7 @@
   ],
   "evaluator_only": {
     "status": "approved_private_gold",
-    "approved_by": "Chloe Ruoyu Xu",
+    "approved_by": "synthetic_fixture",
     "approved_at": "2026-07-29",
     "semantics_version": "0.2",
     "note": "E5 policy and batch-1 case content are approved. Exact gold remains evaluator-only in evaluator_data/local_review_decisions/E5_cases_batch1.json (gitignored).",
