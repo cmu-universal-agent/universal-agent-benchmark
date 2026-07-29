@@ -28,28 +28,18 @@ from public datasets; see [Data preparation](#stage-2-data-preparation). Prelimi
 runs in `results/` are **engineering smoke**, not publishable benchmark scores,
 until the controlled pilot protocol is signed off (`docs/PROJECT_LEAD_GUIDE.md`).
 
-### Current WS3 retail and E5 status
+### Retail WS3 integration
 
-Verified from GitHub on 2026-07-29 after PRs #14 and #15 merged:
+WS3 adds a canonical 16-tool tau-retail contract, a deterministic shared
+`RetailEnv`, framework wrapper contracts, standardized traces/final state, and
+offline demo/dashboard tooling. This slice is designed to test whether
+framework integrations behave consistently against the same stateful tools.
 
-- the canonical tau-retail contract contains 16 tools backed by a deterministic
-  shared `RetailEnv`;
-- LangGraph has a real retail wrapper and canonical invalid-argument traces;
-- the public repository contains the approved E5 v0.3 evaluator, converter,
-  replay-fill tooling, and synthetic smoke controls;
-- the approved private E5 batch completed two independent 4/4 clean replays
-  with deterministic output.
-
-The replay confirms evaluator plumbing, not a benchmark score. Formal E5 cases,
-gold, snapshots, hashes, replay output, and raw traces remain evaluator-only
-and outside Git. `verticals/retail/cases/RETAIL-E5-001.json` is a public
-`synthetic_fixture` for tests and demos, not a formal E5 case.
-
-WS3 remains incomplete: CrewAI and OpenAI Agents SDK still need real retail
-wrappers; common three-wrapper parity evidence, demo-output hardening (PR #16),
-dashboard corrections, methodology/limitations, CI, and the final experiment
-configuration are still open. Do not present current artifacts as framework
-rankings or formal benchmark results.
+Public code supports E5 evaluation and replay workflows, while formal E5 cases,
+gold, snapshots, hashes, raw traces, and evaluator output stay outside Git.
+`verticals/retail/cases/RETAIL-E5-001.json` is a public `synthetic_fixture` for
+tests and demos, not a formal E5 case. Synthetic smoke and demo artifacts are
+technical validation only, not benchmark scores or framework rankings.
 
 ---
 
@@ -332,10 +322,9 @@ evaluator gold lives under `data/generated/core_pilot/gold/` and
 
 ### Integration and contribution notes
 
-`main` is the only integration base. Historical feature branches and local
-remote-tracking refs are not current project status. Query GitHub for the
-current `main` SHA and PR state before reporting progress or starting work.
-PR #16 remains the open Draft for presentation-safe demo output.
+Use `main` as the integration base. Check GitHub before starting work rather
+than relying on historical feature branches or stale local remote-tracking
+refs.
 
 Before opening a PR:
 
@@ -368,8 +357,8 @@ Read in this order:
    variables, and comparison dimensions.
 5. **`docs/schema_field_review.md`** — approved schema fields and pending
    proposals (including stress metadata in §10 on the stress branch).
-6. **`docs/stress_testing_README.md`** — merged stress-testing design; fixtures
-   remain separate implementation work.
+6. **`docs/stress_testing_README.md`** — stress-testing design and fixture
+   guidance.
 7. **`docs/current_status_and_handoff.md`** — **historical** WS2 snapshot
    (2026-07-16); use only for background. The banner at the top points to the
    project lead guide for anything current.
