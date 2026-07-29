@@ -231,7 +231,7 @@ conversion or manual labeling when code can do it deterministically.
 | Area | Current/likely owner | Status and required action |
 |---|---|---|
 | Project coordination, converters, cross-framework validation | Jessica | Confirm WS3 scope before accepting additional implementation ownership. |
-| Dataset/gold semantics | Chloe | H2 urgency labels, E3 pending-order exclusion, H5's four owner-authored cases/rubrics, and H4 v4 extraction semantics are approved. E5 final-state semantics remain a separate WS3 readiness decision. |
+| Dataset/gold semantics | Chloe | H2, E3, H5, and H4 owner decisions are approved. Chloe approved E5 v0.2 policy on 2026-07-28 and batch-1 case content on 2026-07-29; exact cases, gold, snapshots, and hashes remain evaluator-only. |
 | CrewAI wrapper | Mickey | CrewAI PR #2 is implemented as a stacked change with offline contract coverage. Live-model smoke, native Linux/CI confirmation, and E5 shared simulator integration remain external gates. CrewAI-specific ownership does not imply shared-core ownership. |
 | Stress scenarios and failure taxonomy | Lanfang | Confirm initial scenarios, expected failures, and test requirements. |
 | Dashboard/visual reporting | Xiaoxia | Confirm whether retained in WS3 or managed as a separate stream. |
@@ -280,7 +280,8 @@ On the first WS3 task:
 3. Name one owner and one reviewer for the shared tau-retail simulator/core.
 4. Name owners for the CrewAI, LangGraph, and OpenAI Agents SDK thin wrappers.
 5. Approve the canonical tool/state/reset/error contract and minimum fixtures.
-6. Resolve evaluator-visible E5 final-state semantics before scoring live runs.
+6. Preserve the approved E5 v0.2 semantics and fill pinned local snapshot/hash
+   fields before scoring live runs.
 7. Keep the approved H4 v4 regression tests intact; H4 and H5 owner review are
    closed and no longer block WS2 semantic freeze.
 
@@ -289,7 +290,7 @@ On the first WS3 task:
 - shared simulator/core owner and reviewer named;
 - CrewAI, LangGraph, and OpenAI wrapper owners named;
 - canonical tool/state contract approved;
-- E5 gold and evaluator-visible final-state semantics identified;
+- E5 v0.2 gold and evaluator-visible final-state semantics approved;
 - minimum fixtures and controlled-run matrix approved;
 - branch/PR integration sequence agreed.
 

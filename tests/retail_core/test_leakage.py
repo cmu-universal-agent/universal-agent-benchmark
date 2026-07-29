@@ -29,11 +29,8 @@ class TestEvaluatorDataLeakage(unittest.TestCase):
         reset_payload = env.reset(CASE_ID, reset_id="reset-leakage")
         gold = env.get_evaluator_view()
 
-        # sanity: this case's evaluator_only block is real content worth
-        # checking for -- it just happens to be a pending-approval marker
-        # (see verticals/retail/cases/RETAIL-E5-001.json) rather than
-        # committed gold, since Chloe has not signed off on E5 semantics yet.
-        self.assertEqual(gold.get("status"), "pending_chloe_approval")
+        # The approval metadata is public, while the exact gold remains local.
+        self.assertEqual(gold.get("status"), "approved_private_gold")
         self.assertIn("required_actions", gold)
 
         read_result = env.call_tool("get_order_details", {"order_id": "O5001"})

@@ -119,9 +119,8 @@ evidence with:
 The same seven fixture IDs are required for every wrapper, so parity is checked
 against one matrix rather than framework-specific test interpretations.
 
-This validates only the shared contract. Passing it does not mean the simulator
-or any wrapper has been implemented, E5 semantics approved, or benchmark scores
-produced.
+This validates only the shared contract. Passing it does not validate the E5
+evaluator or mean that benchmark scores have been produced.
 
 ## Contract-only meeting demo
 
@@ -153,7 +152,7 @@ Suggested six-minute flow: introduce the 16-tool contract, run the command,
 open the generated page, explain the read/write/duplicate state transitions,
 open the sanitized evidence JSON, and finish with the remaining core/wrapper
 integration gates. This is contract evidence only, not a simulator, framework
-run, E5 semantic approval, or benchmark result.
+run, E5 evaluator result, or benchmark result.
 
 ## Upstream provenance
 

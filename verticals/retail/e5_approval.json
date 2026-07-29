@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "semantics_version": "0.2",
+  "status": "approved",
+  "approved_by": "Chloe Ruoyu Xu",
+  "approved_at": "2026-07-29",
+  "scope": [
+    "policy",
+    "batch1_case_content"
+  ],
+  "private_source": "evaluator_data/local_review_decisions/E5_cases_batch1.json",
+  "note": "Chloe confirmed batch-1 case content on 2026-07-29. Exact cases, gold actions, response contracts, snapshots, and hashes remain evaluator-only."
+}

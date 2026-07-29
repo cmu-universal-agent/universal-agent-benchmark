@@ -5,8 +5,8 @@ The source datasets must already be present under ``data/``.  Generated
 agent-visible cases and evaluator-only gold are written under
 ``data/generated/core_pilot`` so that raw/review data cannot be committed by
 accident.  This script creates deterministic review samples, not published
-benchmark gold. H4's extraction semantics are owner-approved; other
-task-specific limitations remain recorded in the report.
+benchmark gold. H4's extraction semantics and E5 batch-1 semantics are
+owner-approved; other task-specific limitations remain recorded in the report.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v5"
+GENERATOR_VERSION = "core-pilot-converter-v6"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -47,6 +47,10 @@ H2_LOCAL_REVIEW_DECISIONS = (
 H5_LOCAL_OWNER_DIR = (
     ROOT / "evaluator_data" / "local_review_decisions" / "h5_owner_cases"
 )
+E5_LOCAL_OWNER_BATCH = (
+    ROOT / "evaluator_data" / "local_review_decisions" / "E5_cases_batch1.json"
+)
+E5_APPROVAL_PATH = ROOT / "verticals" / "retail" / "e5_approval.json"
 
 MEDICAL_RESULT_FIELDS = {
     "H1": '{"decision":"yes|no|maybe"}',
@@ -235,6 +239,7 @@ def _configuration_hash() -> str:
         "h2_mapping": "h2_urgency_mapping.json",
         "h5_spec": "h5_manual_case_spec.json",
         "e3_mapping": "e3_candidate_filter.json",
+        "e5_semantics": "e5_gold_semantics_v0.2",
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
@@ -1177,41 +1182,72 @@ def convert_e3(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
 
 
 def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
-    tasks, splits, _database, policy = _tau_sources()
-    train_ids = set(splits["train"])
-    all_retail_tools = sorted(
-        {name for source_task in tasks for name in _tau_action_names(source_task)}
-    )
-    candidates = []
-    for task in tasks:
-        names = _tau_action_names(task)
-        mutations = [name for name in names if name in TAU_MUTATIONS]
-        if task["id"] in train_ids and len(mutations) == 1:
-            candidates.append(task)
-    selected = _stable_take(candidates, count, seed, lambda task: task["id"])
+    document = _read_json(E5_LOCAL_OWNER_BATCH)
+    approval = _read_json(E5_APPROVAL_PATH)
+    if approval.get("status") != "approved":
+        raise ValueError("E5 batch-1 case content is not owner-approved")
+    candidates = document.get("cases")
+    if not isinstance(candidates, list) or not candidates:
+        raise ValueError("E5 owner batch must contain a non-empty cases array")
+    selected = _stable_take(candidates, count, seed, lambda row: row["case_id"])
     cases, gold = [], []
-    for index, task in enumerate(selected, 1):
-        names = _tau_action_names(task)
+    tool_sets: set[tuple[str, ...]] = set()
+    for row in selected:
+        source = row["source"]
+        tools = sorted(
+            tool
+            for category in ("read", "write", "generic")
+            for tool in row["allowed_tools"][category]
+        )
+        tool_sets.add(tuple(tools))
         case = _case(
-            case_id=f"E5-REVIEW-{index:03d}", task_id="E5", vertical="ecommerce",
-            data={"customer_scenario": task["user_scenario"]}, dataset="tau2-bench retail",
-            source_id=task["id"], source_split="train", split="pilot",
-            difficulty="hard" if len(names) >= 5 else "medium", tags=["customer_support_tool_use"],
-            source_documents=[{"source_id": "tau_retail_policy", "title": "Retail policy", "content": policy}],
-            # Every E5 case exposes the same complete retail tool set.  Using
-            # only the expected actions here would leak the gold tool path.
-            allowed_tools=all_retail_tools, stress_type="standard",
+            case_id=row["case_id"],
+            task_id="E5",
+            vertical="ecommerce",
+            data={"customer_scenario_ref": source["task_ref"]},
+            dataset=source["benchmark"],
+            source_id=source["task_ref"],
+            source_split=source["split"],
+            split="pilot",
+            difficulty="hard" if len(row["required_actions"]) >= 3 else "medium",
+            tags=["customer_support_tool_use", "owner_approved_batch1"],
+            allowed_tools=tools,
+            stress_type="standard",
         )
         cases.append(case)
-        gold.append(_gold(case, {"expected_actions": task["evaluation_criteria"].get("actions", []), "expected_communications": task["evaluation_criteria"].get("communicate_info", []), "state_validation": "tau simulator final-state comparison"}, "simulator_state", review_notes="Cases are prepared, but live execution requires the shared tau retail tool/simulator bridge."))
+        gold.append(
+            _gold(
+                case,
+                {
+                    "expected_actions": row["required_actions"],
+                    "expected_communications": row["response_contract"]["required_info"],
+                    "state_validation": "tau retail full-DB replay and dual-hash comparison",
+                    "gold_write_actions": row["gold_write_actions"],
+                    "final_state": row["final_state"],
+                    "response_contract": row["response_contract"],
+                    "evaluation": row["evaluation"],
+                    "source": source,
+                    "initial_state_ref": row["initial_state_ref"],
+                    "initial_state_hash": row["initial_state_hash"],
+                    "user_simulator": row["user_simulator"],
+                },
+                "owner_approved_e5_v0.2",
+                review={
+                    "status": "approved",
+                    "reviewed_by": approval["approved_by"],
+                    "reviewed_at": approval["approved_at"],
+                    "notes": approval["note"],
+                },
+            )
+        )
+    if len(tool_sets) != 1:
+        raise ValueError("E5 cases must expose one identical full tool registry")
     return cases, gold, {
-        "source_tasks": len(tasks),
-        "eligible_train_tasks": len(candidates),
-        "retail_tool_registry_size": len(all_retail_tools),
-        "selected_expected_action_counts": dict(
-            Counter(str(len(_tau_action_names(task))) for task in selected)
-        ),
-        "runtime_gap": "tau retail tools are not yet exposed by the three framework adapters",
+        "source_tasks": len(candidates),
+        "owner_approved_cases": len(selected),
+        "retail_tool_registry_size": len(next(iter(tool_sets))),
+        "semantic_version": approval["semantics_version"],
+        "private_source": approval["private_source"],
     }
 
 
@@ -1311,7 +1347,10 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
                 "the local evaluator-only directory."
             )
     if "E5" in tasks:
-        report["known_gaps"].append("E5 live runs require a shared tau retail simulator/tool bridge across all framework adapters.")
+        report["known_gaps"].append(
+            "E5 conversion is owner-approved; runtime must resolve the local "
+            "source task and pinned snapshot, then fill expected hashes."
+        )
     report["total_cases"] = sum(
         status.get("cases", 0) for status in report["tasks"].values()
     )
