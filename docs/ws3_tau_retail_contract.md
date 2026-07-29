@@ -159,7 +159,7 @@ run, E5 evaluator result, or benchmark result.
 The tool surface was reconciled on 2026-07-22 against:
 
 - local tau-retail cache: 114 tasks, 15 unique expected action names;
-- Chloe's E5 v0.2 owner review: the full 16-tool retail registry;
+- Chloe's E5 v0.3 owner review: the full 16-tool retail registry;
 - upstream `sierra-research/tau2-bench` retail toolkit at
   `src/tau2/domains/retail/tools.py`, blob
   `eba01ab32dca0d4ef33328c22358b794d859f2b6`.

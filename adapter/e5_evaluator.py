@@ -1,6 +1,6 @@
 """E5 verdict computation: response contract plus final simulator state.
 
-Implements the approved E5 gold semantics in ``docs/e5_gold_semantics_v0.2.md``.
+Implements the approved E5 gold semantics in ``docs/e5_gold_semantics_v0.3.md``.
 The module accepts an environment factory so the same logic can evaluate a real
 retail replay or the synthetic offline smoke fixture.
 """

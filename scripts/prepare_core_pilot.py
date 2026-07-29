@@ -239,7 +239,7 @@ def _configuration_hash() -> str:
         "h2_mapping": "h2_urgency_mapping.json",
         "h5_spec": "h5_manual_case_spec.json",
         "e3_mapping": "e3_candidate_filter.json",
-        "e5_semantics": "e5_gold_semantics_v0.2",
+        "e5_semantics": "e5_gold_semantics_v0.3",
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
@@ -1231,7 +1231,7 @@ def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
                     "initial_state_hash": row["initial_state_hash"],
                     "user_simulator": row["user_simulator"],
                 },
-                "owner_approved_e5_v0.2",
+                "owner_approved_e5_v0.3",
                 review={
                     "status": "approved",
                     "reviewed_by": approval["approved_by"],

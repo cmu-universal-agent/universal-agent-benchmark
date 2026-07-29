@@ -1,10 +1,22 @@
-# E5 gold semantics v0.2
+# E5 gold semantics v0.3
 
-Status: approved by Chloe Ruoyu Xu on 2026-07-29.
+Status: policy and batch-1 case content approved by Chloe Ruoyu Xu on
+2026-07-29. The pinned private gold replay completed 4/4 clean locally.
 
 This public document records policy only. Exact batch cases, gold actions,
 response contracts, snapshots, expected hashes, and evaluator output remain
 under `evaluator_data/local_review_decisions/` and are excluded from Git.
+
+## Public synthetic fixture boundary
+
+`verticals/retail/cases/RETAIL-E5-001.json` is a `synthetic_fixture` backed by
+the repository's synthetic retail data. It exists only for public contract
+tests, wrapper evidence, and demos. It is never selected for formal E5
+conversion or replay.
+
+Formal E5 conversion reads only the gitignored owner-reviewed
+`evaluator_data/local_review_decisions/E5_cases_batch1.json` and the pinned
+upstream snapshot referenced by those private records.
 
 ## Verdict
 
@@ -33,6 +45,11 @@ A gold action that cannot be replayed cleanly invalidates the case. Real
 conversion must record the pinned snapshot reference/hash, expected hashes, and
 `gold_replay_clean=true` locally before scoring.
 
+The formal verdict remains ours. Each final experiment run also records the
+upstream DB-only component under `run_log.sanity.tau3_db`. That sanity result
+never overrides the verdict; a Criterion-B disagreement is reproduced by
+Jessica and adjudicated by Chloe.
+
 ## Tool policy
 
 Every case exposes the complete 16-tool retail registry:
@@ -45,6 +62,10 @@ Every case exposes the complete 16-tool retail registry:
 Read calls are not order- or count-scored. Writes are judged by final state.
 `transfer_to_human_agents` is generic and non-mutating, but may be required as
 a terminal action.
+
+Upstream `Action.compare_with_tool_call` has been verified. When
+`compare_args` is `null`, all tool-call arguments are compared. When it is an
+empty list, only the tool name must match; no arguments are compared.
 
 ## Failures
 
@@ -75,7 +96,16 @@ describe information or claims that cannot appear in a correct response.
 
 ## Rerun and adjudication
 
-A harness error is rerun once. If it errors again, report it as `error` and
-show the error count beside pass rate. Chloe adjudicates Criterion-B
-disagreements after Jessica reproduces them. Gold-changing resolutions require
-renewed approval and reruns for every framework.
+A harness error is rerun exactly once. If it errors again, report it as
+`error` and show the error count beside pass rate. If more than 5 percent of a
+framework's final case attempts are errors, the whole framework sweep is
+invalid and must be rerun.
+
+Chloe adjudicates Criterion-B disagreements after Jessica reproduces them.
+Gold-changing resolutions require renewed approval and reruns for every
+framework.
+
+The repository provides the retry, sweep-summary, and `tau3_db` recording
+policy in `adapter/e5_run_policy.py`. The final experiment runner must still
+supply the native DB result and use the frozen model, simulator, and seed for
+all three frameworks.

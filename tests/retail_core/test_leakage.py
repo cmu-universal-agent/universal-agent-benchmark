@@ -29,8 +29,9 @@ class TestEvaluatorDataLeakage(unittest.TestCase):
         reset_payload = env.reset(CASE_ID, reset_id="reset-leakage")
         gold = env.get_evaluator_view()
 
-        # The approval metadata is public, while the exact gold remains local.
-        self.assertEqual(gold.get("status"), "approved_private_gold")
+        # This public case is synthetic; formal E5 cases and gold remain local.
+        self.assertEqual(gold.get("status"), "synthetic_fixture")
+        self.assertIn("not a formal E5 case", gold.get("note", ""))
         self.assertIn("required_actions", gold)
 
         read_result = env.call_tool("get_order_details", {"order_id": "O5001"})
