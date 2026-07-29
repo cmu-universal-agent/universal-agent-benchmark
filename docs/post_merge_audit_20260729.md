@@ -1,183 +1,139 @@
-# Post-merge audit — 2026-07-29
+# WS3 integration audit refresh - 2026-07-29
 
-Verified baseline: official `main` at `8de017833581f744bea610d900fc7c792b7869bb`.
+Verified baseline: official `main` at
+`07d87a8567ec5f7d9c3826599773f8568a1142e8` after PRs #14 and #15 merged.
 
-This is a read-only audit of the concentrated 2026-07-28 merges. It records
-technical validation and remaining gates; it does not publish E5 evaluator-only
-cases, gold, traces, or benchmark scores.
+This is a public-safe status audit. It contains no E5 evaluator-only cases,
+gold, snapshots, hashes, traces, outputs, or benchmark scores.
 
 ## Outcome
 
-The canonical contract and shared retail core survived the merge correctly:
+The original audit's two Jessica-owned P1 defects are resolved:
 
-- contract `0.2.0` contains all 16 canonical tools;
-- PR #10's call/result/trace isolation fix is present;
-- the shared core's 38 offline tests pass;
-- the LangGraph retail wrapper's six focused tests pass;
-- no private E5 markers from the approved review batch were found in `main`.
+- PR #15 routes LangGraph missing and unexpected arguments through
+  `RetailEnv`, preserving canonical rejected traces.
+- PR #14 integrates the approved E5 v0.3 evaluator, local-batch converter,
+  pinned replay fill, synthetic controls, retry/sweep policy, and native
+  `tau3_db` sanity record.
+- The private E5 gold replay completed 4/4 clean and remains outside Git.
+- `verticals/retail/cases/RETAIL-E5-001.json` is explicitly a public
+  `synthetic_fixture`, not a formal E5 case.
 
-WS3 is not complete. One LangGraph parity defect is reproducible, only one of
-three WS3 wrappers exists, and Chloe's approved E5 work is still local-only and
-not integrated into a public-safe evaluator path.
+WS3 is still incomplete because only LangGraph has a real retail wrapper.
+CrewAI and OpenAI Agents SDK wrappers, common three-wrapper evidence,
+methodology/limitations, and final experiment configuration remain open.
 
-## Findings
+## Resolved findings
 
-### P1 — LangGraph invalid arguments bypass the shared core
+### LangGraph invalid-argument parity
 
-Files:
+Resolved by PR #15, merged as `8d567947a37ce48586af280ce801630b58ee627b`.
+The real wrapper path now reaches the shared core and has wrapper-level
+regression coverage.
 
-- `adapter/retail_tool_factory.py`
-- `frameworks/langgraph_agent/retail_evidence.py`
-- `frameworks/langgraph_agent/retail_tools.py`
+### Public-safe E5 integration
 
-The wrapper binds a Pydantic `args_schema` before calling
-`RetailEnv.call_tool()`. Missing required arguments therefore raise a
-`ValidationError` before the core can record `invalid_arguments`; unexpected
-arguments are silently dropped by the Pydantic model.
+Resolved by PR #14, merged as `07d87a8567ec5f7d9c3826599773f8568a1142e8`.
+`main` now contains:
 
-Reproduction on merged `main`:
+- `adapter/e5_evaluator.py`;
+- `adapter/e5_run_policy.py`;
+- `scripts/run_e5_smoke.py`;
+- `scripts/fill_e5_replay.py`;
+- `docs/e5_gold_semantics_v0.3.md`;
+- conversion from the gitignored owner-reviewed batch.
 
-```text
-MISSING_ARGS_EXCEPTION ValidationError
-MISSING_ARGS_TRACE_COUNT 0
-EXTRA_ARGS_OK True
-EXTRA_ARGS_TRACE_ARGUMENTS {'order_id': 'O5001'}
-```
+The verdict is `pass` only when Criterion A and Criterion B both hold and no
+failure class is detected. A harness error is retried once; a final error rate
+above 5 percent invalidates that framework sweep.
 
-The offline evidence test does not catch this because its invalid-arguments
-scenario calls `env.call_tool()` directly instead of invoking the LangGraph
-tool. The wrapper can therefore report passing parity evidence while its real
-invalid-argument path is different.
+## Open findings
 
-Required action: route validation failures through the core, preserve the
-original arguments, and add a wrapper-level regression test asserting a traced
-`invalid_arguments` result.
+### P1 — Two real WS3 retail wrappers are missing
 
-### P1 — Only one of three WS3 retail wrappers exists
+Current `main` contains a real LangGraph retail wrapper and evidence builder.
+It does not contain equivalent `RetailEnv` wrappers/evidence for:
 
-Merged `main` contains:
+- CrewAI;
+- OpenAI Agents SDK.
 
-- LangGraph: retail wrapper, offline evidence builder, and tests;
-- CrewAI: WS2/core runner only, no `RetailEnv` wrapper or WS3 evidence;
-- OpenAI Agents SDK: no `RetailEnv` wrapper or WS3 evidence.
+Required action: each framework owner adds a thin wrapper over the existing
+shared core and emits the same schema-valid offline evidence.
 
-There are no open pull requests. The hard parity gate requiring identical
-offline evidence from all three frameworks is therefore still open.
+Owners:
 
-Required action: add thin CrewAI and OpenAI Agents SDK wrappers against the
-existing `RetailEnv` and run the same seven evidence scenarios.
+- CrewAI: Mickey;
+- OpenAI Agents SDK: Lanfang;
+- parity/integration review: Jessica and Xiaoxia.
 
-### P1 — Approved E5 semantics and cases are not integrated
+### P1 — Three-wrapper parity evidence is missing
 
-Chloe confirmed the four E5 case/gold records on 2026-07-29. The updated local
-evaluator smoke passes 11/11 controls and the four synthetic case-review
-positive examples pass 4/4.
+`wrapper_evidence=1` is one real framework, not cross-framework parity.
+Synthetic core evidence must not be relabelled as framework evidence.
 
-Merged `main` still:
+Required action: run identical reset, read, mutation, invalid-argument,
+disallowed-tool, duplicate-action, failure-recovery, and leakage scenarios
+through all three real wrappers.
 
-- has no `adapter/e5_evaluator.py`, `scripts/run_e5_smoke.py`, or approved E5
-  semantics document;
-- marks `verticals/retail/cases/RETAIL-E5-001.json` as
-  `pending_chloe_approval`;
-- derives E5 review samples directly from raw tau tasks in
-  `prepare_core_pilot.py` rather than consuming the approved batch;
-- has no pinned DB snapshot/hash, expected final hashes, or clean gold replay.
+### P2 — Demo evidence hardening is still Draft
 
-Raw `E5_cases_batch1.json`, gold examples, expected calls, hashes, and generated
-private review output must remain evaluator-only and must not be committed to
-this public repository.
+PR #16 keeps full synthetic evidence in memory for validation while writing
+only presentation-safe aggregates to JSON/HTML. It is still Draft.
 
-Required action: create a separate public-safe E5 integration PR containing
-only evaluator implementation, corrected semantics documentation, conversion
-code that reads a gitignored local batch, and synthetic tests.
+Required action: review and merge PR #16 before sharing generated meeting
+artifacts. The demo remains synthetic technical validation, not a formal E5
+run or framework ranking.
 
-### P2 — Dashboard loses rows across experiment labels
+### P2 — Dashboard corrections remain open
 
-File: `scripts/generate_dashboard.py`.
+The dashboard still needs:
 
-Python correctly keeps one result per
-`(case_id, framework, experiment_label)`, but the generated JavaScript indexes
-runs only by `(case_id, framework)`. When the same case/framework has both
-`technical_smoke` and `pilot` rows, the later row overwrites the earlier one
-and one label renders a blank cell.
+- `experiment_label` included consistently in generated JavaScript lookup
+  keys, so rows from different experiments do not overwrite each other;
+- the static prototype checked against the canonical non-mutating
+  `transfer_to_human_agents(summary=...)` contract.
 
-Required action: include `experiment_label` in `runByDomKey`, lookup keys, and
-drawer keys, then add a rendered-output regression test with two labels.
+Owner: Xiaoxia. Reviewer: Jessica.
 
-### P2 — Dashboard prototype uses stale tool semantics
+### P2 — Methodology, limitations, and automated gates are missing
 
-File: `docs/WS3_dashboard_prototype.html`.
+There is still no concise WS3 methodology/limitations artifact and no
+repository CI workflow that proves the portable offline gate.
 
-The sample traces call `transfer_to_human_agents` with non-canonical
-`order_id`/`reason` arguments and mark it as mutating. Contract `0.2.0` accepts
-only `summary` and classifies the tool as non-mutating.
+Required action:
 
-Required action: regenerate or edit the synthetic prototype to use canonical
-arguments and `mut:false`.
+- Mickey records protocol, exclusions, rerun policy, and non-scoring
+  limitations;
+- the team adds one environment-aware offline command and a minimal CI matrix
+  before formal experiments.
 
-### P2 — No automated merge gate and no portable full-suite command
+### P3 — Status documentation needs one more refresh
 
-The repository has no `.github/workflows`. PRs #8, #9, #10, and #12 were merged
-with no recorded checks and no formal approval decision; PR #4 was approved.
-
-Environment results on merged `main`:
-
-- CrewAI environment: full discovery, 137 tests passed, 12 skipped;
-- OpenAI environment: full discovery failed on two CrewAI import errors;
-- LangGraph environment: full discovery failed on the same two CrewAI import
-  errors;
-- targeted OpenAI, LangGraph, CrewAI, shared-core, and contract checks pass.
-
-Required action: define one environment-aware offline test command and add a
-minimal GitHub Actions matrix before further concentrated merges.
-
-### P2 — Required methodology/limitations delivery is absent
-
-The project guide names a concise WS3 methodology/limitations record as a hard
-MVP deliverable. No dedicated artifact is present on merged `main`.
-
-Required action: add the short methodology/limitations note before reporting
-WS3 completion.
-
-### P3 — Repository status documentation is stale
-
-- `README.md` still describes PRs #3, #4, #8, and #9 as proposed branches even
-  though they are merged.
-- `docs/PROJECT_LEAD_GUIDE.md` is last verified on 2026-07-22 and still carries
-  the pre-merge hold/state.
-- the tracked synthetic retail fixture still says Chloe approval is pending.
-- `demo_ws3_offline.py` still describes all wrappers as future work.
-
-Required action: update status prose after the technical P1/P2 fixes are
-assigned. Do not put mutable PR head SHAs into a branch that changes them.
+This PR updates the README's merged/open PR and WS3/E5 status. The
+`docs/PROJECT_LEAD_GUIDE.md` copy on `main` still predates the merges of PRs #14
+and #15 and should be refreshed from latest `main`, not from this audit's older
+base.
 
 ## Validation evidence
 
-Passed:
+Merged validation recorded by PRs #14 and #15:
 
 ```text
-LangGraph retail wrapper: 6/6
-Shared retail core: 38/38
-CrewAI full suite: 137 passed, 12 skipped
-OpenAI targeted generation-setting suite: 9/9
-WS3 contract validator: version=0.2.0 tools=16 schemas=20 scenarios=7 calls=8
-Contract fixtures, adapter contracts, shared tool contracts: passed
-Python compileall: passed
-Private E5 marker scan: no matches
+E5 run-policy, converter, and leakage tests: 10 passed
+Shared retail core: 38 passed
+E5 synthetic smoke: 11/11 controls
+Contract fixtures: 14 valid, 11 expected-invalid, 5 schemas
+LangGraph invalid-argument wrapper regression: passed
 ```
 
-Expected/non-scoring limitations:
-
-- no live model calls were made;
-- no benchmark scores or framework rankings were produced;
-- evaluator-only E5 files remain local;
-- real E5 final-state replay still needs the pinned DB snapshot and hashes.
+No live model calls or formal benchmark runs were made for this audit refresh.
 
 ## Recommended sequence
 
-1. Fix the LangGraph invalid-argument path and add its regression test.
-2. Integrate the public-safe E5 evaluator/docs path after Chloe's approval.
-3. Add CrewAI and OpenAI Agents SDK retail wrappers with identical evidence.
-4. Fix the dashboard label key and prototype contract drift.
-5. Add the test matrix and methodology/limitations note.
-6. Refresh README/project status only after the above heads are known.
+1. Add the CrewAI and OpenAI Agents SDK retail wrappers.
+2. Produce identical offline evidence from all three real wrappers.
+3. Review and merge PR #16 for presentation-safe demo artifacts.
+4. Fix the dashboard lookup/prototype issues.
+5. Add methodology/limitations and the portable offline CI gate.
+6. Freeze model, simulator, seed, budget, and run manifest.
+7. Only then start formal E5 three-framework experiments.

@@ -28,6 +28,28 @@ from public datasets; see [Data preparation](#stage-2-data-preparation). Prelimi
 runs in `results/` are **engineering smoke**, not publishable benchmark scores,
 until the controlled pilot protocol is signed off (`docs/PROJECT_LEAD_GUIDE.md`).
 
+### WS3 retail and E5 status
+
+As of 2026-07-29, `main` includes:
+
+- the 16-tool canonical tau-retail contract and deterministic shared
+  `RetailEnv`;
+- a real LangGraph retail wrapper with canonical invalid-argument traces;
+- the approved public-safe E5 v0.3 evaluator, converter, replay-fill tooling,
+  and synthetic smoke controls;
+- a synthetic offline demo and static dashboard.
+
+`verticals/retail/cases/RETAIL-E5-001.json` is a public
+`synthetic_fixture` for tests, wrapper evidence, and demos. It is not a formal
+E5 case. Formal E5 cases, gold, snapshots, hashes, replay output, and raw traces
+remain evaluator-only and outside Git.
+
+WS3 is not complete: CrewAI and OpenAI Agents SDK still need real retail
+wrappers, the three wrappers have not produced common parity evidence, and the
+methodology/limitations and final experiment configuration are not frozen.
+Nothing currently committed should be presented as a benchmark score or
+framework ranking.
+
 ---
 
 ## 2. Five-minute quickstart
@@ -307,15 +329,17 @@ Ground truth for scoring stays **out of agent-visible cases** — in v1 pilot,
 evaluator gold lives under `data/generated/core_pilot/gold/` and
 `evaluator_data/` (see `evaluator_data/README.md`).
 
-### Branch and contribution notes
+### Integration and contribution notes
 
-| Branch | Role |
-|---|---|
-| `main` | Integration base; includes the merged WS2 infrastructure (PR #1) and CrewAI integration (PR #2) |
-| `lanfang/stress-testing-plan` | Stress-testing design documentation proposed in PR #3 |
-| `jessica/ws3-canonical-contract` | WS3 canonical retail contract proposed in PR #4 |
-| `xiaoxia/shared_core` | Shared retail simulator proposed in PR #8, dependent on PR #4 |
-| `xiaoxia/dashboard` | Retail dashboard proposed in PR #9, dependent on PR #8 |
+`main` is the only integration base. PRs #1–#12, #14, and #15 are merged;
+PR #11 was superseded by #12. The remaining status PRs are:
+
+- PR #13: Draft WS3 integration audit;
+- PR #16: Draft demo-evidence hardening.
+
+Do not resume work from the old feature branches listed in historical
+documents. Start from latest `official/main` and create one worktree per active
+PR.
 
 Before opening a PR:
 
@@ -347,8 +371,8 @@ Read in this order:
    variables, and comparison dimensions.
 5. **`docs/schema_field_review.md`** — approved schema fields and pending
    proposals (including stress metadata in §10 on the stress branch).
-6. **`docs/stress_testing_README.md`** — stress-testing design (on
-   `lanfang/stress-testing-plan`); fixtures not yet in repo.
+6. **`docs/stress_testing_README.md`** — merged stress-testing design; fixtures
+   remain separate implementation work.
 7. **`docs/current_status_and_handoff.md`** — **historical** WS2 snapshot
    (2026-07-16); use only for background. The banner at the top points to the
    project lead guide for anything current.
