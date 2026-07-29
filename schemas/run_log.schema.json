@@ -130,6 +130,31 @@
       "description": "Optional evaluator results added after execution.",
       "additionalProperties": true
     },
+    "sanity": {
+      "type": ["object", "null"],
+      "description": "Optional non-authoritative cross-checks that never override the formal verdict.",
+      "additionalProperties": false,
+      "properties": {
+        "tau3_db": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["db_match", "db_reward"],
+          "properties": {
+            "db_match": {
+              "type": "boolean"
+            },
+            "db_reward": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "agrees_with_criterion_b": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
     "error": {
       "oneOf": [
         {"type": "null"},
