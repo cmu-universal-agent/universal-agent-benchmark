@@ -50,8 +50,12 @@ def build_wrapper_evidence(case_id: str = "RETAIL-E5-001") -> dict[str, Any]:
     def _scenario_invalid_arguments() -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-invalid-arguments", seed=42)
-        # Forward invalid args to RetailEnv; do not pre-validate in the wrapper.
-        env.call_tool("return_delivered_order_items", {"order_id": "O5001"})
+        tools = make_retail_tools(env, list(env.allowed_tools))
+        invoke_retail_tool(
+            tools,
+            "return_delivered_order_items",
+            {"order_id": "O5001"},
+        )
         return env.get_session_evidence("invalid_arguments")
 
     def _scenario_disallowed_tool() -> dict[str, Any]:

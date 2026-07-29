@@ -42,6 +42,44 @@ class TestRetailToolRegistration(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(len(env.get_trace()), 1)
 
+    def test_invalid_arguments_reach_core_with_original_payload(self) -> None:
+        env = RetailEnv(str(ROOT / "verticals" / "retail"), seed=42)
+        env.reset("RETAIL-E5-001", reset_id="reset-invalid-tool-test", seed=42)
+        tools = make_retail_tools(
+            env,
+            ["get_order_details", "return_delivered_order_items"],
+        )
+        get_order_schema = next(
+            tool.args_schema.model_json_schema()
+            for tool in tools
+            if tool.name == "get_order_details"
+        )
+        self.assertEqual(get_order_schema["required"], ["order_id"])
+        self.assertFalse(get_order_schema["additionalProperties"])
+
+        missing = {"order_id": "O5001"}
+        extra = {"order_id": "O5001", "unexpected": "preserve-me"}
+        missing_result = invoke_retail_tool(
+            tools,
+            "return_delivered_order_items",
+            missing,
+        )
+        extra_result = invoke_retail_tool(
+            tools,
+            "get_order_details",
+            extra,
+        )
+
+        self.assertFalse(missing_result["ok"])
+        self.assertEqual(missing_result["error_type"], "invalid_arguments")
+        self.assertFalse(extra_result["ok"])
+        self.assertEqual(extra_result["error_type"], "invalid_arguments")
+        trace = env.get_trace()
+        self.assertEqual(trace[0]["arguments"], missing)
+        self.assertEqual(trace[1]["arguments"], extra)
+        self.assertFalse(trace[0]["arguments_valid"])
+        self.assertFalse(trace[1]["arguments_valid"])
+
 
 if __name__ == "__main__":
     unittest.main()
