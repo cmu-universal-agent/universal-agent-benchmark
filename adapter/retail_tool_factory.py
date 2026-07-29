@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from adapter.retail_core.env import RetailEnv
 
@@ -42,17 +42,17 @@ def _python_type_for_property(prop_schema: dict[str, Any]) -> type:
 
 
 def args_model_from_json_schema(tool_name: str, schema: dict[str, Any]) -> type[BaseModel]:
-    """Convert a contract input schema into a Pydantic model for tool binding."""
+    """Expose the canonical schema while deferring validation to RetailEnv."""
     fields: dict[str, tuple[type, Any]] = {}
-    required = set(schema.get("required", []))
     for prop_name, prop_schema in schema.get("properties", {}).items():
         py_type = _python_type_for_property(prop_schema)
-        if prop_name in required:
-            fields[prop_name] = (py_type, Field(...))
-        else:
-            fields[prop_name] = (py_type | None, Field(default=None))
+        fields[prop_name] = (py_type | None, Field(default=None))
     model_name = "".join(part.title() for part in tool_name.split("_")) + "Args"
-    return create_model(model_name, **fields)  # type: ignore[call-overload]
+    return create_model(
+        model_name,
+        __config__=ConfigDict(extra="allow", json_schema_extra=schema),
+        **fields,
+    )  # type: ignore[call-overload]
 
 
 def canonical_tool_names() -> list[str]:
