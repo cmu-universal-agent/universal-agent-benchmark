@@ -1,13 +1,13 @@
 # Universal Agent Benchmark
 
 Compare **LangGraph**, **CrewAI**, and **OpenAI Agents SDK** on the same tasks,
-model, and output contract — across a **healthcare** vertical (medical
-diagnostic / evidence QA) and an **ecommerce** vertical (product trend
-research). The research question is not “which framework wins overall,” but
-**where each framework breaks** when moving from logic-heavy medical tasks to
-tool-heavy creative ecommerce tasks. All three adapters share `adapter/` for
-task loading, result shape, evaluation, and JSONL logging so differences come
-from framework behavior, not from incompatible prompts or schemas.
+model, and output contract across the healthcare and ecommerce benchmark
+verticals, plus a stateful **retail WS3 integration slice**. The benchmark asks
+**where each framework breaks**, while WS3 separately validates whether real
+framework wrappers can expose the same canonical tools, traces, and final
+state. All adapters share `adapter/` for task loading, result shape,
+evaluation, and JSONL logging so differences come from framework behavior, not
+from incompatible prompts or schemas.
 
 **Requirements:** Python **3.10+** (code uses `str | None` union syntax), network
 access for setup and model calls, and an OpenAI-compatible API key in `.env`.
@@ -27,6 +27,29 @@ H1/E1-shaped). The **eight-task core pilot** (64 review cases) is built locally
 from public datasets; see [Data preparation](#stage-2-data-preparation). Preliminary
 runs in `results/` are **engineering smoke**, not publishable benchmark scores,
 until the controlled pilot protocol is signed off (`docs/PROJECT_LEAD_GUIDE.md`).
+
+### Current WS3 retail and E5 status
+
+Verified from GitHub on 2026-07-29 after PRs #14 and #15 merged:
+
+- the canonical tau-retail contract contains 16 tools backed by a deterministic
+  shared `RetailEnv`;
+- LangGraph has a real retail wrapper and canonical invalid-argument traces;
+- the public repository contains the approved E5 v0.3 evaluator, converter,
+  replay-fill tooling, and synthetic smoke controls;
+- the approved private E5 batch completed two independent 4/4 clean replays
+  with deterministic output.
+
+The replay confirms evaluator plumbing, not a benchmark score. Formal E5 cases,
+gold, snapshots, hashes, replay output, and raw traces remain evaluator-only
+and outside Git. `verticals/retail/cases/RETAIL-E5-001.json` is a public
+`synthetic_fixture` for tests and demos, not a formal E5 case.
+
+WS3 remains incomplete: CrewAI and OpenAI Agents SDK still need real retail
+wrappers; common three-wrapper parity evidence, demo-output hardening (PR #16),
+dashboard corrections, methodology/limitations, CI, and the final experiment
+configuration are still open. Do not present current artifacts as framework
+rankings or formal benchmark results.
 
 ---
 
@@ -307,15 +330,12 @@ Ground truth for scoring stays **out of agent-visible cases** — in v1 pilot,
 evaluator gold lives under `data/generated/core_pilot/gold/` and
 `evaluator_data/` (see `evaluator_data/README.md`).
 
-### Branch and contribution notes
+### Integration and contribution notes
 
-| Branch | Role |
-|---|---|
-| `main` | Integration base; includes the merged WS2 infrastructure (PR #1) and CrewAI integration (PR #2) |
-| `lanfang/stress-testing-plan` | Stress-testing design documentation proposed in PR #3 |
-| `jessica/ws3-canonical-contract` | WS3 canonical retail contract proposed in PR #4 |
-| `xiaoxia/shared_core` | Shared retail simulator proposed in PR #8, dependent on PR #4 |
-| `xiaoxia/dashboard` | Retail dashboard proposed in PR #9, dependent on PR #8 |
+`main` is the only integration base. Historical feature branches and local
+remote-tracking refs are not current project status. Query GitHub for the
+current `main` SHA and PR state before reporting progress or starting work.
+PR #16 remains the open Draft for presentation-safe demo output.
 
 Before opening a PR:
 
@@ -339,16 +359,17 @@ Task validation before push (offline):
 Read in this order:
 
 1. **This README** — setup, commands, results layout.
-2. **`docs/PROJECT_LEAD_GUIDE.md`** — **current** status, owners, WS2/WS3 gates,
-   what is approved vs draft, merge hold, validation command list.
+2. **`docs/PROJECT_LEAD_GUIDE.md`** — durable coordination context, owners,
+   WS2/WS3 gates, privacy boundaries, and validation commands. Query GitHub for
+   mutable PR, branch, review, and merge state.
 3. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
    `prepare_core_pilot.py` workflow (when you move beyond legacy 20 cases).
 4. **`docs/framework_comparison_rationale.md`** — experiment tiers, control
    variables, and comparison dimensions.
 5. **`docs/schema_field_review.md`** — approved schema fields and pending
    proposals (including stress metadata in §10 on the stress branch).
-6. **`docs/stress_testing_README.md`** — stress-testing design (on
-   `lanfang/stress-testing-plan`); fixtures not yet in repo.
+6. **`docs/stress_testing_README.md`** — merged stress-testing design; fixtures
+   remain separate implementation work.
 7. **`docs/current_status_and_handoff.md`** — **historical** WS2 snapshot
    (2026-07-16); use only for background. The banner at the top points to the
    project lead guide for anything current.
