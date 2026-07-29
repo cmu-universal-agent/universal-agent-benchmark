@@ -140,6 +140,11 @@ async def _run_agent(
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
+    if task.vertical == "retail":
+        from frameworks.openai_agents_sdk.retail_run import run_retail_task
+
+        return run_retail_task(task)
+
     return run_framework_task(
         task,
         framework=FRAMEWORK_NAME,
