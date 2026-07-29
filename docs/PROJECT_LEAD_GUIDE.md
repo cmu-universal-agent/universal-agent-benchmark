@@ -29,14 +29,15 @@ Do not infer benchmark results or owner approval from technical smoke evidence.
   <https://github.com/cmu-universal-agent/universal-agent-benchmark>
 - Canonical local checkout:
   `C:\Users\Jessica\Documents\Universal Agent\universal-agent-benchmark-git`
-- Verified `main`: `92e1ff1ff57ef9511a1147a178eda20d7c9240fe`
+- Verified `main`: `07d87a8567ec5f7d9c3826599773f8568a1142e8`
 - The canonical checkout is clean, on `main`, and tracks `official/main`.
-- PRs #1–#10 and #12 are merged. PR #11 was closed and superseded by #12.
+- PRs #1–#10, #12, #14, and #15 are merged. PR #11 was closed and
+  superseded by #12.
 - Merged/superseded local branches, remote-tracking refs, old worktrees,
   temporary downloads, and stale framework virtual environments were removed
   on 2026-07-29.
-- The only retained feature worktrees are for open PRs #14 and #15. PR #13 is
-  retained on the official remote.
+- Open PR worktrees are retained separately. Merged PR #14/#15 worktrees are
+  preserved until their local changes and refs are audited.
 
 Never resume formal work from an old clone or dirty feature branch. Start from
 fresh `official/main` and create one separate worktree per active PR.
@@ -48,8 +49,7 @@ Verified on 2026-07-29:
 | PR | Scope | State | Current gate |
 |---|---|---|---|
 | [#13](https://github.com/cmu-universal-agent/universal-agent-benchmark/pull/13) | Post-merge WS3 audit | Draft and mergeable; no reviews or checks | Confirm findings/owners, then mark ready and review |
-| [#14](https://github.com/cmu-universal-agent/universal-agent-benchmark/pull/14) | Public-safe E5 evaluator, conversion, smoke, and pinned replay fill | Draft and mergeable; no reviews or checks | Review privacy boundary and evaluator integration, then mark ready |
-| [#15](https://github.com/cmu-universal-agent/universal-agent-benchmark/pull/15) | LangGraph invalid-argument trace parity | Draft and mergeable; no reviews or checks | Review root-cause fix and evidence, then mark ready |
+| [#16](https://github.com/cmu-universal-agent/universal-agent-benchmark/pull/16) | Presentation-safe WS3 demo evidence | Draft and mergeable; no reviews or checks | Review privacy regression and meeting output, then mark ready |
 
 Do not hard-code a future PR head in a commit on that same branch. Re-check
 GitHub after every push.
@@ -71,6 +71,8 @@ GitHub after every push.
 - Deterministic shared `RetailEnv` core with 38 passing tests reported in the
   post-merge audit.
 - A real LangGraph thin wrapper and one wrapper-evidence stream.
+- Approved E5 v0.3 evaluator policy and public-safe replay tooling.
+- Canonical LangGraph invalid-argument trace parity.
 - Synthetic offline demo harness at `scripts/demo_ws3_offline.py`.
 - Static dashboard prototype and result generator.
 - Contract, adapter, shared-tool, leakage, reset, mutation, duplicate-action,
@@ -81,10 +83,7 @@ parity. Core-generated evidence must never be presented as framework evidence.
 
 ### WS3 still required
 
-- Merge/review PR #15 so LangGraph missing and unexpected arguments reach the
-  shared core and produce canonical rejected traces.
-- Merge/review PR #14 so approved E5 semantics and replay tooling have a
-  public-safe integration path.
+- Review/merge PR #16 so shareable demo files contain aggregates only.
 - Implement a CrewAI WS3 retail wrapper and evidence.
 - Implement an OpenAI Agents SDK WS3 retail wrapper and evidence.
 - Correct the dashboard experiment-label collision and stale prototype tool
@@ -98,9 +97,10 @@ or synthetic demo does not satisfy that gate.
 
 ## E5 decisions and replay
 
-Chloe approved the four owner-reviewed E5 case/gold records and the v0.2
-response/final-state semantics. PR #14 contains only the public-safe evaluator,
-converter, synthetic controls, approval record, and replay-fill code.
+Chloe approved the four owner-reviewed E5 case/gold records and the v0.3
+response/final-state and run-policy semantics. `main` contains only the
+public-safe evaluator, converter, synthetic controls, approval record, and
+replay-fill code.
 
 The private formal replay completed on 2026-07-29:
 
@@ -133,14 +133,14 @@ Current local-only replay locations:
 
 | Area | Owner | Reviewer | Next action |
 |---|---|---|---|
-| Canonical contract, cross-framework integration, PR #14/#15 | Jessica | Relevant framework/data owner | Complete review gates without changing owner-approved semantics |
+| Canonical contract and cross-framework integration | Jessica | Relevant framework/data owner | Preserve owner-approved semantics while completing wrapper parity |
 | E5 semantics and gold | Chloe | Jessica for integration/privacy | Approval complete; review only if public evaluator semantics change |
 | Shared retail core | Xiaoxia | Jessica | Support wrapper integration and contract regressions |
 | CrewAI WS3 wrapper | Mickey | Jessica/Xiaoxia | Implement real thin wrapper and common evidence |
 | OpenAI Agents SDK WS3 wrapper | Lanfang | Jessica/Xiaoxia | Implement real thin wrapper and common evidence |
 | Dashboard corrections | Xiaoxia | Jessica | Fix audit findings without claiming benchmark scores |
 | Methodology and limitations | Mickey | Team | Document protocol, exclusions, and non-scoring limitations |
-| LangGraph contract parity | Jessica via PR #15 | Chloe/framework reviewer | Review and merge after validation |
+| LangGraph contract parity | Jessica | Chloe/framework reviewer | Complete and merged via PR #15 |
 
 Jessica may implement infrastructure, approved deterministic conversion,
 privacy checks, schemas, validators, replay plumbing, and cross-framework
@@ -155,7 +155,8 @@ The meeting demo is a synthetic technical validation:
 2. show the 16-tool contract and deterministic reset;
 3. show read, mutation, invalid-argument, disallowed-action, duplicate-action,
    tool-failure, and leakage controls;
-4. inspect sanitized trace/final-state evidence;
+4. inspect the public aggregate evidence and explain that full trace/final-state
+   validation happens in memory;
 5. state clearly that only LangGraph currently supplies real wrapper evidence.
 
 Do not expose evaluator-only gold or present the demo as a benchmark score,
@@ -191,8 +192,8 @@ python -m unittest discover -s .\tests\retail_core -p "test_*.py"
 python .\scripts\demo_ws3_offline.py
 ```
 
-On PR #14, also run its E5 conversion, synthetic-smoke, leakage, and pinned
-replay tests. Never run live model calls merely to refresh status.
+For E5 changes, also run conversion, run-policy, synthetic-smoke, leakage, and
+pinned replay tests. Never run live model calls merely to refresh status.
 
 ## Publishing rules
 

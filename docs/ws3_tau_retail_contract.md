@@ -1,6 +1,6 @@
 # WS3 Tau-Retail Canonical Contract
 
-Status: **candidate for owner review**
+Status: **implemented on main; three-wrapper parity pending**
 Contract version: `0.2.0`
 Owner: Jessica
 Scope: framework-neutral tool, reset, state-evidence, and error behavior
@@ -8,8 +8,9 @@ Scope: framework-neutral tool, reset, state-evidence, and error behavior
 ## Decision boundary
 
 This contract freezes the integration surface that all three framework wrappers
-must share. It does not implement the simulator, any framework wrapper, E5 gold
-semantics, or stress variants.
+must share. The shared core, LangGraph wrapper, and approved E5 v0.3
+public-safe evaluator integration are implemented. CrewAI and OpenAI Agents SDK
+WS3 wrappers remain pending.
 
 - Xiaoxia owns the shared simulator/core implementation.
 - Mickey, Chloe, and Lanfang own the CrewAI, LangGraph, and OpenAI Agents SDK
@@ -21,7 +22,7 @@ semantics, or stress variants.
 ## Frozen surface
 
 `tools/tau_retail_contract.json` is the machine-readable source of truth. It
-pins 15 assistant tools used by the local 114-task tau-retail cache and the
+pins 16 assistant tools used by the local 114-task tau-retail cache and the
 eight prepared E5 cases. Each tool has a Draft 2020-12 input schema under
 `tools/schemas/`.
 
@@ -150,9 +151,10 @@ DEMO_FILE path=results\ws3_demo.html
 
 Suggested six-minute flow: introduce the 16-tool contract, run the command,
 open the generated page, explain the read/write/duplicate state transitions,
-open the sanitized evidence JSON, and finish with the remaining core/wrapper
-integration gates. This is contract evidence only, not a simulator, framework
-run, E5 evaluator result, or benchmark result.
+open the aggregate evidence JSON, and finish with the remaining wrapper
+integration gates. Full trace/final-state evidence is validated in memory and
+is not serialized into the shareable demo files. This is synthetic technical
+validation, not a live E5 run, benchmark score, or framework ranking.
 
 ## Upstream provenance
 
