@@ -28,7 +28,7 @@ def main():
         for model_name in result_models(vertical):
             results = load_latest_results(vertical, model_name=model_name)
             by_framework: dict[str, list[dict]] = defaultdict(list)
-            for (task_id, framework), r in results.items():
+            for (task_id, framework, _experiment_label), r in results.items():
                 if task_id not in ground_truth:
                     continue
                 result = AgentRunResult(**r)

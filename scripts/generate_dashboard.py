@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-"""Generate the WS3 retail Run Console -- a read-only static HTML dashboard
-over standardized result rows, matching docs/WS3_dashboard_prototype.html
-(the approved visual reference).
+"""Generate the public WS3 retail Run Console.
 
-Pulls the latest result per (task_id, framework) from
+Pulls the latest result per (task_id, framework, experiment_label) from
 results/metrics/<vertical>_results.jsonl via adapter.result_writer and
-writes a single self-contained results/dashboard.html. Renders only what
-the rows already contain -- no pass/fail, failure_class, or final-state
-correctness is computed here (see AGENTS.md: wrappers/reports must not
-duplicate evaluator/business logic).
+writes a self-contained results/dashboard.html. This is a public,
+illustrative view of synthetic technical validation, never benchmark
+scores or a framework ranking.
 
-Contract gap: AgentRunResult (adapter/schemas.py) does not yet carry
-run_id, runtime_status, schema_valid, failure_class, final_state_correct,
-experiment_label, or a trace/final_state/expected_state reference. Until
-contract v1 adds first-class fields, this script also looks for them
-inside the existing raw_metadata dict; anything still missing is rendered
-as an explicit "unknown" rather than guessed.
+The payload is deliberately allowlisted. It contains only sanitized tool
+trace summaries and an aggregate final-state verdict; raw arguments,
+private traces, hashes, evaluator payloads, actual state, and gold state
+are never serialized into the HTML.
 """
 
 import argparse
@@ -48,6 +43,29 @@ LABEL_PREFERENCE = ["technical_smoke", "pilot", "benchmark"]
 
 CASE_PROMPT_MAX_LEN = 90
 
+FRAMEWORK_EVIDENCE = {
+    "langgraph": {
+        "status": "available",
+        "kind": "actual wrapper evidence",
+        "note": "Synthetic technical validation only; not a benchmark score.",
+    },
+    "openai_agents_sdk": {
+        "status": "not_available",
+        "kind": "not available",
+        "note": "No public wrapper evidence is available.",
+    },
+    "crewai": {
+        "status": "not_available",
+        "kind": "not available",
+        "note": "No public wrapper evidence is available.",
+    },
+}
+PUBLIC_EVIDENCE_FRAMEWORKS = {
+    framework
+    for framework, evidence in FRAMEWORK_EVIDENCE.items()
+    if evidence["status"] == "available"
+}
+
 
 def _first_present(row: dict, raw: dict, key: str):
     """Prefer a first-class field on the row; fall back to raw_metadata.
@@ -78,48 +96,90 @@ def _load_case_prompt(vertical: str, case_id: str) -> str | None:
     return prompt
 
 
+def _sanitize_trace(trace) -> list[dict] | None:
+    """Return an allowlisted, value-free public trace summary."""
+    if trace is None:
+        return None
+    if not isinstance(trace, list):
+        return None
+
+    sanitized = []
+    for fallback_index, step in enumerate(trace):
+        if not isinstance(step, dict):
+            continue
+        tool_name = step.get("tool_name") or step.get("tool") or "unknown_tool"
+        ok = step.get("ok")
+        error = step.get("error")
+        error_code = step.get("error_code")
+        if error_code is None and isinstance(error, dict):
+            error_code = error.get("error_type")
+        if ok is True:
+            outcome = "ok"
+        elif error_code:
+            outcome = str(error_code)
+        elif ok is False:
+            outcome = "error"
+        else:
+            outcome = "unknown"
+
+        index = step.get("index", step.get("sequence_index", fallback_index))
+        if not isinstance(index, int):
+            index = fallback_index
+        state_changed = step.get("state_changed", step.get("mut", False))
+        sanitized.append(
+            {
+                "index": index,
+                "tool_name": str(tool_name),
+                "outcome": outcome,
+                "state_changed": state_changed is True,
+            }
+        )
+    return sanitized
+
+
+def _final_state_verdict(value) -> str:
+    if value is True:
+        return "correct"
+    if value is False:
+        return "incorrect"
+    return "not_available"
+
+
 def _build_run(row: dict) -> dict:
     raw = row.get("raw_metadata") or {}
 
-    run_id = _first_present(row, raw, "run_id")
     experiment_label = _first_present(row, raw, "experiment_label")
     runtime_status = _first_present(row, raw, "runtime_status")
     schema_valid = _first_present(row, raw, "schema_valid")
-    failure_class = _first_present(row, raw, "failure_class")
     final_state_correct = _first_present(row, raw, "final_state_correct")
     trace = _first_present(row, raw, "trace")
-    final_state = _first_present(row, raw, "final_state")
-    expected_state = _first_present(row, raw, "expected_state")
-    note = _first_present(row, raw, "note")
 
     return {
-        "run_id": run_id if run_id is not None else "unknown",
         "case_id": row["task_id"],
         "framework": row["framework"],
         "experiment_label": experiment_label if experiment_label is not None else "unknown",
         "runtime_status": runtime_status if runtime_status is not None else "unknown",
-        "schema_valid": schema_valid,  # True / False / None(unknown) -- tri-state, preserved as-is
-        "failure_class": failure_class if failure_class is not None else "unknown",
-        "final_state_correct": final_state_correct,  # True / False / None(unknown)
-        "latency": row.get("latency_seconds"),
-        "trace": trace,  # None(not recorded) / [] (recorded, no calls) / [...]
-        "final_state": final_state,  # None(unknown) / {...}
-        "expected_state": expected_state,  # None(unknown) / {...}
-        "success": row.get("success"),
-        "error": row.get("error"),
-        "tool_call_count": row.get("tool_call_count"),
-        "note": note,
+        "schema_valid": schema_valid if isinstance(schema_valid, bool) else None,
+        "final_state_verdict": _final_state_verdict(final_state_correct),
+        "trace": _sanitize_trace(trace),
     }
 
 
-def _collect_frameworks(runs: list[dict]) -> list[dict]:
-    seen = {r["framework"] for r in runs}
-    ordered = [f for f in KNOWN_FRAMEWORK_ORDER if f in seen]
-    ordered += sorted(seen - set(KNOWN_FRAMEWORK_ORDER))
-    return [
-        {"id": f, "label": FRAMEWORK_LABELS.get(f, f), "color": FRAMEWORK_COLORS.get(f, DEFAULT_FRAMEWORK_COLOR)}
-        for f in ordered
-    ]
+def _collect_frameworks() -> list[dict]:
+    frameworks = []
+    for framework in KNOWN_FRAMEWORK_ORDER:
+        evidence = FRAMEWORK_EVIDENCE[framework]
+        frameworks.append(
+            {
+                "id": framework,
+                "label": FRAMEWORK_LABELS[framework],
+                "color": FRAMEWORK_COLORS.get(framework, DEFAULT_FRAMEWORK_COLOR),
+                "evidence_status": evidence["status"],
+                "evidence_kind": evidence["kind"],
+                "evidence_note": evidence["note"],
+            }
+        )
+    return frameworks
 
 
 def _collect_cases_by_label(runs: list[dict], vertical: str) -> dict[str, list[dict]]:
@@ -140,15 +200,20 @@ def _default_label(labels: list[str]) -> str | None:
 
 
 def build_payload(vertical: str) -> dict:
-    rows = load_latest_results(vertical)  # {(task_id, framework): dict}, latest per key
-    runs = [_build_run(d) for d in rows.values()]
+    rows = load_latest_results(vertical)
+    runs = [
+        _build_run(row)
+        for row in rows.values()
+        if row.get("framework") in PUBLIC_EVIDENCE_FRAMEWORKS
+    ]
     labels = sorted({r["experiment_label"] for r in runs})
     return {
         "vertical": vertical,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "disclosure": "ILLUSTRATIVE · SYNTHETIC TECHNICAL VALIDATION · NOT BENCHMARK SCORES",
         "labels": labels,
         "default_label": _default_label(labels),
-        "frameworks": _collect_frameworks(runs),
+        "frameworks": _collect_frameworks(),
         "cases_by_label": _collect_cases_by_label(runs, vertical),
         "runs": runs,
     }
@@ -250,6 +315,12 @@ HTML_TEMPLATE = r"""<!doctype html>
     padding: 3px 9px; border-radius: 999px; background: var(--accent-soft);
     color: var(--accent); font-weight: 600; letter-spacing: .02em;
   }
+  .disclosure {
+    margin: 0 0 20px; padding: 11px 14px; border: 1px solid #EBD79A;
+    border-radius: 9px; background: var(--warn-soft); color: #735900;
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+    letter-spacing: .03em;
+  }
 
   section { margin-bottom: 30px; }
   .sec-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 13px; }
@@ -264,6 +335,10 @@ HTML_TEMPLATE = r"""<!doctype html>
   }
   .card .fw { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; margin-bottom: 12px; display:flex; align-items:center; gap:8px; }
   .card .fw .swatch { width: 9px; height: 9px; border-radius: 2px; }
+  .evidence-status { font-family: var(--font-mono); font-size: 16px; font-weight: 700; margin: 3px 0 6px; }
+  .evidence-status.available { color: var(--ok); }
+  .evidence-status.not_available { color: var(--na); }
+  .evidence-note { color: var(--muted); font-size: 12px; min-height: 35px; }
   .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
   .kpi .n { font-family: var(--font-mono); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
   .kpi .n small { font-size: 12px; color: var(--faint); font-weight: 500; }
@@ -384,7 +459,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <div class="app">
   <aside class="rail">
     <div class="brand"><b>Run Console</b><span class="v">generated</span></div>
-    <p class="sub">Retail simulator &middot; framework parity</p>
+    <p class="sub">Retail simulator &middot; public technical evidence</p>
 
     <div class="ctl">
       <div class="lbl">Experiment label</div>
@@ -402,7 +477,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     </div>
 
     <div class="rail-note">
-      Reads latest row per <code>(case_id, framework)</code>. Labels never mix &mdash; switching the label swaps the dataset. No pass/fail is recomputed here. Fields not yet in the result schema render as <code>unknown</code> rather than being guessed.
+      Reads latest row per <code>(case_id, framework, experiment_label)</code>. Labels never mix. Public drill-downs contain only a sanitized trace and aggregate final-state verdict.
     </div>
   </aside>
 
@@ -410,7 +485,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     <div class="head">
       <div>
         <h1>Retail Simulator &mdash; Run Console</h1>
-        <p>Read-only view over standardized result rows, tool traces, and final-state correctness.</p>
+        <p>Illustrative public view of synthetic technical validation evidence.</p>
       </div>
       <div class="meta">
         <span class="pill" id="labelPill">&mdash;</span><br />
@@ -419,6 +494,7 @@ HTML_TEMPLATE = r"""<!doctype html>
       </div>
     </div>
 
+    <div class="disclosure" id="disclosure"></div>
     <div id="content"><!-- populated --></div>
   </main>
 </div>
@@ -433,54 +509,38 @@ HTML_TEMPLATE = r"""<!doctype html>
 <script>
 /* ------------------------------------------------------------------ *
  * DATA -- generated by scripts/generate_dashboard.py from the latest
- * row per (task_id, framework) in results/metrics/<vertical>_results.jsonl.
- * Nothing here is recomputed: fields not present on the row (or inside
- * its raw_metadata) are threaded through as the string "unknown" or the
- * tri-state null, never guessed.
+ * row per (task_id, framework, experiment_label). The embedded payload is
+ * a public allowlist: sanitized trace summaries plus aggregate verdicts.
  * ------------------------------------------------------------------ */
 const DATA = __DASHBOARD_DATA_JSON__;
 
-// Mirrors adapter/retail_core/errors.py's ERROR_TABLE (contract error_type
-// values) plus the evaluator-computed tier (incorrect_action_order,
-// missing_required_action, incorrect_final_state, evaluator_data_leakage) --
-// see that module's docstring. Keep this list in sync if the contract adds
-// or renames an error_type.
-const FAILURE_CLASSES = [
-  "ok","invalid_arguments","disallowed_tool","not_found","invalid_state",
-  "duplicate_action","policy_rejected","tool_failure","timeout","internal_error",
-  "incorrect_action_order","missing_required_action","incorrect_final_state","evaluator_data_leakage",
-  "unknown",
-];
-const FC_COLOR = {
-  ok: "#12875A", invalid_arguments: "#5A6472", disallowed_tool: "#B08600",
-  not_found: "#6A7480", invalid_state: "#9A6A00", duplicate_action: "#0E8F8F",
-  policy_rejected: "#8A6D00", tool_failure: "#C25410", timeout: "#C2A410",
-  internal_error: "#7A2E2E", incorrect_action_order: "#4C63D2",
-  missing_required_action: "#B0476A", incorrect_final_state: "#CF3A54", evaluator_data_leakage: "#8A34B0",
-  unknown: "#98A2B1",
-};
-const TAG = { pass:"OK", fail:"FAIL", error:"ERR", leak:"LEAK", unknown:"UNK" };
+const TAG = { pass:"MATCH", fail:"MISMATCH", error:"ERROR", unknown:"UNKNOWN" };
 
 const fwById = Object.fromEntries(DATA.frameworks.map(f => [f.id, f]));
+function runDomKey(caseId, framework, experimentLabel){
+  return caseId + "|" + framework + "|" + experimentLabel;
+}
 const runByDomKey = {};
-DATA.runs.forEach(r => { runByDomKey[r.case_id + "|" + r.framework] = r; });
+DATA.runs.forEach(r => {
+  runByDomKey[runDomKey(r.case_id, r.framework, r.experiment_label)] = r;
+});
 
 const state = { label: DATA.default_label, active: new Set(DATA.frameworks.map(f => f.id)) };
 
 function bucket(r){
   if (r.runtime_status !== "unknown" && r.runtime_status !== "completed") return "error";
-  if (r.failure_class === "evaluator_data_leakage") return "leak";
-  if (r.failure_class === "unknown" || r.final_state_correct === null) return "unknown";
-  if (r.failure_class === "ok" && r.final_state_correct === true) return "pass";
-  return "fail";
+  if (r.final_state_verdict === "correct") return "pass";
+  if (r.final_state_verdict === "incorrect") return "fail";
+  return "unknown";
 }
 
 function activeRuns(){
   return DATA.runs.filter(r => r.experiment_label === state.label && state.active.has(r.framework));
 }
-function median(xs){ if(!xs.length) return null; const s=[...xs].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-function pct(n,d){ return d? Math.round((n/d)*100) : 0; }
-function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
 
 // ---- control rail: label + vertical selects ----
 const labelSel = document.getElementById("labelSel");
@@ -517,103 +577,66 @@ DATA.frameworks.forEach(f => {
 
 document.getElementById("labelPill").textContent = state.label || "none";
 document.getElementById("genMeta").textContent = `${DATA.vertical} · generated ${DATA.generated_at}`;
+document.getElementById("disclosure").textContent = DATA.disclosure;
 
 function render(){
   const runs = activeRuns();
-  document.getElementById("runCount").textContent = runs.length + " runs";
+  document.getElementById("runCount").textContent = runs.length + " public evidence rows";
   const content = document.getElementById("content");
-
-  if (!DATA.labels.length){
-    content.innerHTML = `<div class="matrix-wrap"><div class="empty big">No result rows found for vertical <span class="mono">${esc(DATA.vertical)}</span>.<br><span style="font-size:12px">Run the benchmark to populate results/metrics/${esc(DATA.vertical)}_results.jsonl, then regenerate.</span></div></div>`;
-    return;
-  }
-  if (!runs.length){
-    content.innerHTML = `<div class="matrix-wrap"><div class="empty big">No runs recorded for <span class="mono">${esc(state.label)}</span>.<br><span style="font-size:12px">Labels are kept separate on purpose &mdash; smoke, pilot, and benchmark never share a view.</span></div></div>`;
-    return;
-  }
-
   const cases = DATA.cases_by_label[state.label] || [];
-  const caseById = Object.fromEntries(cases.map(c => [c.id, c]));
 
   let html = "";
 
-  // 1. summary cards
-  html += `<section><div class="sec-h"><h2>Framework summary</h2><span class="hint">pass = ok + correct final state &middot; rates over ${cases.length} cases</span></div><div class="cards">`;
+  // 1. evidence availability -- deliberately not a score or ranking.
+  html += `<section><div class="sec-h"><h2>Framework evidence availability</h2><span class="hint">availability only &middot; no simulated ranking</span></div><div class="cards">`;
   DATA.frameworks.filter(f => state.active.has(f.id)).forEach(f => {
-    const rs = runs.filter(r => r.framework === f.id);
-    const pass = rs.filter(r => bucket(r) === "pass").length;
-    const completed = rs.filter(r => r.runtime_status === "completed").length;
-    const unknownRuntime = rs.filter(r => r.runtime_status === "unknown").length;
-    const validSchema = rs.filter(r => r.schema_valid === true).length;
-    const unknownSchema = rs.filter(r => r.schema_valid === null).length;
-    const knownLatencies = rs.map(r => r.latency).filter(v => v != null);
-    const med = median(knownLatencies);
+    const evidenceCount = runs.filter(r => r.framework === f.id).length;
+    const countNote = f.evidence_status === "available"
+      ? `${evidenceCount} sanitized row${evidenceCount === 1 ? "" : "s"} for this label`
+      : "No result rows are published";
     html += `<div class="card">
       <div class="fw"><span class="swatch" style="background:${f.color}"></span>${esc(f.label)}</div>
-      <div class="kpis">
-        ${kpi("Pass rate", pct(pass,rs.length)+"%", pct(pass,rs.length), "var(--ok)")}
-        ${kpi("Ran clean", pct(completed,rs.length)+"%", pct(completed,rs.length), "var(--accent)", unknownRuntime)}
-        ${kpi("Schema valid", pct(validSchema,rs.length)+"%", pct(validSchema,rs.length), "var(--warn)", unknownSchema)}
-        ${kpiRaw("Median latency", (med!=null?med.toFixed(1):"—"), "s")}
-      </div></div>`;
+      <div class="evidence-status ${esc(f.evidence_status)}">${esc(f.evidence_kind)}</div>
+      <div class="evidence-note">${esc(f.evidence_note)}<br>${esc(countNote)}</div>
+    </div>`;
   });
   html += `</div></section>`;
 
-  // 2. matrix
-  html += `<section><div class="sec-h"><h2>Per-case status board</h2><span class="hint">click any cell to inspect the run's trace + final state</span></div><div class="matrix-wrap"><table><thead><tr><th>Case</th>`;
+  if (!DATA.labels.length || !cases.length){
+    html += `<div class="matrix-wrap"><div class="empty big">No public evidence rows are available for <span class="mono">${esc(state.label || DATA.vertical)}</span>.<br><span style="font-size:12px">Unavailable evidence is shown explicitly and is never replaced with simulated results.</span></div></div>`;
+    content.innerHTML = html;
+    return;
+  }
+
+  // 2. per-case aggregate verdicts
+  html += `<section><div class="sec-h"><h2>Per-case technical validation</h2><span class="hint">click available cells for sanitized trace + aggregate final-state verdict</span></div><div class="matrix-wrap"><table><thead><tr><th>Case</th>`;
   DATA.frameworks.filter(f=>state.active.has(f.id)).forEach(f => html += `<th class="fw">${esc(f.label)}</th>`);
   html += `</tr></thead><tbody>`;
   cases.forEach(c => {
     html += `<tr><td><div class="case-name">${c.name ? esc(c.name) : ""}</div><div class="case-id">${esc(c.id)}</div></td>`;
     DATA.frameworks.filter(f=>state.active.has(f.id)).forEach(f => {
-      const r = runByDomKey[c.id + "|" + f.id];
-      if (!r || r.experiment_label !== state.label){ html += `<td class="cell"><span style="color:var(--faint);font-family:var(--font-mono);font-size:11px">&middot;</span></td>`; return; }
+      if (f.evidence_status !== "available"){
+        html += `<td class="cell"><span style="color:var(--faint);font-family:var(--font-mono);font-size:10.5px">not available</span></td>`;
+        return;
+      }
+      const lookupKey = runDomKey(c.id, f.id, state.label);
+      const r = runByDomKey[lookupKey];
+      if (!r){
+        html += `<td class="cell"><span style="color:var(--faint);font-family:var(--font-mono);font-size:11px">&middot;</span></td>`;
+        return;
+      }
       const b = bucket(r);
-      const domKey = esc(r.case_id + "|" + r.framework);
-      html += `<td class="cell"><button class="chip ${b}" data-run="${domKey}" aria-label="${esc(c.id)} ${esc(f.label)} ${esc(r.failure_class)}">
+      const domKey = runDomKey(r.case_id, r.framework, r.experiment_label);
+      html += `<td class="cell"><button class="chip ${b}" data-run="${esc(domKey)}" aria-label="${esc(c.id)} ${esc(f.label)} ${esc(r.final_state_verdict)}">
         ${r.schema_valid === false ? '<span class="schema-flag"></span>' : ''}
-        <span class="tag">${TAG[b]}</span><span class="code">${esc(r.failure_class)}</span></button></td>`;
+        <span class="tag">${TAG[b]}</span><span class="code">${esc(r.final_state_verdict)}</span></button></td>`;
     });
     html += `</tr>`;
   });
   html += `</tbody></table></div></section>`;
 
-  // 3. failure-mode breakdown
-  html += `<section><div class="sec-h"><h2>Failure-mode breakdown</h2><span class="hint">counts per class, as classified upstream</span></div>`;
-  DATA.frameworks.filter(f=>state.active.has(f.id)).forEach(f => {
-    const rs = runs.filter(r => r.framework === f.id);
-    const counts = {}; FAILURE_CLASSES.forEach(k => counts[k]=0);
-    rs.forEach(r => counts[r.failure_class] = (counts[r.failure_class]||0)+1);
-    html += `<div class="fm-row"><div class="fw">${esc(f.label)}</div><div class="fm-bar">`;
-    FAILURE_CLASSES.forEach(k => { if(counts[k]) html += `<div class="fm-seg" style="flex:${counts[k]};background:${FC_COLOR[k]}" title="${k}: ${counts[k]}"></div>`; });
-    html += `</div></div>`;
-  });
-  html += `<div class="legend">`;
-  FAILURE_CLASSES.forEach(k => html += `<span><i style="background:${FC_COLOR[k]}"></i>${k}</span>`);
-  html += `</div></section>`;
-
-  // 4. schema-validity panel
-  const invalid = runs.filter(r => r.schema_valid === false);
-  const unknownSchemaRuns = runs.filter(r => r.schema_valid === null);
-  html += `<section><div class="sec-h"><h2>Schema-validity flags</h2><span class="hint">excluded from rate denominators until fixed</span></div><div class="schema-list">`;
-  if (!invalid.length && !unknownSchemaRuns.length){
-    html += `<div class="empty">All ${runs.length} runs passed trace + final-state schema validation.</div>`;
-  } else {
-    invalid.forEach(r => html += `<div class="schema-item"><span>${esc(r.run_id)}</span><span>${esc(r.framework)}</span><span><span class="warnbadge">schema-invalid</span> &nbsp;${esc(r.case_id)}</span></div>`);
-    unknownSchemaRuns.forEach(r => html += `<div class="schema-item"><span>${esc(r.run_id)}</span><span>${esc(r.framework)}</span><span><span class="warnbadge na">schema-unknown</span> &nbsp;${esc(r.case_id)}</span></div>`);
-  }
-  html += `</div></section>`;
-
   content.innerHTML = html;
   content.querySelectorAll(".chip").forEach(btn => btn.addEventListener("click", () => openDrawer(btn.dataset.run)));
-}
-
-function kpi(k, big, fillPct, col, unknownCount){
-  const note = unknownCount ? `<div class="u">${unknownCount} unknown</div>` : "";
-  return `<div class="kpi"><div class="n">${big}</div><div class="k">${k}</div>${note}<div class="bar"><i style="width:${fillPct}%;background:${col}"></i></div></div>`;
-}
-function kpiRaw(k, big, unit){
-  return `<div class="kpi"><div class="n">${big}<small> ${unit}</small></div><div class="k">${k}</div><div class="bar"><i style="width:0"></i></div></div>`;
 }
 
 /* ---- drawer ---- */
@@ -630,82 +653,50 @@ function openDrawer(domKey){
   const c = cases.find(x => x.id === r.case_id);
   const f = fwById[r.framework] || { label: r.framework, color: "#5A6472" };
   const b = bucket(r);
-  const verdictColor = { pass:"var(--ok)", fail:"var(--fail)", error:"var(--error)", leak:"var(--leak)", unknown:"var(--na)" }[b];
-  const verdictBg    = { pass:"var(--ok-soft)", fail:"var(--fail-soft)", error:"var(--error-soft)", leak:"var(--leak-soft)", unknown:"var(--na-soft)" }[b];
+  const verdictColor = { pass:"var(--ok)", fail:"var(--fail)", error:"var(--error)", unknown:"var(--na)" }[b];
+  const verdictBg    = { pass:"var(--ok-soft)", fail:"var(--fail-soft)", error:"var(--error-soft)", unknown:"var(--na-soft)" }[b];
 
   document.getElementById("drawerHead").innerHTML = `
     <button class="close" id="drawerClose2" aria-label="Close">&times;</button>
-    <div class="did">${esc(r.run_id)} &middot; ${esc(r.experiment_label)}</div>
+    <div class="did">${esc(r.experiment_label)} &middot; sanitized public detail</div>
     <h3>${c && c.name ? esc(c.name) : esc(r.case_id)}</h3>
-    <span class="verdict" style="color:${verdictColor};background:${verdictBg}">${TAG[b]} &middot; ${esc(r.failure_class)}</span>
+    <span class="verdict" style="color:${verdictColor};background:${verdictBg}">${TAG[b]} &middot; ${esc(r.final_state_verdict)}</span>
     <div class="facts">
       <span><b>${esc(f.label)}</b></span>
       <span>case <b>${esc(r.case_id)}</b></span>
       <span>status <b>${esc(r.runtime_status)}</b></span>
       <span>schema <b>${r.schema_valid === true ? "valid" : r.schema_valid === false ? "INVALID" : "unknown"}</b></span>
-      <span>final-state <b>${r.final_state_correct === true ? "correct" : r.final_state_correct === false ? "incorrect" : "unknown"}</b></span>
-      <span>latency <b>${r.latency != null ? r.latency.toFixed(1) + "s" : "unknown"}</b></span>
+      <span>final-state verdict <b>${esc(r.final_state_verdict)}</b></span>
     </div>`;
   document.getElementById("drawerHead").querySelector("#drawerClose2").addEventListener("click", closeDrawer);
 
   let body = "";
-  if (r.note) body += `<div style="background:var(--surface-2);border:1px solid var(--line);border-left:3px solid ${verdictColor};border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--muted);margin-bottom:6px">${esc(r.note)}</div>`;
-
-  body += `<div class="blk-h">Normalized tool trace</div>`;
+  body += `<div class="blk-h">Sanitized tool trace</div>`;
   if (r.trace === null){
-    body += `<div class="empty" style="border:1px dashed var(--line);border-radius:8px">Tool trace not recorded for this run (missing from the current result schema).</div>`;
+    body += `<div class="empty" style="border:1px dashed var(--line);border-radius:8px">No public trace summary is available.</div>`;
   } else if (!r.trace.length){
     body += `<div class="empty" style="border:1px dashed var(--line);border-radius:8px">No tool calls &mdash; agent answered without touching the simulator.</div>`;
   } else {
     body += `<div class="trace">`;
     r.trace.forEach((s,i) => {
-      const cls = s.ok ? "ok" : "bad";
-      const res = s.ok ? "ok" : (s.error_code || "error");
-      const toolName = s.tool_name || s.tool || "unknown_tool";
-      const args = s.arguments !== undefined ? s.arguments : (s.args !== undefined ? s.args : {});
-      const mutated = !!(s.state_changed || s.mut);
+      const cls = s.outcome === "ok" ? "ok" : "bad";
+      const mutated = s.state_changed === true;
       const idx = (s.index != null ? s.index : i) + 1;
       body += `<div class="step"><div class="rail-i"><span class="dot ${cls}"></span><span class="line"></span></div>
-        <div class="card2"><div class="t1"><span class="tool">${idx}. ${esc(toolName)}</span><span class="res ${cls}">${esc(res)}</span></div>
-        <div class="args">${esc(JSON.stringify(args))}</div>
+        <div class="card2"><div class="t1"><span class="tool">${idx}. ${esc(s.tool_name)}</span><span class="res ${cls}">${esc(s.outcome)}</span></div>
         ${mutated ? '<span class="mut">state changed</span>' : ''}</div></div>`;
     });
     body += `</div>`;
   }
 
-  body += `<div class="blk-h">Final state &mdash; actual vs expected</div>`;
-  if (r.final_state === null && r.expected_state === null){
-    body += `<div class="empty" style="border:1px dashed var(--line);border-radius:8px">Final state not recorded for this run (missing from the current result schema).</div>`;
-  } else {
-    body += `<div class="state-cmp">`;
-    body += stateBox("Actual", r.final_state, r.expected_state, false);
-    body += stateBox("Expected (gold)", r.expected_state, r.expected_state, true);
-    body += `</div>`;
-  }
+  body += `<div class="blk-h">Aggregate final-state verdict</div>`;
+  body += `<div class="card2" style="border:1px solid var(--line);border-left:3px solid ${verdictColor};border-radius:8px;padding:12px 13px">
+    <span class="verdict" style="color:${verdictColor};background:${verdictBg}">${esc(r.final_state_verdict)}</span>
+    <div style="color:var(--muted);font-size:12px;margin-top:8px">Underlying state values are intentionally not included in this public dashboard.</div>
+  </div>`;
 
   document.getElementById("drawerBody").innerHTML = body;
   drawer.classList.add("on"); backdrop.classList.add("on");
-}
-
-function stateBox(title, obj, expected, isExpected){
-  const o = obj || {};
-  const e = expected || {};
-  const known = obj !== null;
-  const keys = Array.from(new Set([...Object.keys(o), ...Object.keys(e)]));
-  let rows = "";
-  if (!known){
-    rows = `<span class="diffline">unknown &mdash; not present on this row</span>`;
-  } else if (!keys.length){
-    rows = `<span class="diffline">(empty)</span>`;
-  } else {
-    keys.forEach(k => {
-      const v = o[k], ev = e[k];
-      const mism = !isExpected && known && JSON.stringify(v) !== JSON.stringify(ev);
-      const shown = (v === undefined) ? "—" : JSON.stringify(v, null, 2);
-      rows += `<span class="diffline ${mism?'bad':''}">${esc(k)}: ${esc(shown)}</span>`;
-    });
-  }
-  return `<div class="state-box ${isExpected?'exp':''}"><div class="sb-h">${title}</div><pre>${rows}</pre></div>`;
 }
 
 render();

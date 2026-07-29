@@ -40,16 +40,18 @@ def result_models(vertical: str) -> list[str]:
 def load_latest_results(
     vertical: str,
     model_name: str | None = None,
-) -> dict[tuple[str, str], dict]:
+) -> dict[tuple[str, str, str], dict]:
     """Read results/metrics/<vertical>_results.jsonl and keep only the
-    latest row per (task_id, framework) -- results are append-only, so
-    older duplicate runs are superseded by newer ones for the same key.
+    latest row per (task_id, framework, experiment_label) -- results are
+    append-only, so older duplicate runs are superseded by newer ones for
+    the same key. Legacy rows without a label belong to the explicit
+    ``unknown`` label rather than overwriting a labeled experiment.
 
     When model_name is provided, rows from other models are excluded. Legacy
     rows without model metadata belong to the explicit "unknown" group.
     """
     path = default_result_path(vertical)
-    latest: dict[tuple[str, str], dict] = {}
+    latest: dict[tuple[str, str, str], dict] = {}
     if not path.exists():
         return latest
     with open(path, "r", encoding="utf-8") as f:
@@ -58,5 +60,11 @@ def load_latest_results(
             row_model = d.get("model_name") or "unknown"
             if model_name is not None and row_model != model_name:
                 continue
-            latest[(d["task_id"], d["framework"])] = d
+            raw_metadata = d.get("raw_metadata") or {}
+            experiment_label = (
+                d.get("experiment_label")
+                or raw_metadata.get("experiment_label")
+                or "unknown"
+            )
+            latest[(d["task_id"], d["framework"], experiment_label)] = d
     return latest

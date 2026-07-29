@@ -54,7 +54,7 @@ def _vertical_stats(vertical: str, model_name: str) -> dict[str, dict | None]:
     results = load_latest_results(vertical, model_name=model_name)
 
     by_framework: dict[str, list[dict]] = defaultdict(list)
-    for (_task_id, framework), r in results.items():
+    for (_task_id, framework, _experiment_label), r in results.items():
         by_framework[framework].append(r)
 
     stats: dict[str, dict | None] = {}
