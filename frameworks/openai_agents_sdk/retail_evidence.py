@@ -18,7 +18,10 @@ if str(ROOT) not in sys.path:
 from adapter.retail_core.env import RetailEnv
 from adapter.retail_core.errors import TOOL_FAILURE
 from adapter.retail_tool_factory import load_contract
-from frameworks.openai_agents_sdk.retail_tools import invoke_retail_tool
+from frameworks.openai_agents_sdk.retail_tools import (
+    invoke_retail_tool,
+    make_retail_tools,
+)
 
 
 def build_wrapper_evidence(case_id: str = "RETAIL-E5-001") -> dict[str, Any]:
@@ -32,40 +35,45 @@ def build_wrapper_evidence(case_id: str = "RETAIL-E5-001") -> dict[str, Any]:
     def _scenario_read_success() -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-read-success", seed=42)
+        tools = make_retail_tools(env, list(env.allowed_tools))
         invoke_retail_tool(
-            env,
+            tools,
             "get_order_details",
             {"order_id": "O5001"},
-            allowed_tools=list(env.allowed_tools),
         )
         return env.get_session_evidence("read_success")
 
     def _scenario_write_success() -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-write-success", seed=42)
+        tools = make_retail_tools(env, list(env.allowed_tools))
         invoke_retail_tool(
-            env,
+            tools,
             "cancel_pending_order",
             {"order_id": "O5003", "reason": "ordered by mistake"},
-            allowed_tools=list(env.allowed_tools),
         )
         return env.get_session_evidence("write_success")
 
     def _scenario_invalid_arguments() -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-invalid-arguments", seed=42)
-        env.call_tool("return_delivered_order_items", {"order_id": "O5001"})
+        tools = make_retail_tools(env, list(env.allowed_tools))
+        invoke_retail_tool(
+            tools,
+            "return_delivered_order_items",
+            {"order_id": "O5001"},
+        )
         return env.get_session_evidence("invalid_arguments")
 
     def _scenario_disallowed_tool() -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-disallowed-tool", seed=42)
         env.allowed_tools = frozenset({"get_order_details"})
+        tools = make_retail_tools(env, ["cancel_pending_order"])
         invoke_retail_tool(
-            env,
+            tools,
             "cancel_pending_order",
             {"order_id": "O5003", "reason": "ordered by mistake"},
-            allowed_tools=["cancel_pending_order"],
         )
         return env.get_session_evidence("disallowed_tool")
 
@@ -74,11 +82,11 @@ def build_wrapper_evidence(case_id: str = "RETAIL-E5-001") -> dict[str, Any]:
         env.reset(case_id, reset_id="reset-tool-failure", seed=42)
         arguments = {"order_id": "O5003", "reason": "ordered by mistake"}
         env.db.inject_failure(("cancel_pending_order", "O5003"), TOOL_FAILURE)
+        tools = make_retail_tools(env, list(env.allowed_tools))
         invoke_retail_tool(
-            env,
+            tools,
             "cancel_pending_order",
             arguments,
-            allowed_tools=list(env.allowed_tools),
         )
         first_call_id = env.get_trace()[-1]["tool_call_id"]
         env.call_tool("cancel_pending_order", arguments, retry_of=first_call_id)
@@ -88,17 +96,16 @@ def build_wrapper_evidence(case_id: str = "RETAIL-E5-001") -> dict[str, Any]:
         env = RetailEnv(DATA_DIR, seed=42)
         env.reset(case_id, reset_id="reset-duplicate-action", seed=42)
         arguments = {"order_id": "O5003", "reason": "ordered by mistake"}
+        tools = make_retail_tools(env, list(env.allowed_tools))
         invoke_retail_tool(
-            env,
+            tools,
             "cancel_pending_order",
             arguments,
-            allowed_tools=list(env.allowed_tools),
         )
         invoke_retail_tool(
-            env,
+            tools,
             "cancel_pending_order",
             arguments,
-            allowed_tools=list(env.allowed_tools),
         )
         return env.get_session_evidence("duplicate_action")
 

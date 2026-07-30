@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import inspect
+import asyncio
 import json
 from typing import Any
 
@@ -11,63 +11,52 @@ from adapter.retail_tool_factory import build_tool_specs
 
 
 def invoke_retail_tool(
-    env: RetailEnv,
+    tools: list[Any],
     name: str,
     arguments: dict[str, Any],
-    *,
-    allowed_tools: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Invoke one retail tool through the shared factory (offline tests)."""
-    for spec in build_tool_specs(env, allowed_tools):
-        if spec["name"] == name:
-            return spec["invoke"](**arguments)
-    raise KeyError(f"tool not registered: {name}")
+    """Invoke one registered SDK tool by name (used by offline wrapper tests)."""
+    from agents.tool_context import ToolContext
 
-
-def _build_tool_function(
-    name: str,
-    description: str,
-    args_schema: type,
-    invoke: Any,
-) -> Any:
-    """Build a typed handler ``function_tool`` can introspect."""
-
-    def handler(**kwargs: Any) -> str:
-        return json.dumps(invoke(**kwargs), ensure_ascii=False)
-
-    handler.__name__ = name
-    handler.__doc__ = description
-
-    annotations: dict[str, Any] = {"return": str}
-    parameters: list[inspect.Parameter] = []
-    for field_name, field_info in args_schema.model_fields.items():
-        annotations[field_name] = field_info.annotation
-        parameters.append(
-            inspect.Parameter(
-                field_name,
-                inspect.Parameter.KEYWORD_ONLY,
-                annotation=field_info.annotation,
-            )
-        )
-    handler.__annotations__ = annotations
-    handler.__signature__ = inspect.Signature(
-        parameters=parameters,
-        return_annotation=str,
+    tool_by_name = {tool.name: tool for tool in tools}
+    if name not in tool_by_name:
+        raise KeyError(f"tool not registered: {name}")
+    tool = tool_by_name[name]
+    raw_arguments = json.dumps(arguments)
+    context = ToolContext(
+        context=None,
+        tool_name=name,
+        tool_call_id=f"offline-{name}",
+        tool_arguments=raw_arguments,
     )
-    return handler
+    return json.loads(
+        asyncio.run(tool.on_invoke_tool(context, raw_arguments))
+    )
 
 
 def make_retail_tools(env: RetailEnv, allowed_tools: list[str] | None = None) -> list[Any]:
     """Register canonical retail tools whose bodies only forward to RetailEnv."""
-    from agents import function_tool
+    from agents import FunctionTool
 
     tools: list[Any] = []
     for spec in build_tool_specs(env, allowed_tools):
-        handler = _build_tool_function(
-            spec["name"],
-            spec["description"],
-            spec["args_schema"],
-            spec["invoke"],
+        invoke = spec["invoke"]
+
+        async def on_invoke_tool(
+            _context: Any,
+            raw_arguments: str,
+            *,
+            _invoke: Any = invoke,
+        ) -> str:
+            arguments = json.loads(raw_arguments)
+            return json.dumps(_invoke(**arguments), ensure_ascii=False)
+
+        tools.append(
+            FunctionTool(
+                name=spec["name"],
+                description=spec["description"],
+                params_json_schema=spec["args_schema"].model_json_schema(),
+                on_invoke_tool=on_invoke_tool,
+            )
         )
-        tools.append(function_tool(handler))
     return tools
