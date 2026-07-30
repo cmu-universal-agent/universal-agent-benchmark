@@ -63,6 +63,14 @@ class Ws3TauRetailContractTests(unittest.TestCase):
         self.assertEqual(evidence["artifact_type"], "synthetic_technical_validation")
         self.assertTrue(evidence["validation"]["state_schema_valid"])
         self.assertTrue(evidence["validation"]["trace_schema_valid"])
+        self.assertEqual(
+            evidence["artifact_scope"]["real_wrapper_verified_separately"],
+            ["langgraph", "openai_agents_sdk"],
+        )
+        self.assertEqual(
+            evidence["artifact_scope"]["wrappers_not_verified"],
+            ["crewai"],
+        )
         self.assertIn("NOT BENCHMARK SCORES", html)
         for forbidden in ("case", "gold", "snapshot", "hash", "evaluator"):
             self.assertNotIn(forbidden, json.dumps(evidence).lower())

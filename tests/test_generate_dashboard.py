@@ -178,5 +178,34 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertNotIn("Pass rate", html)
         self.assertNotIn("Median latency", html)
 
+    def test_synthetic_walkthrough_is_populated_and_public_safe(self) -> None:
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[],
+        ):
+            payload = generate_dashboard.build_payload(
+                "retail",
+                include_synthetic_walkthrough=True,
+            )
+        html = generate_dashboard.render_html(payload)
+        walkthrough = payload["synthetic_walkthrough"]
+
+        self.assertEqual(walkthrough["case_id"], "RETAIL-E5-001")
+        self.assertEqual(walkthrough["allowed_tools"], 16)
+        self.assertIn("customer contacts support", walkthrough["input_summary"])
+        self.assertIn("get_order_details", html)
+        self.assertIn("modify_pending_order_payment", html)
+        self.assertIn("not an agent answer", html)
+        for forbidden in (
+            "state_before_sha256",
+            "state_after_sha256",
+            '"arguments"',
+            '"expected_state"',
+            '"evaluator_output"',
+            "PRIVATE-",
+        ):
+            self.assertNotIn(forbidden, html)
+
 if __name__ == "__main__":
     unittest.main()

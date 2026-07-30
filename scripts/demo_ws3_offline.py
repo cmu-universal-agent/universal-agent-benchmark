@@ -96,8 +96,11 @@ def run_demo(evidence_out: Path | None = None) -> dict[str, Any]:
             },
             "artifact_scope": {
                 "technical_validation": "synthetic_contract",
-                "real_wrapper_verified_separately": ["langgraph"],
-                "wrappers_not_verified": ["crewai", "openai_agents_sdk"],
+                "real_wrapper_verified_separately": [
+                    "langgraph",
+                    "openai_agents_sdk",
+                ],
+                "wrappers_not_verified": ["crewai"],
             },
         }
         evidence_out.parent.mkdir(parents=True, exist_ok=True)
@@ -186,8 +189,8 @@ footer {{ margin: 30px 0; color: #71839d; font-size: 13px; }}
 </table>
 <h2>Remaining integration gates</h2>
 <div class="card pending">Demo scope: synthetic contract validation.
-Separately verified: one real LangGraph wrapper. Three-framework parity still
-requires CrewAI and OpenAI wrappers.</div>
+Separately verified: real LangGraph and OpenAI Agents SDK wrappers.
+Three-framework parity still requires the CrewAI wrapper.</div>
 <footer>Synthetic technical validation only. No live model calls, scores,
 or framework ranking.</footer>
 </main>

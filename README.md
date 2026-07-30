@@ -368,6 +368,7 @@ Supporting references: `docs/dataset_gold_generation_plan.md`,
 
 ```bash
 python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
+python3 scripts/generate_dashboard.py --vertical retail --synthetic-walkthrough
 open results/dashboard.html                                # macOS; or just double-click the file
 ```
 
@@ -378,5 +379,7 @@ synthetic technical validation, not benchmark scoring: it publishes sanitized
 trace summaries and aggregate final-state verdicts only. `results/dashboard.html`
 is generated (gitignored), so it isn't checked in or viewable on GitHub —
 regenerate it locally and open the file to view it.
+Use `--synthetic-walkthrough` for the meeting-ready public case input and
+sanitized contract-validation output; it does not create framework scores.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>
