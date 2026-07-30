@@ -55,9 +55,9 @@ FRAMEWORK_EVIDENCE = {
         "note": "Synthetic technical validation only; not a benchmark score.",
     },
     "crewai": {
-        "status": "not_available",
-        "kind": "not available",
-        "note": "No public wrapper evidence is available.",
+        "status": "available",
+        "kind": "actual wrapper evidence",
+        "note": "Synthetic technical validation only; not a benchmark score.",
     },
 }
 PUBLIC_EVIDENCE_FRAMEWORKS = {

@@ -123,7 +123,7 @@ class GenerateDashboardTests(unittest.TestCase):
 
         self.assertEqual(
             [run["framework"] for run in payload["runs"]],
-            ["langgraph"],
+            ["langgraph", "crewai"],
         )
         self.assertEqual(
             payload["runs"][0]["trace"],
@@ -171,7 +171,7 @@ class GenerateDashboardTests(unittest.TestCase):
             by_id["openai_agents_sdk"]["evidence_status"],
             "available",
         )
-        self.assertEqual(by_id["crewai"]["evidence_status"], "not_available")
+        self.assertEqual(by_id["crewai"]["evidence_status"], "available")
         self.assertIn("SYNTHETIC TECHNICAL VALIDATION", html)
         self.assertIn("NOT BENCHMARK SCORES", html)
         self.assertIn("no simulated ranking", html)
