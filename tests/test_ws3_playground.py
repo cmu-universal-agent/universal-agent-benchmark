@@ -19,9 +19,17 @@ class Ws3PlaygroundTests(unittest.TestCase):
             ),
             ("openai_agents_sdk", "help with my order"),
         )
+        self.assertEqual(
+            playground._validated_request(
+                {
+                    "framework": "crewai",
+                    "prompt": "  help with my order  ",
+                }
+            ),
+            ("crewai", "help with my order"),
+        )
         for data in (
             {},
-            {"framework": "crewai", "prompt": "help"},
             {"framework": "langgraph", "prompt": ""},
             {"framework": "langgraph", "prompt": "x" * 4_001},
         ):

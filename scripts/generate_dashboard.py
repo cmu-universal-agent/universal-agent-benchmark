@@ -717,7 +717,7 @@ function render(){
           <div class="play-form">
             <label>Framework<select id="playFramework">${liveFrameworks.map(f =>
               `<option value="${esc(f.id)}" ${f.id === "openai_agents_sdk" ? "selected" : ""}>${esc(f.label)}</option>`
-            ).join("")}<option disabled>CrewAI · reviewing</option></select></label>
+            ).join("")}</select></label>
             <label>Customer request<textarea id="playPrompt" maxlength="4000">${esc(d.input_summary || "")}</textarea></label>
             <div class="play-actions">
               <button id="runLive" type="button">Run live agent</button>

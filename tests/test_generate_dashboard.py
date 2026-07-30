@@ -175,6 +175,7 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertIn("SYNTHETIC TECHNICAL VALIDATION", html)
         self.assertIn("NOT BENCHMARK SCORES", html)
         self.assertIn("no simulated ranking", html)
+        self.assertNotIn("CrewAI · reviewing", html)
         self.assertNotIn("Pass rate", html)
         self.assertNotIn("Median latency", html)
 

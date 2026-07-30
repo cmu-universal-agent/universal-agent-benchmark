@@ -9,8 +9,9 @@ state. All adapters share `adapter/` for task loading, result shape,
 evaluation, and JSONL logging so differences come from framework behavior, not
 from incompatible prompts or schemas.
 
-**Requirements:** Python **3.10+** (code uses `str | None` union syntax), network
-access for setup and model calls, and an OpenAI-compatible API key in `.env`.
+**Requirements:** Python **3.10–3.13** (the pinned CrewAI 1.15.1 requires
+Python `<3.14`), network access for setup and model calls, and an
+OpenAI-compatible API key in `.env`.
 
 ---
 
@@ -53,7 +54,7 @@ see JSONL results and a terminal summary.
 | Step | macOS / Linux | Expected outcome |
 |---|---|---|
 | 1. Clone | `git clone https://github.com/cmu-universal-agent/universal-agent-benchmark.git && cd universal-agent-benchmark` | Repository root with `adapter/`, `frameworks/`, `verticals/`, `scripts/` |
-| 2. Check Python | `python3 --version` | **3.10 or newer** (3.9 fails on import) |
+| 2. Check Python | `python3 --version` | **3.10–3.13** (3.9 fails on import; CrewAI 1.15.1 rejects 3.14) |
 | 3. Configure API | `cp .env.example .env` then edit `.env` | Set at minimum `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
 | 4. Create venvs | `./scripts/setup_envs.sh` | Creates `.venv-openai`, `.venv-langgraph`, `.venv-crewai` |
 | 5. Run smoke benchmark | `python3 scripts/run_benchmark.py` | Default task: `verticals/smoke_test/task_001.json` |

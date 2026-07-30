@@ -34,6 +34,10 @@ RUNNERS = {
         "OpenAI Agents SDK",
         "frameworks.openai_agents_sdk.retail_run",
     ),
+    "crewai": (
+        "CrewAI",
+        "frameworks.crewai_agent.retail_run",
+    ),
 }
 
 

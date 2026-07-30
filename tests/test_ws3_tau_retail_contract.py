@@ -65,11 +65,11 @@ class Ws3TauRetailContractTests(unittest.TestCase):
         self.assertTrue(evidence["validation"]["trace_schema_valid"])
         self.assertEqual(
             evidence["artifact_scope"]["real_wrapper_verified_separately"],
-            ["langgraph", "openai_agents_sdk"],
+            ["langgraph", "openai_agents_sdk", "crewai"],
         )
         self.assertEqual(
             evidence["artifact_scope"]["wrappers_not_verified"],
-            ["crewai"],
+            [],
         )
         self.assertIn("NOT BENCHMARK SCORES", html)
         for forbidden in ("case", "gold", "snapshot", "hash", "evaluator"):
