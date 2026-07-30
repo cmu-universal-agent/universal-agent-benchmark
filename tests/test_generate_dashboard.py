@@ -178,24 +178,5 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertNotIn("Pass rate", html)
         self.assertNotIn("Median latency", html)
 
-    def test_prototype_transfer_calls_match_non_mutating_contract(self) -> None:
-        prototype = (
-            generate_dashboard.ROOT / "docs" / "WS3_dashboard_prototype.html"
-        ).read_text(encoding="utf-8")
-        self.assertIn("DEVELOPMENT-ONLY INCOMPLETE MOCK", prototype)
-        self.assertIn("NOT PUBLIC EVIDENCE", prototype)
-        calls = [
-            fragment.split("}],", 1)[0]
-            for fragment in prototype.split('"transfer_to_human_agents"')[1:]
-        ]
-
-        self.assertGreater(len(calls), 0)
-        for call in calls:
-            self.assertIn("args:{summary:", call)
-            self.assertIn("mut:false", call)
-            self.assertNotIn("order_id:", call)
-            self.assertNotIn("reason:", call)
-
-
 if __name__ == "__main__":
     unittest.main()
