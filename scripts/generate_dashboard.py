@@ -77,7 +77,11 @@ def _first_present(row: dict, raw: dict, key: str):
     return None
 
 
-def _load_case_prompt(vertical: str, case_id: str) -> str | None:
+def _load_case_prompt(
+    vertical: str,
+    case_id: str,
+    max_len: int | None = CASE_PROMPT_MAX_LEN,
+) -> str | None:
     """Best-effort, non-gold case label for the matrix/drawer -- reads the
     agent-visible 'prompt' field straight from the case fixture, if present.
     Never touches evaluator_only (see adapter/retail_core/state.py)."""
@@ -91,8 +95,8 @@ def _load_case_prompt(vertical: str, case_id: str) -> str | None:
     prompt = data.get("prompt")
     if not isinstance(prompt, str) or not prompt:
         return None
-    if len(prompt) > CASE_PROMPT_MAX_LEN:
-        return prompt[: CASE_PROMPT_MAX_LEN - 3] + "..."
+    if max_len is not None and len(prompt) > max_len:
+        return prompt[: max_len - 3] + "..."
     return prompt
 
 
@@ -229,9 +233,13 @@ def _build_synthetic_walkthrough(vertical: str) -> dict | None:
     return {
         "case_id": "RETAIL-E5-001",
         "input_scope": "agent-visible public synthetic fixture",
-        "input_summary": _load_case_prompt(vertical, "RETAIL-E5-001"),
+        "input_summary": _load_case_prompt(
+            vertical,
+            "RETAIL-E5-001",
+            max_len=None,
+        ),
         "allowed_tools": summary["tools"],
-        "output_scope": "sanitized contract validation; not an agent answer",
+        "output_scope": "offline contract replay; not an agent answer",
         "checks": [
             {
                 "label": "Reset",
@@ -315,7 +323,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Retail Simulator — Run Console</title>
+<title>Universal Agent Benchmark — Retail Playground</title>
 <style>
   :root {
     --bg: #E7EAF0;
@@ -434,6 +442,16 @@ HTML_TEMPLATE = r"""<!doctype html>
   .walkthrough h3 { margin: 0 0 8px; font-size: 13px; }
   .walkthrough .scope { color: var(--faint); font-family: var(--font-mono); font-size: 10.5px; margin-bottom: 10px; }
   .walkthrough .prompt { color: var(--ink); line-height: 1.55; }
+  .play-form { display: grid; gap: 12px; }
+  .play-form label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .play-form textarea { width: 100%; min-height: 150px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; padding: 11px; color: var(--ink); background: var(--surface-2); font: 13px/1.5 var(--font-ui); }
+  .play-form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .play-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .play-actions button { border: 1px solid var(--accent); border-radius: 8px; padding: 9px 13px; background: var(--accent); color: white; font: 700 12px var(--font-ui); cursor: pointer; }
+  .play-actions button.secondary { background: var(--surface); color: var(--accent); }
+  .play-actions button:disabled { cursor: wait; opacity: .55; }
+  .play-status { min-height: 18px; color: var(--muted); font-size: 11.5px; }
+  .play-answer { margin: 10px 0 14px; padding: 11px; border-radius: 8px; background: var(--surface-2); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.55 var(--font-mono); }
   .walk-check { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); align-items: center; font-size: 11.5px; }
   .walk-check:last-child { border-bottom: 0; }
   .walk-check code { font-family: var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
@@ -558,8 +576,8 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 <div class="app">
   <aside class="rail">
-    <div class="brand"><b>Run Console</b><span class="v">generated</span></div>
-    <p class="sub">Retail simulator &middot; public technical evidence</p>
+    <div class="brand"><b>Agent Playground</b><span class="v">local</span></div>
+    <p class="sub">Retail simulator &middot; live wrapper demo</p>
 
     <div class="ctl">
       <div class="lbl">Experiment label</div>
@@ -577,15 +595,15 @@ HTML_TEMPLATE = r"""<!doctype html>
     </div>
 
     <div class="rail-note">
-      Reads latest row per <code>(case_id, framework, experiment_label)</code>. Labels never mix. Public drill-downs contain only a sanitized trace and aggregate final-state verdict.
+      Use only the public synthetic fixture. Live runs stay local and return an allowlisted answer + trace; never paste evaluator-only data.
     </div>
   </aside>
 
   <main>
     <div class="head">
       <div>
-        <h1>Retail Simulator &mdash; Run Console</h1>
-        <p>Illustrative public view of synthetic technical validation evidence.</p>
+        <h1>Universal Agent Benchmark &mdash; Retail Playground</h1>
+        <p>Run a real wrapper locally, inspect its safe trace, and keep a deterministic offline fallback.</p>
       </div>
       <div class="meta">
         <span class="pill" id="labelPill">&mdash;</span><br />
@@ -689,20 +707,28 @@ function render(){
 
   let html = "";
 
-  // 1. public synthetic case walkthrough -- shared contract, not a framework result.
+  // 1. local playground -- live wrapper call with a deterministic offline fallback.
   if (DATA.synthetic_walkthrough){
     const d = DATA.synthetic_walkthrough;
-    html += `<section><div class="sec-h"><h2>Synthetic case walkthrough</h2><span class="hint">public input + sanitized technical output</span></div>
+    const liveFrameworks = DATA.frameworks.filter(f => f.evidence_status === "available");
+    html += `<section><div class="sec-h"><h2>Try the retail agent</h2><span class="hint">public synthetic input only</span></div>
       <div class="walkthrough">
         <div class="card"><h3>Input · ${esc(d.case_id)}</h3><div class="scope">${esc(d.input_scope)} · ${d.allowed_tools} allowed tools</div>
-          <div class="prompt">${esc(d.input_summary || "No public prompt is available.")}</div></div>
-        <div class="card"><h3>Output · contract validation</h3><div class="scope">${esc(d.output_scope)}</div>`;
-    d.checks.forEach(c => {
-      const mutation = c.state_changed === true ? " · state changed" :
-        c.state_changed === false ? " · state unchanged" : "";
-      html += `<div class="walk-check"><span>${esc(c.label)}</span><code>${esc(c.tool)}</code><span class="result">${esc(c.outcome + mutation)}</span></div>`;
-    });
-    html += `</div></div></section>`;
+          <div class="play-form">
+            <label>Framework<select id="playFramework">${liveFrameworks.map(f =>
+              `<option value="${esc(f.id)}" ${f.id === "openai_agents_sdk" ? "selected" : ""}>${esc(f.label)}</option>`
+            ).join("")}<option disabled>CrewAI · reviewing</option></select></label>
+            <label>Customer request<textarea id="playPrompt" maxlength="4000">${esc(d.input_summary || "")}</textarea></label>
+            <div class="play-actions">
+              <button id="runLive" type="button">Run live agent</button>
+              <button id="runReplay" class="secondary" type="button">Replay offline validation</button>
+            </div>
+            <div class="play-status" id="playStatus">Live mode requires the local server, framework dependencies, and API credentials.</div>
+          </div>
+        </div>
+        <div class="card"><h3>Output</h3><div class="scope" id="playOutputScope">${esc(d.output_scope)}</div>
+          <div id="playOutput"></div></div>
+      </div></section>`;
   }
 
   // 2. evidence availability -- deliberately not a score or ranking.
@@ -721,8 +747,8 @@ function render(){
   html += `</div></section>`;
 
   if (!DATA.labels.length || !cases.length){
-    html += `<div class="matrix-wrap"><div class="empty big">No public evidence rows are available for <span class="mono">${esc(state.label || DATA.vertical)}</span>.<br><span style="font-size:12px">Unavailable evidence is shown explicitly and is never replaced with simulated results.</span></div></div>`;
     content.innerHTML = html;
+    wirePlayground();
     return;
   }
 
@@ -754,7 +780,62 @@ function render(){
   html += `</tbody></table></div></section>`;
 
   content.innerHTML = html;
+  wirePlayground();
   content.querySelectorAll(".chip").forEach(btn => btn.addEventListener("click", () => openDrawer(btn.dataset.run)));
+}
+
+function traceRows(rows){
+  if (!rows || !rows.length) return `<div class="empty">No tool calls were recorded.</div>`;
+  return rows.map((c, i) => {
+    const mutation = c.state_changed === true ? " · state changed" :
+      c.state_changed === false ? " · state unchanged" : "";
+    return `<div class="walk-check"><span>${esc(c.label || ("Step " + (i + 1)))}</span><code>${esc(c.tool_name || c.tool)}</code><span class="result">${esc((c.outcome || "unknown") + mutation)}</span></div>`;
+  }).join("");
+}
+
+function wirePlayground(){
+  if (!DATA.synthetic_walkthrough) return;
+  const d = DATA.synthetic_walkthrough;
+  const output = document.getElementById("playOutput");
+  const scope = document.getElementById("playOutputScope");
+  const status = document.getElementById("playStatus");
+  const live = document.getElementById("runLive");
+  const replay = document.getElementById("runReplay");
+
+  function showReplay(){
+    scope.textContent = d.output_scope;
+    output.innerHTML = `<div class="play-answer">Deterministic contract validation passed. This replay is not an agent answer or benchmark score.</div>${traceRows(d.checks)}`;
+    status.textContent = "Offline replay ready · no network or model call.";
+  }
+
+  replay.addEventListener("click", showReplay);
+  live.addEventListener("click", async () => {
+    const prompt = document.getElementById("playPrompt").value.trim();
+    const framework = document.getElementById("playFramework").value;
+    if (!prompt){ status.textContent = "Enter a customer request first."; return; }
+    live.disabled = true; replay.disabled = true;
+    status.textContent = "Running the selected wrapper locally…";
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({framework, prompt}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Live run failed.");
+      const tokens = result.token_usage && result.token_usage.total_tokens != null
+        ? ` · ${result.token_usage.total_tokens} tokens` : "";
+      scope.textContent = `${result.framework_label} · live local run · ${result.latency_seconds}s${tokens}`;
+      const answer = result.answer || result.error || "The wrapper returned no final answer.";
+      output.innerHTML = `<div class="play-answer">${esc(answer)}</div>${traceRows(result.trace)}`;
+      status.textContent = result.success ? "Live run completed." : "The wrapper returned an error.";
+    } catch (error) {
+      status.textContent = error.message || "Start the local playground server to use live mode.";
+    } finally {
+      live.disabled = false; replay.disabled = false;
+    }
+  });
+  showReplay();
 }
 
 /* ---- drawer ---- */

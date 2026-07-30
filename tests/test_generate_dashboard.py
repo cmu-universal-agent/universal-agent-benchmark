@@ -197,6 +197,9 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertIn("get_order_details", html)
         self.assertIn("modify_pending_order_payment", html)
         self.assertIn("not an agent answer", html)
+        self.assertIn("Run live agent", html)
+        self.assertIn("Replay offline validation", html)
+        self.assertIn('fetch("/api/run"', html)
         for forbidden in (
             "state_before_sha256",
             "state_after_sha256",

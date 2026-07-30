@@ -369,6 +369,7 @@ Supporting references: `docs/dataset_gold_generation_plan.md`,
 ```bash
 python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
 python3 scripts/generate_dashboard.py --vertical retail --synthetic-walkthrough
+python3 scripts/serve_ws3_playground.py                    # http://127.0.0.1:8765
 open results/dashboard.html                                # macOS; or just double-click the file
 ```
 
@@ -381,5 +382,10 @@ is generated (gitignored), so it isn't checked in or viewable on GitHub —
 regenerate it locally and open the file to view it.
 Use `--synthetic-walkthrough` for the meeting-ready public case input and
 sanitized contract-validation output; it does not create framework scores.
+Use `serve_ws3_playground.py` for the interactive meeting page: enter a request,
+choose a merged wrapper, and run it locally with `OPENAI_API_KEY` configured.
+Live responses expose only the agent answer and an allowlisted trace; they are
+not written to `results/metrics`. The offline replay remains available without
+a model call.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>
