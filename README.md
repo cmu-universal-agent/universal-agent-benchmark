@@ -359,12 +359,8 @@ Read in this order:
    proposals (including stress metadata in §10 on the stress branch).
 6. **`docs/stress_testing_README.md`** — stress-testing design and fixture
    guidance.
-7. **`docs/current_status_and_handoff.md`** — **historical** WS2 snapshot
-   (2026-07-16); use only for background. The banner at the top points to the
-   project lead guide for anything current.
-
 Supporting references: `docs/dataset_gold_generation_plan.md`,
-`docs/workstream_2_summary.md`, `results/preliminary_technical_smoke_20260717.md`.
+`results/preliminary_technical_smoke_20260717.md`.
 
 ## Retail run console (dashboard)
 
