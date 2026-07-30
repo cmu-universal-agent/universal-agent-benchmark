@@ -1,8 +1,9 @@
 # Core Pilot Data Preparation
 
-This workflow prepares local review samples for the eight minimum benchmark
-tasks: H1, H2, H4, H5, E1, E2, E3, and E5. Raw datasets and generated samples
-stay under the gitignored `data/` directory.
+This workflow prepares 60 local review samples for the eight minimum benchmark
+tasks: eight each for H1, H2, H4, H5, E1, E2, and E3, plus the four
+owner-approved E5 cases. Raw datasets and generated samples stay under the
+gitignored `data/` directory.
 
 ## Source caches
 

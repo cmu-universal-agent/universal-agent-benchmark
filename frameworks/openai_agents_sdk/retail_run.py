@@ -5,9 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
 from adapter.runtime import (
@@ -25,7 +30,6 @@ from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.retail_core.env import RetailEnv
 from frameworks.openai_agents_sdk.retail_tools import make_retail_tools
 
-ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = str(ROOT / "verticals" / "retail")
 FRAMEWORK_NAME = "openai_agents_sdk"
 WRAPPER_VERSION = "0.1.0"

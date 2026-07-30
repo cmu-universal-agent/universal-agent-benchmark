@@ -66,6 +66,17 @@ PUBLIC_EVIDENCE_FRAMEWORKS = {
     if evidence["status"] == "available"
 }
 
+EVALUATION_READINESS = [
+    {"task_id": "H1", "vertical": "Healthcare", "cases": 8, "scorer": "exact decision"},
+    {"task_id": "H2", "vertical": "Healthcare", "cases": 8, "scorer": "exact urgency + undertriage"},
+    {"task_id": "H4", "vertical": "Healthcare", "cases": 8, "scorer": "normalized set F1"},
+    {"task_id": "H5", "vertical": "Healthcare", "cases": 8, "scorer": "boundary action + human rubric"},
+    {"task_id": "E1", "vertical": "E-commerce", "cases": 8, "scorer": "exact trend"},
+    {"task_id": "E2", "vertical": "E-commerce", "cases": 8, "scorer": "ranking + constraints"},
+    {"task_id": "E3", "vertical": "E-commerce", "cases": 8, "scorer": "exact policy decision"},
+    {"task_id": "E5", "vertical": "E-commerce", "cases": 4, "scorer": "response contract + simulator state"},
+]
+
 
 def _first_present(row: dict, raw: dict, key: str):
     """Prefer a first-class field on the row; fall back to raw_metadata.
@@ -310,6 +321,7 @@ def build_payload(
         "frameworks": _collect_frameworks(),
         "cases_by_label": _collect_cases_by_label(runs, vertical),
         "runs": runs,
+        "evaluation_readiness": EVALUATION_READINESS,
         "synthetic_walkthrough": (
             _build_synthetic_walkthrough(vertical)
             if include_synthetic_walkthrough
@@ -323,7 +335,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Universal Agent Benchmark — Retail Playground</title>
+<title>Universal Agent Benchmark &mdash; Evaluation Console</title>
 <style>
   :root {
     --bg: #E7EAF0;
@@ -602,8 +614,8 @@ HTML_TEMPLATE = r"""<!doctype html>
   <main>
     <div class="head">
       <div>
-        <h1>Universal Agent Benchmark &mdash; Retail Playground</h1>
-        <p>Run a real wrapper locally, inspect its safe trace, and keep a deterministic offline fallback.</p>
+        <h1>Universal Agent Benchmark &mdash; Evaluation Console</h1>
+        <p>Inspect the 60-case dual-industry pilot and run the retail wrapper playground locally.</p>
       </div>
       <div class="meta">
         <span class="pill" id="labelPill">&mdash;</span><br />
@@ -701,7 +713,10 @@ document.getElementById("disclosure").textContent = DATA.disclosure;
 
 function render(){
   const runs = activeRuns();
-  document.getElementById("runCount").textContent = runs.length + " public evidence rows";
+  const availableEvidence = DATA.frameworks.filter(f => f.evidence_status === "available").length;
+  document.getElementById("runCount").textContent = runs.length
+    ? runs.length + " public result rows"
+    : availableEvidence + " offline wrapper evidences";
   const content = document.getElementById("content");
   const cases = DATA.cases_by_label[state.label] || [];
 
@@ -731,12 +746,22 @@ function render(){
       </div></section>`;
   }
 
-  // 2. evidence availability -- deliberately not a score or ranking.
+  // 2. dual-industry evaluation readiness -- no case content or gold values.
+  html += `<section><div class="sec-h"><h2>60-case evaluation readiness</h2><span class="hint">Healthcare 32 &middot; E-commerce 28 &middot; evaluator-only gold stays local</span></div>
+    <div class="matrix-wrap"><table><thead><tr><th>Task</th><th>Vertical</th><th>Cases</th><th>Scoring path</th><th>Status</th></tr></thead><tbody>`;
+  DATA.evaluation_readiness.forEach(row => {
+    html += `<tr><td class="case-id">${esc(row.task_id)}</td><td>${esc(row.vertical)}</td><td>${row.cases}</td><td>${esc(row.scorer)}</td><td><span class="evidence-status available" style="font-size:12px">READY OFFLINE</span></td></tr>`;
+  });
+  html += `</tbody></table></div></section>`;
+
+  // 3. evidence availability -- deliberately not a score or ranking.
   html += `<section><div class="sec-h"><h2>Framework evidence availability</h2><span class="hint">availability only &middot; no simulated ranking</span></div><div class="cards">`;
   DATA.frameworks.filter(f => state.active.has(f.id)).forEach(f => {
     const evidenceCount = runs.filter(r => r.framework === f.id).length;
     const countNote = f.evidence_status === "available"
-      ? `${evidenceCount} sanitized row${evidenceCount === 1 ? "" : "s"} for this label`
+      ? (evidenceCount
+          ? `${evidenceCount} sanitized result row${evidenceCount === 1 ? "" : "s"} for this label`
+          : "Offline wrapper evidence validated; no model result rows")
       : "No result rows are published";
     html += `<div class="card">
       <div class="fw"><span class="swatch" style="background:${f.color}"></span>${esc(f.label)}</div>
@@ -752,7 +777,7 @@ function render(){
     return;
   }
 
-  // 3. per-case aggregate verdicts
+  // 4. per-case aggregate verdicts
   html += `<section><div class="sec-h"><h2>Per-case technical validation</h2><span class="hint">click available cells for sanitized trace + aggregate final-state verdict</span></div><div class="matrix-wrap"><table><thead><tr><th>Case</th>`;
   DATA.frameworks.filter(f=>state.active.has(f.id)).forEach(f => html += `<th class="fw">${esc(f.label)}</th>`);
   html += `</tr></thead><tbody>`;

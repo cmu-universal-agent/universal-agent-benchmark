@@ -14,7 +14,7 @@ Benchmark 的目标不是看 agent「能不能答对常规题」，而是回答�
 
 **一次只施加一种压力。** 每个 variant 相对 base case 只改一个因素（输入、工具环境、上下文长度、或运行协议）。这样失败可以归因到具体的 `stress_type`，而不是混成一团。
 
-**base 不动，variant 另存。** Core pilot 的 64 个 case 是评测基准本身，不在原文件上打补丁。Stress 版本单独存放，通过 `stress_variant_of`（待 Chloe 确认）指回 base。
+**base 不动，variant 另存。** Core pilot 的 60 个 case 是评测基准本身，不在原文件上打补丁。Stress 版本单独存放，通过 `stress_variant_of`（待 Chloe 确认）指回 base。
 
 **结构失败和内容失败分开。** `adapter/evaluator.py` 管 JSON、schema、instruction 合规；gold/rubric 管答案对不对；`unsafe_response` 单独标记输出是否有害——三者不混为一个分数。
 
@@ -66,4 +66,4 @@ Healthcare 四个任务（H1/H2/H4/H5）压的是**证据、分诊、摘要、�
 
 现在是**设计冻结、fixture 未写**阶段：思路和三份 rubric 已就绪，等 Chloe 确认 schema 字段后再生成 stress case JSON。此前不跑模型、不改 core task、不改 schema。
 
-更多项目背景见 `PROJECT_LEAD_GUIDE.md`、`framework_comparison_rationale.md`。
+更多项目背景见仓库 `README.md` 和 `framework_comparison_rationale.md`。

@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v6"
+GENERATOR_VERSION = "core-pilot-converter-v7"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -47,6 +47,7 @@ H2_LOCAL_REVIEW_DECISIONS = (
 H5_LOCAL_OWNER_DIR = (
     ROOT / "evaluator_data" / "local_review_decisions" / "h5_owner_cases"
 )
+H5_APPROVAL_PATH = ROOT / "evaluator_data" / "rubrics" / "h5_manual_case_spec.json"
 E5_LOCAL_OWNER_BATCH = (
     ROOT / "evaluator_data" / "local_review_decisions" / "E5_cases_batch1.json"
 )
@@ -806,6 +807,28 @@ def convert_h4(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     return cases, gold, {"source_records": len(rows), "selected_subsources": dict(Counter(row["dataset"] for row in selected)), "empty_extracted_fields": dict(empty_counts)}
 
 
+def _apply_h5_approval(
+    loaded: list[tuple[dict, dict, dict[str, Any]]],
+    approval: dict[str, Any],
+) -> list[tuple[dict, dict, dict[str, Any]]]:
+    feedback = approval.get("owner_feedback", {})
+    if approval.get("status") != "approved":
+        return loaded
+    actual = Counter(row[1]["result"]["boundary_action"] for row in loaded)
+    if dict(actual) != feedback.get("cases_supplied", {}):
+        raise ValueError("H5 owner package does not match the approved case counts")
+    approved_review = {
+        "status": feedback["review_status"],
+        "reviewed_by": feedback["reviewed_by"],
+        "reviewed_at": feedback["reviewed_at"],
+        "notes": feedback["review_note"],
+    }
+    return [
+        (case, payload, dict(approved_review))
+        for case, payload, _review in loaded
+    ]
+
+
 def _load_h5_owner_cases() -> list[tuple[dict, dict, dict[str, Any]]]:
     """Load Chloe-authored H5 cases without exposing evaluator-only fields."""
 
@@ -895,7 +918,7 @@ def _load_h5_owner_cases() -> list[tuple[dict, dict, dict[str, Any]]]:
                 "notes": "Owner-authored rubric requires review before approval.",
             }
         loaded.append((normalized_case, gold_payload, review))
-    return loaded
+    return _apply_h5_approval(loaded, _read_json(H5_APPROVAL_PATH))
 
 
 def _select_h5_owner_cases(
@@ -1181,6 +1204,18 @@ def convert_e3(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     }
 
 
+def _e5_replay_ready(row: dict[str, Any]) -> bool:
+    final_state = row.get("final_state") or {}
+    return bool(
+        row.get("source", {}).get("version")
+        and row.get("initial_state_ref")
+        and row.get("initial_state_hash")
+        and final_state.get("expected_agent_db_hash")
+        and "expected_user_db_hash" in final_state
+        and final_state.get("gold_replay_clean") is True
+    )
+
+
 def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     document = _read_json(E5_LOCAL_OWNER_BATCH)
     approval = _read_json(E5_APPROVAL_PATH)
@@ -1189,6 +1224,8 @@ def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
     candidates = document.get("cases")
     if not isinstance(candidates, list) or not candidates:
         raise ValueError("E5 owner batch must contain a non-empty cases array")
+    if not all(_e5_replay_ready(row) for row in candidates):
+        raise ValueError("E5 private replay fields are incomplete")
     selected = _stable_take(candidates, count, seed, lambda row: row["case_id"])
     cases, gold = [], []
     tool_sets: set[tuple[str, ...]] = set()
@@ -1248,6 +1285,7 @@ def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
         "retail_tool_registry_size": len(next(iter(tool_sets))),
         "semantic_version": approval["semantics_version"],
         "private_source": approval["private_source"],
+        "gold_replay_ready": True,
     }
 
 
@@ -1265,7 +1303,7 @@ def _write_json(path: Path, value: Any) -> None:
 def _new_coverage_report(count: int, seed: int) -> dict[str, Any]:
     return {
         "schema_version": "1.0",
-        "status": "review_samples_not_approved",
+        "status": "building",
         "generator": GENERATOR_VERSION,
         "seed": seed,
         "requested_per_task": count,
@@ -1347,10 +1385,12 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
                 "the local evaluator-only directory."
             )
     if "E5" in tasks:
-        report["known_gaps"].append(
-            "E5 conversion is owner-approved; runtime must resolve the local "
-            "source task and pinned snapshot, then fill expected hashes."
-        )
+        e5_status = report["tasks"].get("E5", {})
+        if not e5_status.get("gold_replay_ready"):
+            report["known_gaps"].append(
+                "E5 conversion is owner-approved, but its private replay "
+                "fields are incomplete."
+            )
     report["total_cases"] = sum(
         status.get("cases", 0) for status in report["tasks"].values()
     )
@@ -1359,6 +1399,13 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
     )
     manifest["total_cases"] = sum(
         len(entries) for entries in manifest["tasks"].values()
+    )
+    report["status"] = (
+        "blocked"
+        if failures
+        else "prepared_with_known_gaps"
+        if report["known_gaps"]
+        else "offline_evaluation_ready"
     )
     _write_json(output / "split_manifest.json", manifest)
     _write_json(output / "coverage_report.json", report)

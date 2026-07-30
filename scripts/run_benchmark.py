@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from adapter.evaluator import evaluate_result
+from adapter.evaluator import evaluate_core_gold, evaluate_result
 from adapter.result_writer import default_result_path
 from adapter.schemas import AgentRunResult
 from adapter.task_loader import load_task
@@ -57,6 +57,21 @@ def _resolve_task_paths(task_arg: Path) -> list[Path]:
     if task_arg.is_dir():
         return sorted(task_arg.glob("*.json"))
     return [task_arg]
+
+
+def _load_gold(task_arg: Path) -> dict[str, dict]:
+    if not task_arg.is_dir():
+        return {}
+    gold_dir = task_arg.parent / "gold"
+    if not gold_dir.is_dir():
+        return {}
+    rows = {}
+    for path in sorted(gold_dir.glob("*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                rows[row["case_id"]] = row
+    return rows
 
 
 def main():
@@ -108,6 +123,7 @@ def main():
     print(f"experiment_id={experiment_id} model={configured_model}")
 
     task_paths = _resolve_task_paths(args.task)
+    gold_by_case = _load_gold(args.task)
     if not task_paths:
         print(f"no task files found at {args.task}")
         return
@@ -202,6 +218,11 @@ def main():
                 )
                 for r in results_objs
             ]
+            core_metrics = [
+                evaluate_core_gold(r, gold_by_case[case_key])
+                for r in results_objs
+                if case_key in gold_by_case
+            ]
 
             success_rate = sum(m["success"] for m in metrics_list) / n
             json_valid_rate = sum(m["json_valid"] for m in metrics_list) / n
@@ -228,6 +249,15 @@ def main():
             if required_keys:
                 req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
+            core_score_field = ""
+            supported_core = [
+                metric for metric in core_metrics if metric["supported"]
+            ]
+            if supported_core:
+                core_score = sum(metric["score"] for metric in supported_core) / len(
+                    supported_core
+                )
+                core_score_field = f"core_gold_score={core_score:.0%} "
 
             print(
                 f"{case_key:>18} {name:>18} (n={n}): success_rate={success_rate:.0%} "
@@ -235,6 +265,7 @@ def main():
                 f"{output_schema_field}"
                 f"instruction_following_rate={instruction_following_rate:.0%} "
                 f"{required_keys_field}"
+                f"{core_score_field}"
                 f"avg_latency={avg_latency:.2f}s"
             )
 

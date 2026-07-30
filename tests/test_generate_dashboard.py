@@ -179,6 +179,23 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertNotIn("Pass rate", html)
         self.assertNotIn("Median latency", html)
 
+    def test_dashboard_declares_dual_industry_60_case_readiness(self) -> None:
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[],
+        ):
+            payload = generate_dashboard.build_payload("retail")
+        html = generate_dashboard.render_html(payload)
+
+        self.assertEqual(sum(row["cases"] for row in payload["evaluation_readiness"]), 60)
+        self.assertEqual(len(payload["evaluation_readiness"]), 8)
+        self.assertIn("60-case evaluation readiness", html)
+        self.assertIn("Healthcare 32", html)
+        self.assertIn("E-commerce 28", html)
+        self.assertIn("offline wrapper evidences", html)
+        self.assertIn("Offline wrapper evidence validated; no model result rows", html)
+
     def test_synthetic_walkthrough_is_populated_and_public_safe(self) -> None:
         with patch.object(
             generate_dashboard,

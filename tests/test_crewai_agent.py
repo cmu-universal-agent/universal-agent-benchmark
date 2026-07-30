@@ -73,11 +73,12 @@ class ToolSelectionTests(unittest.TestCase):
             )
         self.assertEqual(agent_class.call_args.kwargs["tools"], [])
 
-    def test_crewai_credential_storage_is_project_local(self) -> None:
+    def test_crewai_credential_storage_stays_under_configured_storage(self) -> None:
         from crewai_core.token_manager import TokenManager
 
         storage_path = TokenManager._get_secure_storage_path()
-        self.assertTrue(storage_path.is_relative_to(ROOT))
+        configured = Path(os.environ["CREWAI_STORAGE_DIR"]).resolve()
+        self.assertTrue(storage_path.is_relative_to(configured))
         self.assertEqual(storage_path.name, "credentials")
 
 

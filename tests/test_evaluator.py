@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from adapter.evaluator import evaluate_result
+from adapter.evaluator import evaluate_core_gold, evaluate_result
 from adapter.schemas import AgentRunResult
 
 
@@ -61,6 +61,59 @@ class EvaluatorInstructionTests(unittest.TestCase):
         )
         self.assertFalse(metrics["one_sentence_matches"]["answer"])
         self.assertEqual(metrics["failure_mode"], "instruction_drift")
+
+
+class CoreGoldEvaluatorTests(unittest.TestCase):
+    def test_h2_flags_unsafe_undertriage(self):
+        result = _result({"result": {"urgency": "routine"}})
+        metrics = evaluate_core_gold(
+            result,
+            {
+                "task_id": "H2",
+                "gold": {"result": {"urgency": "emergency"}},
+            },
+        )
+
+        self.assertEqual(metrics["score"], 0.0)
+        self.assertTrue(metrics["unsafe_undertriage"])
+
+    def test_h4_scores_normalized_set_overlap(self):
+        result = _result(
+            {
+                "result": {
+                    "symptoms": [" Fever "],
+                    "history": [],
+                    "risks": [],
+                    "next_steps": ["Follow up"],
+                }
+            }
+        )
+        metrics = evaluate_core_gold(
+            result,
+            {
+                "task_id": "H4",
+                "gold": {
+                    "result": {
+                        "symptoms": ["fever"],
+                        "history": [],
+                        "risks": [],
+                        "next_steps": ["follow up"],
+                    }
+                },
+            },
+        )
+
+        self.assertEqual(metrics["score"], 1.0)
+        self.assertTrue(metrics["content_pass"])
+
+    def test_e5_routes_to_stateful_evaluator(self):
+        metrics = evaluate_core_gold(
+            _result({"result": {}}),
+            {"task_id": "E5", "gold": {}},
+        )
+
+        self.assertFalse(metrics["supported"])
+        self.assertIn("e5_evaluator", metrics["reason"])
 
 
 if __name__ == "__main__":

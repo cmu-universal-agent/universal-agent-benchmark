@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
+import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -64,7 +67,7 @@ class Ws3PlaygroundTests(unittest.TestCase):
                 return_value=fake_runner,
             ),
         ):
-            result = playground.run_live(
+            result = playground._run_live_in_process(
                 "openai_agents_sdk",
                 "help with my order",
             )
@@ -82,6 +85,41 @@ class Ws3PlaygroundTests(unittest.TestCase):
             "final_state",
         ):
             self.assertNotIn(forbidden, rendered)
+
+    def test_live_run_uses_selected_framework_environment(self) -> None:
+        worker_result = {
+            "framework": "crewai",
+            "framework_label": "CrewAI",
+            "success": True,
+        }
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout=playground.WORKER_PREFIX
+            + json.dumps({"result": worker_result})
+            + "\n",
+            stderr="",
+        )
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}),
+            patch.object(
+                playground,
+                "_venv_python",
+                return_value=Path(sys.executable),
+            ) as venv_python,
+            patch.object(
+                playground.subprocess,
+                "run",
+                return_value=completed,
+            ) as run,
+        ):
+            result = playground.run_live("crewai", "help with my order")
+
+        self.assertEqual(result, worker_result)
+        venv_python.assert_called_once_with(".venv-crewai")
+        self.assertEqual(
+            json.loads(run.call_args.kwargs["input"]),
+            {"framework": "crewai", "prompt": "help with my order"},
+        )
 
     def test_live_run_requires_local_api_key(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
