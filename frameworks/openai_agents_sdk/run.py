@@ -42,19 +42,16 @@ from agents import (
     set_tracing_disabled,
 )
 
-api_key = os.getenv("OPENAI_API_KEY")
-base_url = os.getenv("OPENAI_BASE_URL")
-set_default_openai_api("chat_completions")
-
-set_default_openai_client(
-    AsyncOpenAI(
-        api_key=api_key,
-        base_url=base_url,
-    ),
-    use_for_tracing=False,
-)
-
-set_tracing_disabled(True)
+def _configure_openai_client() -> None:
+    set_default_openai_api("chat_completions")
+    set_default_openai_client(
+        AsyncOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_BASE_URL"),
+        ),
+        use_for_tracing=False,
+    )
+    set_tracing_disabled(True)
 
 
 @function_tool
@@ -88,6 +85,7 @@ def _build_agent(
     allowed_tools: list[str] | None,
     generation_settings: GenerationSettings,
 ) -> tuple[Agent, GenerationSettingsResolution]:
+    _configure_openai_client()
     model_name = os.getenv("OPENAI_MODEL", "gpt-4")
     supported_settings = normalize_openai_model_settings(
         model_name,
@@ -140,6 +138,11 @@ async def _run_agent(
 
 
 def run_task(task: BenchmarkTask) -> AgentRunResult:
+    if task.vertical == "retail":
+        from frameworks.openai_agents_sdk.retail_run import run_retail_task
+
+        return run_retail_task(task)
+
     return run_framework_task(
         task,
         framework=FRAMEWORK_NAME,
