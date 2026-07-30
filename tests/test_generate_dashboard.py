@@ -169,7 +169,7 @@ class GenerateDashboardTests(unittest.TestCase):
         self.assertEqual(by_id["langgraph"]["evidence_status"], "available")
         self.assertEqual(
             by_id["openai_agents_sdk"]["evidence_status"],
-            "not_available",
+            "available",
         )
         self.assertEqual(by_id["crewai"]["evidence_status"], "not_available")
         self.assertIn("SYNTHETIC TECHNICAL VALIDATION", html)
