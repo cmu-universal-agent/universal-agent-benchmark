@@ -13,7 +13,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env", override=False)
 sys.path.insert(0, str(ROOT))
 
 from adapter.task_loader import load_task  # noqa: E402
