@@ -182,6 +182,8 @@ class GenerateDashboardTests(unittest.TestCase):
         prototype = (
             generate_dashboard.ROOT / "docs" / "WS3_dashboard_prototype.html"
         ).read_text(encoding="utf-8")
+        self.assertIn("DEVELOPMENT-ONLY INCOMPLETE MOCK", prototype)
+        self.assertIn("NOT PUBLIC EVIDENCE", prototype)
         calls = [
             fragment.split("}],", 1)[0]
             for fragment in prototype.split('"transfer_to_human_agents"')[1:]

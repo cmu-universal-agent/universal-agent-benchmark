@@ -60,9 +60,13 @@ class Ws3TauRetailContractTests(unittest.TestCase):
         self.assertEqual(summary["tools"], 16)
         self.assertEqual(summary["duplicate_error"], "duplicate_action")
         self.assertFalse(summary["duplicate_state_changed"])
-        self.assertEqual(evidence["wrapper_version"], "synthetic-contract-fixture")
+        self.assertEqual(evidence["artifact_type"], "synthetic_technical_validation")
+        self.assertTrue(evidence["validation"]["state_schema_valid"])
+        self.assertTrue(evidence["validation"]["trace_schema_valid"])
         self.assertIn("NOT BENCHMARK SCORES", html)
-        self.assertNotIn("evaluator_only", html)
+        for forbidden in ("case", "gold", "snapshot", "hash", "evaluator"):
+            self.assertNotIn(forbidden, json.dumps(evidence).lower())
+            self.assertNotIn(forbidden, html.lower())
 
 
 if __name__ == "__main__":
