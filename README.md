@@ -40,6 +40,8 @@ gold, snapshots, hashes, raw traces, and evaluator output stay outside Git.
 `verticals/retail/cases/RETAIL-E5-001.json` is a public `synthetic_fixture` for
 tests and demos, not a formal E5 case. Synthetic smoke and demo artifacts are
 technical validation only, not benchmark scores or framework rankings.
+See `docs/ws3_methodology_and_limitations.md` for the validation protocol,
+privacy boundary, exclusions, and known limitations.
 
 ---
 
