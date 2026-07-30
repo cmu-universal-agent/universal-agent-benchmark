@@ -9,8 +9,9 @@ state. All adapters share `adapter/` for task loading, result shape,
 evaluation, and JSONL logging so differences come from framework behavior, not
 from incompatible prompts or schemas.
 
-**Requirements:** Python **3.10+** (code uses `str | None` union syntax), network
-access for setup and model calls, and an OpenAI-compatible API key in `.env`.
+**Requirements:** Python **3.10–3.13** (the pinned CrewAI 1.15.1 requires
+Python `<3.14`), network access for setup and model calls, and an
+OpenAI-compatible API key in `.env`.
 
 ---
 
@@ -53,7 +54,7 @@ see JSONL results and a terminal summary.
 | Step | macOS / Linux | Expected outcome |
 |---|---|---|
 | 1. Clone | `git clone https://github.com/cmu-universal-agent/universal-agent-benchmark.git && cd universal-agent-benchmark` | Repository root with `adapter/`, `frameworks/`, `verticals/`, `scripts/` |
-| 2. Check Python | `python3 --version` | **3.10 or newer** (3.9 fails on import) |
+| 2. Check Python | `python3 --version` | **3.10–3.13** (3.9 fails on import; CrewAI 1.15.1 rejects 3.14) |
 | 3. Configure API | `cp .env.example .env` then edit `.env` | Set at minimum `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
 | 4. Create venvs | `./scripts/setup_envs.sh` | Creates `.venv-openai`, `.venv-langgraph`, `.venv-crewai` |
 | 5. Run smoke benchmark | `python3 scripts/run_benchmark.py` | Default task: `verticals/smoke_test/task_001.json` |
@@ -368,6 +369,8 @@ Supporting references: `docs/dataset_gold_generation_plan.md`,
 
 ```bash
 python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
+python3 scripts/generate_dashboard.py --vertical retail --synthetic-walkthrough
+python3 scripts/serve_ws3_playground.py                    # http://127.0.0.1:8765
 open results/dashboard.html                                # macOS; or just double-click the file
 ```
 
@@ -378,5 +381,12 @@ synthetic technical validation, not benchmark scoring: it publishes sanitized
 trace summaries and aggregate final-state verdicts only. `results/dashboard.html`
 is generated (gitignored), so it isn't checked in or viewable on GitHub —
 regenerate it locally and open the file to view it.
+Use `--synthetic-walkthrough` for the meeting-ready public case input and
+sanitized contract-validation output; it does not create framework scores.
+Use `serve_ws3_playground.py` for the interactive meeting page: enter a request,
+choose a merged wrapper, and run it locally with `OPENAI_API_KEY` configured.
+Live responses expose only the agent answer and an allowlisted trace; they are
+not written to `results/metrics`. The offline replay remains available without
+a model call.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>

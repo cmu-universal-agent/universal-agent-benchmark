@@ -28,9 +28,8 @@ replay, and benchmark results.
 
 - Official repository:
   <https://github.com/cmu-universal-agent/universal-agent-benchmark>
-- Verified `main`: `3eba52371cb9ce9b2643117687a56fcbf2771e55`.
-- Verified on 2026-07-30: no open pull requests.
-- PRs #14, #15, #17, #18, and #19 are merged.
+- Verified `main`: `4bf4ef4a9147fbfbf3504a3e4cce258ce2088fdc`.
+- PRs #14, #15, #17, #18, #19, #21, and #22 are merged.
 - PRs #13 and #16 were closed without merge after their useful work was
   superseded or consolidated.
 - Canonical local checkout:
@@ -48,7 +47,7 @@ the GitHub-verified `main` and use one clean worktree per active PR.
 |---|---|
 | WS1 - scope and task selection | Complete |
 | WS2 - infrastructure and dataset preparation | Complete and merged |
-| WS3 - shared retail evaluation | Two of three real wrappers complete |
+| WS3 - shared retail evaluation | Complete: three real wrappers and parity gate passed |
 | WS4 - formal experiments | Not started; current outputs are engineering validation |
 | WS5 - analysis and final report | Not started as a formal workstream |
 
@@ -61,8 +60,13 @@ the GitHub-verified `main` and use one clean worktree per active PR.
   schema-valid offline wrapper evidence.
 - Real OpenAI Agents SDK wrapper from PR #18 with all 16 tools registered as
   `FunctionTool` objects and schema-valid offline wrapper evidence.
+- Real CrewAI wrapper from PR #22 with all 16 tools registered as native
+  `BaseTool` objects and schema-valid offline wrapper evidence.
 - LangGraph and OpenAI invalid-argument paths reach the shared core and emit
   canonical rejected traces.
+- Three-framework parity validation passed with `wrapper_evidence=3`.
+- Methodology and limitations are documented in
+  `docs/ws3_methodology_and_limitations.md`.
 - Public-safe E5 evaluator, conversion, smoke, and pinned replay plumbing.
 - Private formal E5 replay completed twice with byte-identical output for all
   four approved cases.
@@ -70,31 +74,21 @@ the GitHub-verified `main` and use one clean worktree per active PR.
 - Public dashboard generator with aggregate-only, allowlisted output.
 - The old static dashboard prototype and its detailed simulated OpenAI/CrewAI
   rows were removed in PR #17.
-- Dashboard evidence status after PR #19:
+- Dashboard evidence status:
   - LangGraph: `available`
   - OpenAI Agents SDK: `available`
-  - CrewAI: `not_available`
+  - CrewAI: `available`
 
-Current real wrapper count is 2/3. Shared-core evidence is not framework
+Current real wrapper count is 3/3. Shared-core evidence is not framework
 evidence, and synthetic demo output is not a benchmark score.
 
-## WS3 remaining gates
+## WS3 gate result
 
-1. Implement a real CrewAI retail wrapper that registers all 16 canonical
-   tools through CrewAI and forwards execution to the shared `RetailEnv`.
-2. Add CrewAI offline wrapper evidence and tests covering the same seven
-   scenarios and eight calls used by LangGraph and OpenAI.
-3. Add a concise methodology and limitations document covering protocol,
-   synthetic/non-scoring scope, exclusions, privacy boundary, and known
-   limitations.
-4. After CrewAI passes, run one clean three-framework parity validation and
-   require `wrapper_evidence=3`.
-5. Only after that validation, change CrewAI dashboard evidence from
-   `not_available` to `available`.
-
-No CrewAI retail wrapper PR or matching remote branch was visible on GitHub
-when this guide was verified. WS3 is not complete until the three-framework
-parity gate passes.
+PR #22 supplied the CrewAI wrapper, matching offline evidence, focused tests,
+and the methodology/limitations record. A clean Python 3.12 validation across
+LangGraph, OpenAI Agents SDK, and CrewAI passed the shared contract validator
+with `wrapper_evidence=3`. Raw evidence remained local and was deleted after
+validation.
 
 ## Wrapper evidence gate
 
@@ -151,12 +145,12 @@ Current local-only replay locations:
 
 | Area | Owner | Reviewer | Next action |
 |---|---|---|---|
-| Canonical contract and cross-framework integration | Jessica | Framework owner | Protect the 16-tool contract and run final parity |
+| Canonical contract and cross-framework integration | Jessica | Framework owner | Protect the completed 16-tool and 3/3 wrapper parity gate |
 | E5 semantics and gold | Chloe | Jessica for integration/privacy | Review only if public evaluator semantics change |
-| Shared retail core | Xiaoxia | Jessica | Support CrewAI integration and contract regressions |
-| CrewAI WS3 wrapper | Mickey | Jessica/Xiaoxia | Implement wrapper, tests, and in-memory evidence |
-| Methodology and limitations | Mickey | Team | Add concise protocol and limitations record |
-| Dashboard evidence states | Jessica/Xiaoxia | Framework owner | Mark CrewAI available only after its gate passes |
+| Shared retail core | Xiaoxia | Jessica | Maintain contract regressions |
+| CrewAI WS3 wrapper | Mickey | Jessica/Xiaoxia | Maintain the merged wrapper and evidence |
+| Methodology and limitations | Mickey | Team | Maintain the merged protocol record |
+| Dashboard evidence states | Jessica/Xiaoxia | Framework owner | Keep all three availability states aligned with verified evidence |
 
 Jessica may implement infrastructure, approved deterministic conversion,
 privacy checks, schemas, validators, replay plumbing, and cross-framework
@@ -172,8 +166,8 @@ The meeting demo is synthetic technical validation:
 3. show read, mutation, invalid-argument, disallowed-action, duplicate-action,
    tool-failure, and leakage controls;
 4. show only sanitized trace summaries and aggregate final-state verdicts;
-5. state that LangGraph and OpenAI have real offline wrapper evidence;
-6. state that CrewAI remains unavailable until its wrapper gate passes.
+5. state that all three frameworks have real offline wrapper evidence and the
+   combined parity gate passed.
 
 Do not expose evaluator-only gold or present the demo as a benchmark score,
 framework ranking, or live E5 result.
