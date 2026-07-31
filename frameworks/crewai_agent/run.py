@@ -10,9 +10,9 @@ sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
 
 # CrewAI resolves storage and tracing dependencies while the package is
-# imported. Keep both configurable state and its 1.15.1 credential store in a
-# project-local directory so Windows/Linux runners do not require writes to a
-# user profile outside the checkout.
+# imported. Keep both configurable state and its 1.15.1 credential store in
+# the configured local directory so Windows/Linux runners do not require the
+# default user-profile location.
 load_dotenv(ROOT / ".env", override=False)
 os.environ.setdefault("OPENAI_MODEL", "gpt-4")
 os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")

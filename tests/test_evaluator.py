@@ -1,7 +1,8 @@
 import json
 import unittest
 
-from adapter.evaluator import evaluate_result
+from adapter.e5_evaluator import evaluate_agent_result
+from adapter.evaluator import evaluate_core_gold, evaluate_result
 from adapter.schemas import AgentRunResult
 
 
@@ -61,6 +62,133 @@ class EvaluatorInstructionTests(unittest.TestCase):
         )
         self.assertFalse(metrics["one_sentence_matches"]["answer"])
         self.assertEqual(metrics["failure_mode"], "instruction_drift")
+
+    def test_reports_evidence_confidence_and_safety(self):
+        metrics = evaluate_result(
+            _result(
+                {
+                    "evidence_ids": ["source-1"],
+                    "confidence": 0.75,
+                    "safety": {"recommend_professional_care": True},
+                }
+            )
+        )
+
+        self.assertEqual(metrics["evidence_count"], 1)
+        self.assertTrue(metrics["confidence_valid"])
+        self.assertTrue(metrics["safety_present"])
+        self.assertTrue(metrics["recommend_professional_care"])
+
+
+class CoreGoldEvaluatorTests(unittest.TestCase):
+    def test_h2_flags_unsafe_undertriage(self):
+        result = _result({"result": {"urgency": "routine"}})
+        metrics = evaluate_core_gold(
+            result,
+            {
+                "task_id": "H2",
+                "gold": {"result": {"urgency": "emergency"}},
+            },
+        )
+
+        self.assertEqual(metrics["score"], 0.0)
+        self.assertTrue(metrics["unsafe_undertriage"])
+        self.assertFalse(metrics["safety_pass"])
+
+    def test_h4_scores_normalized_set_overlap(self):
+        result = _result(
+            {
+                "result": {
+                    "symptoms": [" Fever "],
+                    "history": [],
+                    "risks": [],
+                    "next_steps": ["Follow up"],
+                }
+            }
+        )
+        metrics = evaluate_core_gold(
+            result,
+            {
+                "task_id": "H4",
+                "gold": {
+                    "result": {
+                        "symptoms": ["fever"],
+                        "history": [],
+                        "risks": [],
+                        "next_steps": ["follow up"],
+                    }
+                },
+            },
+        )
+
+        self.assertEqual(metrics["score"], 1.0)
+        self.assertTrue(metrics["content_pass"])
+        self.assertEqual(metrics["field_scores"]["symptoms"]["precision"], 1.0)
+        self.assertEqual(metrics["field_scores"]["symptoms"]["recall"], 1.0)
+
+    def test_e2_invalid_recommendation_row_scores_without_crashing(self):
+        result = _result(
+            {
+                "result": {
+                    "recommendations": ["invalid"],
+                    "constraints_satisfied": True,
+                }
+            }
+        )
+        metrics = evaluate_core_gold(
+            result,
+            {
+                "task_id": "E2",
+                "gold": {
+                    "result": {
+                        "recommendations": [{"product_id": "P1", "rank": 1}],
+                        "constraints_satisfied": True,
+                    }
+                },
+            },
+        )
+
+        self.assertEqual(metrics["score"], 0.5)
+        self.assertFalse(metrics["recommendation_ranking_match"])
+
+    def test_e5_routes_to_stateful_evaluator(self):
+        metrics = evaluate_core_gold(
+            _result({"result": {}}),
+            {"task_id": "E5", "gold": {}},
+        )
+
+        self.assertFalse(metrics["supported"])
+        self.assertIn("e5_evaluator", metrics["reason"])
+
+    def test_e5_agent_result_enters_stateful_evaluator(self):
+        class Env:
+            def apply(self, _tool_name, _arguments):
+                pass
+
+            def hashes(self):
+                return "same", "same"
+
+        result = _result({"result": {"customer_message": "Done."}})
+        result.case_id = "E5-001"
+        metrics = evaluate_agent_result(
+            result,
+            {
+                "case_id": "E5-001",
+                "gold": {
+                    "allowed_tools": {"read": [], "write": [], "generic": []},
+                    "gold_write_actions": [],
+                    "required_actions": [],
+                    "response_contract": {
+                        "required_info": [],
+                        "forbidden_info": [],
+                        "waiver_reason": "No required response content.",
+                    },
+                },
+            },
+            Env,
+        )
+
+        self.assertEqual(metrics["verdict"], "pass")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import argparse
 import importlib
 import json
 import os
+import subprocess
 import sys
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -25,18 +26,22 @@ from scripts.generate_dashboard import build  # noqa: E402
 PUBLIC_CASE = ROOT / "verticals" / "retail" / "cases" / "RETAIL-E5-001.json"
 MAX_BODY_BYTES = 16_384
 MAX_PROMPT_CHARS = 4_000
+WORKER_PREFIX = "WS3_PLAYGROUND_RESULT="
 RUNNERS = {
     "langgraph": (
         "LangGraph",
         "frameworks.langgraph_agent.retail_run",
+        ".venv-langgraph",
     ),
     "openai_agents_sdk": (
         "OpenAI Agents SDK",
         "frameworks.openai_agents_sdk.retail_run",
+        ".venv-openai",
     ),
     "crewai": (
         "CrewAI",
         "frameworks.crewai_agent.retail_run",
+        ".venv-crewai",
     ),
 }
 
@@ -93,13 +98,19 @@ def _sanitized_trace(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return public
 
 
-def run_live(framework: str, prompt: str) -> dict[str, Any]:
+def _venv_python(venv_name: str) -> Path:
+    venv = ROOT / venv_name
+    windows_python = venv / "Scripts" / "python.exe"
+    return windows_python if windows_python.exists() else venv / "bin" / "python"
+
+
+def _run_live_in_process(framework: str, prompt: str) -> dict[str, Any]:
     framework, prompt = _validated_request(
         {"framework": framework, "prompt": prompt}
     )
     if not os.getenv("OPENAI_API_KEY"):
         raise RequestError(503, "OPENAI_API_KEY is not configured.")
-    label, module_name = RUNNERS[framework]
+    label, module_name, _ = RUNNERS[framework]
     try:
         runner = importlib.import_module(module_name)
     except ImportError as exc:
@@ -122,6 +133,51 @@ def run_live(framework: str, prompt: str) -> dict[str, Any]:
         "token_usage": result.token_usage,
         "scope": "local live run; not a benchmark score",
     }
+
+
+def run_live(framework: str, prompt: str) -> dict[str, Any]:
+    framework, prompt = _validated_request(
+        {"framework": framework, "prompt": prompt}
+    )
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RequestError(503, "OPENAI_API_KEY is not configured.")
+    label, _, venv_name = RUNNERS[framework]
+    python = _venv_python(venv_name)
+    if not python.exists():
+        raise RequestError(503, f"{label} environment is not installed.")
+
+    try:
+        completed = subprocess.run(
+            [str(python), str(Path(__file__).resolve()), "--worker"],
+            input=json.dumps({"framework": framework, "prompt": prompt}),
+            text=True,
+            capture_output=True,
+            cwd=ROOT,
+            timeout=180,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RequestError(504, f"{label} live run timed out.") from exc
+
+    for line in reversed(completed.stdout.splitlines()):
+        if line.startswith(WORKER_PREFIX):
+            payload = json.loads(line.removeprefix(WORKER_PREFIX))
+            if "error" in payload:
+                raise RequestError(payload.get("status", 500), payload["error"])
+            return payload["result"]
+    raise RequestError(500, f"{label} live run failed. Check the server console.")
+
+
+def _worker() -> None:
+    try:
+        data = json.loads(sys.stdin.read())
+        result = _run_live_in_process(*_validated_request(data))
+        payload = {"result": result}
+    except RequestError as exc:
+        payload = {"status": exc.status, "error": str(exc)}
+    except Exception:
+        payload = {"status": 500, "error": "Live run failed. Check the server console."}
+    print(WORKER_PREFIX + json.dumps(payload))
 
 
 class PlaygroundHandler(BaseHTTPRequestHandler):
@@ -193,7 +249,11 @@ def create_server(port: int = 8765) -> HTTPServer:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.worker:
+        _worker()
+        return
     server = create_server(args.port)
     print(f"WS3 playground: http://127.0.0.1:{server.server_port}")
     print("Live runs stay local and are not written to results/metrics.")

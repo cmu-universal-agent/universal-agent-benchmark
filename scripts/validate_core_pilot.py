@@ -61,6 +61,16 @@ def _task_gold_errors(row: dict) -> list[str]:
             "state_validation"
         ].strip():
             errors.append("E5 gold must contain state_validation")
+        final_state = gold.get("final_state")
+        if (
+            not isinstance(gold.get("initial_state_hash"), str)
+            or not gold["initial_state_hash"]
+            or not isinstance(final_state, dict)
+            or not final_state.get("expected_agent_db_hash")
+            or "expected_user_db_hash" not in final_state
+            or final_state.get("gold_replay_clean") is not True
+        ):
+            errors.append("E5 private replay fields are incomplete")
     return errors
 
 
@@ -88,6 +98,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--expected-per-task", type=int, default=8)
+    parser.add_argument(
+        "--expected-e5",
+        type=int,
+        default=4,
+        help="Expected owner-approved E5 cases (default: 4).",
+    )
     args = parser.parse_args()
 
     try:
@@ -198,15 +214,22 @@ def main() -> None:
     missing_tasks = TASK_IDS - generated_tasks
     if missing_tasks:
         errors.append(f"missing task IDs: {sorted(missing_tasks)}")
+    expected_counts = {
+        task_id: (
+            args.expected_e5 if task_id == "E5" else args.expected_per_task
+        )
+        for task_id in TASK_IDS
+    }
     for task_id in sorted(TASK_IDS):
         count = counts[task_id]
-        if count != args.expected_per_task:
+        expected = expected_counts[task_id]
+        if count != expected:
             errors.append(
-                f"{task_id}: expected {args.expected_per_task} cases, found {count}"
+                f"{task_id}: expected {expected} cases, found {count}"
             )
-        if gold_counts[task_id] != args.expected_per_task:
+        if gold_counts[task_id] != expected:
             errors.append(
-                f"{task_id}: expected {args.expected_per_task} gold records, "
+                f"{task_id}: expected {expected} gold records, "
                 f"found {gold_counts[task_id]}"
             )
     e5_tool_sets = {
@@ -289,7 +312,8 @@ def main() -> None:
         report_tasks = report.get("tasks")
         if (
             report.get("schema_version") != "1.0"
-            or report.get("status") != "review_samples_not_approved"
+            or report.get("status")
+            not in {"offline_evaluation_ready", "prepared_with_known_gaps"}
             or not isinstance(report.get("generator"), str)
             or not report.get("generator")
             or not isinstance(report.get("seed"), int)
@@ -298,6 +322,14 @@ def main() -> None:
         ):
             errors.append("coverage_report.json does not match the production contract")
         else:
+            if (
+                report["status"] == "offline_evaluation_ready"
+                and report["known_gaps"]
+            ) or (
+                report["status"] == "prepared_with_known_gaps"
+                and not report["known_gaps"]
+            ):
+                errors.append("coverage status and known_gaps disagree")
             report_task_ids = set(report_tasks)
             if report_task_ids != TASK_IDS:
                 errors.append(

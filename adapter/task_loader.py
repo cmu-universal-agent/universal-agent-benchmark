@@ -98,7 +98,11 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
 
         input_value = data["input"]
         schema_vertical = data["vertical"]
-        runtime_vertical = V1_TO_RUNTIME_VERTICAL.get(schema_vertical, schema_vertical)
+        runtime_vertical = (
+            "retail"
+            if data["task_id"] == "E5"
+            else V1_TO_RUNTIME_VERTICAL.get(schema_vertical, schema_vertical)
+        )
         metadata = dict(data.get("metadata", {}))
         metadata["schema_vertical"] = schema_vertical
         metadata["case_id"] = data["case_id"]

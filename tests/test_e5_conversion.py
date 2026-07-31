@@ -47,6 +47,7 @@ class E5ConversionTests(unittest.TestCase):
                 "benchmark": "synthetic-retail",
                 "split": "review",
                 "task_ref": "synthetic-1",
+                "version": "pinned",
             },
             "user_simulator": {"task_instructions": "Resolve the synthetic order."},
             "initial_state_ref": "snapshot-synthetic",
@@ -71,7 +72,12 @@ class E5ConversionTests(unittest.TestCase):
                     "gold_action_ref": "write-1",
                 }
             ],
-            "final_state": {"comparison": "hash", "gold_replay_clean": True},
+            "final_state": {
+                "comparison": "hash",
+                "expected_agent_db_hash": "expected",
+                "expected_user_db_hash": None,
+                "gold_replay_clean": True,
+            },
             "response_contract": {
                 "required_info": [
                     {

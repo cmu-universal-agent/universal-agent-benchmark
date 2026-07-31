@@ -55,6 +55,18 @@ class H2UrgencyRuleTests(unittest.TestCase):
             ("urgent", "rubric_timeframe_subclassification_v2"),
         )
 
+    def test_review_status_counts_keep_unapproved_gold_visible(self):
+        self.assertEqual(
+            PREPARE._review_status_counts(
+                [
+                    {"review": {"status": "approved"}},
+                    {"review": {"status": "not_reviewed"}},
+                    {},
+                ]
+            ),
+            {"approved": 1, "not_reviewed": 1, "missing": 1},
+        )
+
 
 class H4ExtractionRuleTests(unittest.TestCase):
     def test_owner_confirmed_bucket_and_boilerplate_regressions(self):
@@ -211,6 +223,27 @@ Order additional testing.
 
 
 class H5OwnerCaseTests(unittest.TestCase):
+    def test_owner_package_receives_tracked_approval_metadata(self):
+        rows = [
+            ({}, {"result": {"boundary_action": action}}, {"status": "not_reviewed"})
+            for action in ("clarify", "clarify", "escalate", "escalate")
+        ]
+        approval = {
+            "status": "approved",
+            "owner_feedback": {
+                "cases_supplied": {"clarify": 2, "escalate": 2},
+                "review_status": "approved",
+                "reviewed_by": "Chloe",
+                "reviewed_at": "2026-07-21",
+                "review_note": "No remaining issues.",
+            },
+        }
+
+        approved = PREPARE._apply_h5_approval(rows, approval)
+
+        self.assertTrue(all(row[2]["status"] == "approved" for row in approved))
+        self.assertTrue(all(row[2]["reviewed_by"] == "Chloe" for row in approved))
+
     def test_owner_cases_are_selected_across_both_boundary_actions(self):
         rows = []
         for action in ("clarify", "escalate"):
@@ -271,6 +304,24 @@ class E3CandidateFilterTests(unittest.TestCase):
             PREPARE._e3_decision(["return_delivered_order_items"]),
             "return_allowed",
         )
+
+
+class E5ReplayReadinessTests(unittest.TestCase):
+    def test_requires_filled_private_replay_fields(self):
+        row = {
+            "source": {"version": "pinned"},
+            "initial_state_ref": "snapshot.json",
+            "initial_state_hash": "initial",
+            "final_state": {
+                "expected_agent_db_hash": "expected",
+                "expected_user_db_hash": None,
+                "gold_replay_clean": True,
+            },
+        }
+
+        self.assertTrue(PREPARE._e5_replay_ready(row))
+        row["initial_state_hash"] = None
+        self.assertFalse(PREPARE._e5_replay_ready(row))
 
 
 if __name__ == "__main__":

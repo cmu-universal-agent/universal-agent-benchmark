@@ -13,17 +13,21 @@ import subprocess
 import sys
 import uuid
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from adapter.evaluator import evaluate_result
+from adapter.evaluator import evaluate_core_gold, evaluate_result
+from adapter.e5_evaluator import evaluate_agent_result
 from adapter.result_writer import default_result_path
 from adapter.schemas import AgentRunResult
 from adapter.task_loader import load_task
+from adapter.tau_retail_env import TauReplayEnv
 
 DEFAULT_TASK = ROOT / "verticals" / "smoke_test" / "task_001.json"
+ATTEMPT_LEDGER = ROOT / "results" / "metrics" / "attempts.jsonl"
 
 
 def _venv_python(venv_name: str) -> Path:
@@ -59,6 +63,80 @@ def _resolve_task_paths(task_arg: Path) -> list[Path]:
     return [task_arg]
 
 
+def _load_gold(task_arg: Path) -> dict[str, dict]:
+    if not task_arg.is_dir():
+        return {}
+    gold_dir = task_arg.parent / "gold"
+    if not gold_dir.is_dir():
+        return {}
+    rows = {}
+    for path in sorted(gold_dir.glob("*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                rows[row["case_id"]] = row
+    return rows
+
+
+def _require_session_runs(
+    rows: list[dict],
+    *,
+    expected: int,
+    case_key: str,
+    framework: str,
+) -> list[dict]:
+    if len(rows) != expected:
+        raise RuntimeError(
+            f"expected {expected} result rows for {case_key}/{framework}, "
+            f"found {len(rows)}"
+        )
+    return rows
+
+
+def _next_attempt(
+    ledger: Path,
+    logical_run_id: str,
+    rerun_reason: str | None,
+) -> int:
+    prior = 0
+    if ledger.exists():
+        for line in ledger.read_text(encoding="utf-8").splitlines():
+            if line.strip() and json.loads(line).get("logical_run_id") == logical_run_id:
+                prior += 1
+    if prior and not rerun_reason:
+        raise RuntimeError(f"rerun reason required for {logical_run_id}")
+    if prior >= 2:
+        raise RuntimeError(f"rerun limit reached for {logical_run_id}")
+    return prior + 1
+
+
+def _append_attempt(ledger: Path, record: dict) -> None:
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    with ledger.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def _result_count(
+    path: Path,
+    *,
+    experiment_id: str,
+    case_key: str,
+    framework: str,
+) -> int:
+    if not path.exists():
+        return 0
+    return sum(
+        d.get("experiment_id") == experiment_id
+        and (d.get("case_id") or d.get("task_id")) == case_key
+        and d.get("framework") == framework
+        for d in (
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -82,6 +160,23 @@ def main():
         type=int,
         default=1,
         help="Number of times to run each (task, framework) pair, to measure consistency.",
+    )
+    parser.add_argument(
+        "--framework",
+        choices=["all", *(name for name, _, _ in FRAMEWORKS)],
+        default="all",
+        help="Run all frameworks or one framework (used for a documented rerun).",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=300,
+        help="Per-attempt subprocess timeout.",
+    )
+    parser.add_argument(
+        "--rerun-reason",
+        default=None,
+        help="Required non-empty reason when repeating an existing logical run.",
     )
     parser.add_argument(
         "--required-keys",
@@ -108,6 +203,7 @@ def main():
     print(f"experiment_id={experiment_id} model={configured_model}")
 
     task_paths = _resolve_task_paths(args.task)
+    gold_by_case = _load_gold(args.task)
     if not task_paths:
         print(f"no task files found at {args.task}")
         return
@@ -128,9 +224,15 @@ def main():
         return
 
     tasks_by_key = {}
+    frameworks = (
+        FRAMEWORKS
+        if args.framework == "all"
+        else [row for row in FRAMEWORKS if row[0] == args.framework]
+    )
 
     # (vertical, case identity, framework) once per run, in run order.
     run_records: list[tuple[str, str, str]] = []
+    baseline_counts: dict[tuple[str, str, str], int] = {}
     for task_path in task_paths:
         task = load_task(task_path)
         vertical = task.vertical
@@ -139,19 +241,61 @@ def main():
         tasks_by_key[(vertical, case_key)] = task
 
         print(f"\n=== Case {case_key} / Task {task_id} ({task_path.name}) ===")
-        for name, python_bin, script in FRAMEWORKS:
+        for name, python_bin, script in frameworks:
             if not python_bin.exists():
                 print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
                 continue
 
+            baseline_counts[(vertical, case_key, name)] = _result_count(
+                default_result_path(vertical),
+                experiment_id=experiment_id,
+                case_key=case_key,
+                framework=name,
+            )
             for rep in range(args.repeats):
                 print(f"--- Running {name} (repeat {rep + 1}/{args.repeats}) ---")
-                subprocess.run(
-                    [str(python_bin), str(script), "--task", str(task_path)],
-                    cwd=ROOT,
-                    check=False,
-                    env=child_env,
+                logical_run_id = (
+                    f"{experiment_id}:{case_key}:{name}:repeat-{rep + 1}"
                 )
+                attempt = _next_attempt(
+                    ATTEMPT_LEDGER,
+                    logical_run_id,
+                    args.rerun_reason,
+                )
+                started_at = datetime.now(timezone.utc).isoformat()
+                try:
+                    completed = subprocess.run(
+                        [str(python_bin), str(script), "--task", str(task_path)],
+                        cwd=ROOT,
+                        check=False,
+                        env=child_env,
+                        timeout=args.timeout_seconds,
+                    )
+                    status = "completed" if completed.returncode == 0 else "process_error"
+                    returncode = completed.returncode
+                except subprocess.TimeoutExpired:
+                    status = "timeout"
+                    returncode = None
+                _append_attempt(
+                    ATTEMPT_LEDGER,
+                    {
+                        "logical_run_id": logical_run_id,
+                        "experiment_id": experiment_id,
+                        "case_id": case_key,
+                        "task_id": task_id,
+                        "framework": name,
+                        "repeat": rep + 1,
+                        "attempt": attempt,
+                        "rerun_reason": args.rerun_reason,
+                        "timeout_seconds": args.timeout_seconds,
+                        "started_at": started_at,
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                        "status": status,
+                        "returncode": returncode,
+                    },
+                )
+                if status != "completed":
+                    raise RuntimeError(f"{logical_run_id} ended with {status}")
                 run_records.append((vertical, case_key, name))
 
     print("\n--- Summary ---")
@@ -171,6 +315,8 @@ def main():
         with open(results_path, "r", encoding="utf-8") as f:
             for line in f:
                 d = json.loads(line)
+                if d.get("experiment_id") != experiment_id:
+                    continue
                 result_case_key = d.get("case_id") or d["task_id"]
                 all_by_key[(result_case_key, d["framework"])].append(d)
 
@@ -183,8 +329,12 @@ def main():
 
             case_key, name = key
             n = key_counts[key]
-            # this session's runs are the most recently appended n entries
-            session_runs = all_by_key[key][-n:]
+            session_runs = _require_session_runs(
+                all_by_key[key][baseline_counts[(vertical, case_key, name)]:],
+                expected=n,
+                case_key=case_key,
+                framework=name,
+            )
             results_objs = [AgentRunResult(**d) for d in session_runs]
             task = tasks_by_key[(vertical, case_key)]
             evaluation = task.metadata.get("evaluation", {})
@@ -202,6 +352,29 @@ def main():
                 )
                 for r in results_objs
             ]
+            core_metrics = []
+            e5_metrics = []
+            if case_key in gold_by_case:
+                if task.task_id == "E5":
+                    gold_record = gold_by_case[case_key]
+                    e5_metrics = [
+                        evaluate_agent_result(
+                            r,
+                            gold_record,
+                            lambda: TauReplayEnv(
+                                {
+                                    **gold_record["gold"],
+                                    "case_id": gold_record["case_id"],
+                                }
+                            ),
+                        )
+                        for r in results_objs
+                    ]
+                else:
+                    core_metrics = [
+                        evaluate_core_gold(r, gold_by_case[case_key])
+                        for r in results_objs
+                    ]
 
             success_rate = sum(m["success"] for m in metrics_list) / n
             json_valid_rate = sum(m["json_valid"] for m in metrics_list) / n
@@ -228,6 +401,18 @@ def main():
             if required_keys:
                 req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
+            core_score_field = ""
+            supported_core = [
+                metric for metric in core_metrics if metric["supported"]
+            ]
+            if supported_core:
+                core_score = sum(metric["score"] for metric in supported_core) / len(
+                    supported_core
+                )
+                core_score_field = f"core_gold_score={core_score:.0%} "
+            if e5_metrics:
+                e5_passes = sum(metric["verdict"] == "pass" for metric in e5_metrics)
+                core_score_field = f"e5_pass_rate={e5_passes / len(e5_metrics):.0%} "
 
             print(
                 f"{case_key:>18} {name:>18} (n={n}): success_rate={success_rate:.0%} "
@@ -235,6 +420,7 @@ def main():
                 f"{output_schema_field}"
                 f"instruction_following_rate={instruction_following_rate:.0%} "
                 f"{required_keys_field}"
+                f"{core_score_field}"
                 f"avg_latency={avg_latency:.2f}s"
             )
 

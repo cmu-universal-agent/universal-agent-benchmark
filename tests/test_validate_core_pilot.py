@@ -42,6 +42,12 @@ def _gold_payload(task_id: str) -> dict:
             "expected_actions": [{"name": "return_delivered_order_items"}],
             "expected_communications": [{"name": "confirm_return"}],
             "state_validation": "tau simulator final-state comparison",
+            "initial_state_hash": "initial",
+            "final_state": {
+                "expected_agent_db_hash": "expected",
+                "expected_user_db_hash": None,
+                "gold_replay_clean": True,
+            },
         },
     }[task_id]
 
@@ -86,6 +92,7 @@ def _write_artifact_indexes(
 ) -> None:
     manifest = prepare._new_split_manifest(seed=42)
     report = prepare._new_coverage_report(expected_per_task, seed=42)
+    report["status"] = "offline_evaluation_ready"
     for task_id in TASK_IDS:
         task_cases = [case for case in cases if case["task_id"] == task_id]
         task_gold = [row for row in gold if row["task_id"] == task_id]
@@ -127,6 +134,8 @@ def _validate(path: Path) -> subprocess.CompletedProcess[str]:
             "--input",
             str(path),
             "--expected-per-task",
+            "1",
+            "--expected-e5",
             "1",
         ],
         cwd=ROOT,

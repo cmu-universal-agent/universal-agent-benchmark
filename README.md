@@ -24,10 +24,10 @@ OpenAI-compatible API key in `.env`.
 | Stress axis | Evidence, triage, summarization, refusal | Trend synthesis, recommendations, policy, multi-step tools |
 
 The repository ships **legacy task JSON** for a 20-case regression sweep (mostly
-H1/E1-shaped). The **eight-task core pilot** (64 review cases) is built locally
+H1/E1-shaped). The **eight-task core pilot** (60 review cases: seven tasks with
+eight cases plus four owner-approved E5 cases) is built locally
 from public datasets; see [Data preparation](#stage-2-data-preparation). Preliminary
-runs in `results/` are **engineering smoke**, not publishable benchmark scores,
-until the controlled pilot protocol is signed off (`docs/PROJECT_LEAD_GUIDE.md`).
+runs in `results/` are **engineering smoke**, not publishable benchmark scores.
 
 ### Retail WS3 integration
 
@@ -137,7 +137,7 @@ Follow `docs/core_pilot_data_preparation.md`. Short sequence:
 |---|---|---|
 | `--output` | `data/generated/core_pilot` | Output root |
 | `--tasks` | all eight IDs | Subset: H1 H2 H4 H5 E1 E2 E3 E5 |
-| `--per-task` | 8 | Cases per task type |
+| `--per-task` | 8 | Maximum cases per task type; E5 is capped by its four owner-approved cases |
 | `--seed` | 42 | Deterministic sampling |
 | `--overwrite` | off | Required to replace generated files |
 
@@ -161,6 +161,11 @@ Follow `docs/core_pilot_data_preparation.md`. Short sequence:
 | Full legacy ecommerce sweep | `python3 scripts/run_benchmark.py --task verticals/ecommerce_trend_research/` |
 | Controlled model session | `python3 scripts/run_benchmark.py --task verticals/medical_diagnostic/ --model gpt-4o-mini --experiment-id pilot-med-v1` |
 | Repeat consistency | `python3 scripts/run_benchmark.py --task verticals/smoke_test/task_001.json --repeats 3` |
+
+When the task path is `data/generated/core_pilot/cases`, the runner loads the
+sibling gitignored `gold/` directory and reports deterministic content metrics
+for H1, H2, H4, H5, E1, E2, and E3. E5 remains on its dedicated response-contract
+and simulator-state evaluator.
 
 **Per-framework smoke (no JSONL orchestration)** — runs each adapter’s `run.py`
 with its built-in default task:
@@ -335,7 +340,7 @@ Before opening a PR:
 - Do **not** commit `.env`, `.venv-*`, `data/`, `results/metrics/`, or
   evaluator-only gold with answers.
 - Preliminary smoke results belong in labelled reports — not as final benchmark
-  rankings (`docs/PROJECT_LEAD_GUIDE.md`).
+  rankings (`docs/framework_comparison_rationale.md`).
 
 Task validation before push (offline):
 
@@ -351,16 +356,13 @@ Task validation before push (offline):
 Read in this order:
 
 1. **This README** — setup, commands, results layout.
-2. **`docs/PROJECT_LEAD_GUIDE.md`** — durable coordination context, owners,
-   WS2/WS3 gates, privacy boundaries, and validation commands. Query GitHub for
-   mutable PR, branch, review, and merge state.
-3. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
+2. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
    `prepare_core_pilot.py` workflow (when you move beyond legacy 20 cases).
-4. **`docs/framework_comparison_rationale.md`** — experiment tiers, control
+3. **`docs/framework_comparison_rationale.md`** — experiment tiers, control
    variables, and comparison dimensions.
-5. **`docs/schema_field_review.md`** — approved schema fields and pending
+4. **`docs/schema_field_review.md`** — approved schema fields and pending
    proposals (including stress metadata in §10 on the stress branch).
-6. **`docs/stress_testing_README.md`** — stress-testing design and fixture
+5. **`docs/stress_testing_README.md`** — stress-testing design and fixture
    guidance.
 Supporting references: `docs/dataset_gold_generation_plan.md`,
 `results/preliminary_technical_smoke_20260717.md`.
