@@ -55,6 +55,18 @@ class H2UrgencyRuleTests(unittest.TestCase):
             ("urgent", "rubric_timeframe_subclassification_v2"),
         )
 
+    def test_review_status_counts_keep_unapproved_gold_visible(self):
+        self.assertEqual(
+            PREPARE._review_status_counts(
+                [
+                    {"review": {"status": "approved"}},
+                    {"review": {"status": "not_reviewed"}},
+                    {},
+                ]
+            ),
+            {"approved": 1, "not_reviewed": 1, "missing": 1},
+        )
+
 
 class H4ExtractionRuleTests(unittest.TestCase):
     def test_owner_confirmed_bucket_and_boilerplate_regressions(self):

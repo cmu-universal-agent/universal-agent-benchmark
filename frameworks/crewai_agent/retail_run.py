@@ -13,7 +13,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
-from adapter.retail_core.env import RetailEnv
+from adapter.e5_session import run_e5_session
+from adapter.tau_retail_env import make_retail_env
 from adapter.runtime import (
     GenerationSettings,
     RunContext,
@@ -126,25 +127,43 @@ def _execute_retail_task(
     llm: Any,
 ) -> AgentRunResult:
     environment_seed = context.seed if context.seed is not None else 42
-    env = RetailEnv(data_dir=DATA_DIR, seed=environment_seed)
+    env = make_retail_env(task, data_dir=DATA_DIR, seed=environment_seed)
     try:
         env.reset(
             task.case_id,
             reset_id=f"run-{uuid.uuid4().hex}",
             seed=environment_seed,
         )
-        (
-            final_output,
-            token_usage,
-            usage_metadata,
-            tool_trace,
-            final_state,
-        ) = _run_retail_agent(
-            llm,
-            env,
-            task.prompt,
-            task.allowed_tools,
-        )
+        session = None
+        usage_metadata = {}
+        if task.task_id == "E5":
+            def run_turn(prompt: str):
+                output, usage, _, _, _ = _run_retail_agent(
+                    llm,
+                    env,
+                    prompt,
+                    task.allowed_tools,
+                )
+                return output, usage
+
+            session = run_e5_session(task, run_turn)
+            final_output = session.final_output
+            token_usage = session.token_usage
+            tool_trace = env.get_trace()
+            final_state = env.get_final_state()
+        else:
+            (
+                final_output,
+                token_usage,
+                usage_metadata,
+                tool_trace,
+                final_state,
+            ) = _run_retail_agent(
+                llm,
+                env,
+                task.prompt,
+                task.allowed_tools,
+            )
         result = finish_run(
             context,
             task,
@@ -160,6 +179,13 @@ def _execute_retail_task(
                 "crewai_token_usage": usage_metadata,
             }
         )
+        if session is not None:
+            result.raw_metadata.update(
+                {
+                    "assistant_turns": session.assistant_turns,
+                    "user_simulator": session.simulator,
+                }
+            )
         return result
     except Exception as exc:
         tool_trace = env.get_trace() if env.case_id else []

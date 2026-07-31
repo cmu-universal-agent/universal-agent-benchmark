@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
+from adapter.e5_session import run_e5_session
 from adapter.runtime import (
     GenerationSettings,
     GenerationSettingsResolution,
@@ -27,7 +28,7 @@ from adapter.runtime import (
     start_run_timing,
 )
 from adapter.schemas import AgentRunResult, BenchmarkTask
-from adapter.retail_core.env import RetailEnv
+from adapter.tau_retail_env import make_retail_env
 from frameworks.openai_agents_sdk.retail_tools import make_retail_tools
 
 DATA_DIR = str(ROOT / "verticals" / "retail")
@@ -134,7 +135,7 @@ def run_retail_task(task: BenchmarkTask, *, seed: int | None = None) -> AgentRun
         )
 
     timing = start_run_timing()
-    env = RetailEnv(data_dir=DATA_DIR, seed=42)
+    env = make_retail_env(task, data_dir=DATA_DIR, seed=42)
     try:
         agent, settings_resolution = _build_agent(
             env,
@@ -174,9 +175,23 @@ def run_retail_task(task: BenchmarkTask, *, seed: int | None = None) -> AgentRun
             reset_id=f"run-{uuid.uuid4().hex}",
             seed=environment_seed,
         )
-        final_output, token_usage, tool_trace, final_state = asyncio.run(
-            _run_retail_agent(agent, env, task.prompt)
-        )
+        session = None
+        if task.task_id == "E5":
+            def run_turn(prompt: str):
+                output, usage, _, _ = asyncio.run(
+                    _run_retail_agent(agent, env, prompt)
+                )
+                return output, usage
+
+            session = run_e5_session(task, run_turn)
+            final_output = session.final_output
+            token_usage = session.token_usage
+            tool_trace = env.get_trace()
+            final_state = env.get_final_state()
+        else:
+            final_output, token_usage, tool_trace, final_state = asyncio.run(
+                _run_retail_agent(agent, env, task.prompt)
+            )
         result = finish_run(
             context,
             task,
@@ -191,6 +206,13 @@ def run_retail_task(task: BenchmarkTask, *, seed: int | None = None) -> AgentRun
                 "final_state": final_state,
             }
         )
+        if session is not None:
+            result.raw_metadata.update(
+                {
+                    "assistant_turns": session.assistant_turns,
+                    "user_simulator": session.simulator,
+                }
+            )
         return result
     except Exception as exc:
         tool_trace = env.get_trace() if env.case_id else []

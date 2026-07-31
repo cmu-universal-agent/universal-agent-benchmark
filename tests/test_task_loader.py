@@ -112,6 +112,17 @@ class TaskLoaderSemanticValidationTests(unittest.TestCase):
         self.assertEqual(task.schema_version, "1.0")
         self.assertIn("Synthetic evidence", task.prompt)
 
+    def test_e5_ecommerce_case_routes_to_retail_runtime(self):
+        case = _valid_v1_case()
+        case["case_id"] = "E5-001"
+        case["task_id"] = "E5"
+        case["vertical"] = "ecommerce"
+        case["allowed_tools"] = ["get_order_details"]
+
+        task = task_from_dict(case)
+
+        self.assertEqual(task.vertical, "retail")
+
     def test_legacy_task_compatibility_is_unchanged(self):
         task = task_from_dict(
             {

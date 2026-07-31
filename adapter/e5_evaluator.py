@@ -12,6 +12,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+from adapter.schemas import AgentRunResult
+
 
 PASS = "pass"
 FAIL = "fail"
@@ -300,3 +302,35 @@ def evaluate_case(
     if state["met"] and not contract["met"]:
         result["sanity_disagreement_reason"] = REASON_CONTRACT_ONLY
     return result
+
+
+def evaluate_agent_result(
+    result: AgentRunResult,
+    gold_record: dict[str, Any],
+    env_factory: Callable[[], Env],
+) -> dict[str, Any]:
+    """Convert one normalized framework result into the approved E5 verdict."""
+    gold = dict(gold_record["gold"])
+    gold["case_id"] = gold_record["case_id"]
+    gold["required_actions"] = gold.get(
+        "required_actions", gold.get("expected_actions", [])
+    )
+    write_tools = set(gold["allowed_tools"]["write"])
+    trajectory = Trajectory(
+        tool_calls=[
+            ToolCall(
+                name=row["tool_name"],
+                arguments=row.get("arguments") or {},
+                ok=row.get("outcome") == "success",
+                mutated=row["tool_name"] in write_tools
+                and row.get("outcome") == "success",
+                error=(row.get("error") or {}).get("error_type"),
+            )
+            for row in result.tool_calls
+        ],
+        assistant_turns=result.raw_metadata.get("assistant_turns")
+        or [result.final_output],
+        terminated_cleanly=result.success,
+        runtime_error=result.error if not result.success else None,
+    )
+    return evaluate_case(gold, trajectory, env_factory)

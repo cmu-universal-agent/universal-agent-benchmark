@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DEFAULT_OUTPUT = DATA / "generated" / "core_pilot"
 TASK_IDS = ("H1", "H2", "H4", "H5", "E1", "E2", "E3", "E5")
-GENERATOR_VERSION = "core-pilot-converter-v7"
+GENERATOR_VERSION = "core-pilot-converter-v9"
 
 PUBMED_PATH = DATA / "pubmedqa" / "ori_pqal.json"
 HEALTHBENCH_PATH = (
@@ -1267,6 +1267,7 @@ def convert_e5(count: int, seed: int) -> tuple[list[dict], list[dict], dict]:
                     "initial_state_ref": row["initial_state_ref"],
                     "initial_state_hash": row["initial_state_hash"],
                     "user_simulator": row["user_simulator"],
+                    "allowed_tools": row["allowed_tools"],
                 },
                 "owner_approved_e5_v0.3",
                 review={
@@ -1336,6 +1337,15 @@ def _split_manifest_entries(cases: list[dict]) -> list[dict[str, str]]:
     ]
 
 
+def _review_status_counts(gold: list[dict]) -> dict[str, int]:
+    return dict(
+        Counter(
+            row.get("review", {}).get("status", "missing")
+            for row in gold
+        )
+    )
+
+
 def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool) -> dict[str, Any]:
     if output.exists():
         if not overwrite:
@@ -1366,9 +1376,26 @@ def build(output: Path, tasks: list[str], count: int, seed: int, overwrite: bool
             "status": "generated_for_review",
             "cases": len(cases),
             "gold_records": len(gold),
+            "review_status_counts": _review_status_counts(gold),
             **stats,
         }
         manifest["tasks"][task_id] = _split_manifest_entries(cases)
+    unapproved_tasks = sorted(
+        task_id
+        for task_id, status in report["tasks"].items()
+        if any(
+            review_status != "approved" and review_count
+            for review_status, review_count in status.get(
+                "review_status_counts", {}
+            ).items()
+        )
+    )
+    if unapproved_tasks:
+        report["known_gaps"].append(
+            "Evaluator-only gold is not fully owner-approved for: "
+            + ", ".join(unapproved_tasks)
+            + "."
+        )
     if "H5" in tasks:
         h5_status = report["tasks"].get("H5", {})
         if (
