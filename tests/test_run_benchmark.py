@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from subprocess import TimeoutExpired
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -11,6 +12,7 @@ from scripts.run_benchmark import (
     _next_attempt,
     _require_session_runs,
     _result_count,
+    _run_framework_process,
 )
 
 
@@ -98,6 +100,17 @@ class RunBenchmarkTests(unittest.TestCase):
                 ),
                 1,
             )
+
+    @patch("scripts.run_benchmark._terminate_process_tree")
+    @patch("scripts.run_benchmark.subprocess.Popen")
+    def test_timeout_terminates_framework_process_tree(self, popen, terminate):
+        process = popen.return_value
+        process.wait.side_effect = TimeoutExpired("framework", 300)
+
+        with self.assertRaises(TimeoutExpired):
+            _run_framework_process(["python", "run.py"], env={}, timeout=300)
+
+        terminate.assert_called_once_with(process)
 
 
 if __name__ == "__main__":
