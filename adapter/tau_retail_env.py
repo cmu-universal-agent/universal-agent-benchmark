@@ -17,6 +17,7 @@ from adapter.schemas import BenchmarkTask
 from adapter.validation import validate_tool_arguments
 
 ROOT = Path(__file__).resolve().parents[1]
+TAU_WORKER_RESPONSE_PREFIX = "__TAU_WORKER_RESPONSE__="
 
 
 def _utc_now() -> str:
@@ -63,15 +64,18 @@ class TauRetailEnv:
             raise RuntimeError("tau2 worker pipes are unavailable")
         self._worker.stdin.write(json.dumps(payload) + "\n")
         self._worker.stdin.flush()
-        line = self._worker.stdout.readline()
-        if not line:
-            detail = (
-                self._worker.stderr.read().strip()
-                if self._worker.stderr is not None
-                else ""
-            )
-            raise RuntimeError(f"tau2 worker stopped unexpectedly: {detail}")
-        response = json.loads(line)
+        while True:
+            line = self._worker.stdout.readline()
+            if not line:
+                detail = (
+                    self._worker.stderr.read().strip()
+                    if self._worker.stderr is not None
+                    else ""
+                )
+                raise RuntimeError(f"tau2 worker stopped unexpectedly: {detail}")
+            if line.startswith(TAU_WORKER_RESPONSE_PREFIX):
+                response = json.loads(line.removeprefix(TAU_WORKER_RESPONSE_PREFIX))
+                break
         if not response.get("ok"):
             raise RuntimeError(
                 f"{response.get('error_type')}: {response.get('message')}"
@@ -84,9 +88,9 @@ class TauRetailEnv:
     def reset(self, case_id: str, reset_id: str, seed: int | None = None) -> dict[str, Any]:
         if seed is not None:
             self.seed = seed
+        self._request({"op": "reset"})
         self.case_id = case_id
         self.reset_id = reset_id
-        self._request({"op": "reset"})
         self._env = True
         self._trace = Trace(run_id=f"run-{uuid.uuid4().hex}")
         self._mutation_count = 0

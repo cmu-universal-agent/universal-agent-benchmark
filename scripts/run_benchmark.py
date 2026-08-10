@@ -64,13 +64,18 @@ def _resolve_task_paths(task_arg: Path) -> list[Path]:
 
 
 def _load_gold(task_arg: Path) -> dict[str, dict]:
-    if not task_arg.is_dir():
-        return {}
-    gold_dir = task_arg.parent / "gold"
-    if not gold_dir.is_dir():
-        return {}
+    configured_e5_gold = os.getenv("BENCHMARK_E5_GOLD_PATH")
+    if task_arg.is_file() and configured_e5_gold:
+        gold_paths = [Path(configured_e5_gold)]
+    else:
+        gold_dir = (
+            task_arg.parent / "gold"
+            if task_arg.is_dir()
+            else task_arg.parent.parent / "gold"
+        )
+        gold_paths = sorted(gold_dir.glob("*.jsonl")) if gold_dir.is_dir() else []
     rows = {}
-    for path in sorted(gold_dir.glob("*.jsonl")):
+    for path in gold_paths:
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 row = json.loads(line)

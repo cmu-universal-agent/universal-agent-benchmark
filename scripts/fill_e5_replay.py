@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 import types
 from pathlib import Path
 from typing import Any, Callable
@@ -95,6 +96,38 @@ def _source_actions(task: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def structured_user_instructions(task: dict[str, Any]) -> str:
+    """Render the exact pinned tau2 StructuredUserInstructions string."""
+    try:
+        value = task["user_scenario"]["instructions"]
+        domain = value["domain"]
+        reason = value["reason_for_call"]
+        task_instructions = value["task_instructions"]
+    except (KeyError, TypeError) as exc:
+        raise ReplayError("pinned task lacks structured user instructions") from exc
+    if not all(isinstance(item, str) for item in (domain, reason, task_instructions)):
+        raise ReplayError("pinned structured user instructions must be strings")
+    if any(
+        value.get(key) is not None and not isinstance(value[key], str)
+        for key in ("known_info", "unknown_info")
+    ):
+        raise ReplayError("optional structured user instructions must be strings")
+    lines = [
+        f"Domain: {domain}",
+        f"Reason for call:\n{textwrap.indent(reason, chr(9))}",
+    ]
+    if value.get("known_info") is not None:
+        lines.append(f"Known info:\n{textwrap.indent(value['known_info'], chr(9))}")
+    if value.get("unknown_info") is not None:
+        lines.append(
+            f"Unknown info:\n{textwrap.indent(value['unknown_info'], chr(9))}"
+        )
+    lines.append(
+        f"Task instructions:\n{textwrap.indent(task_instructions, chr(9))}"
+    )
+    return "\n".join(lines)
+
+
 def _replay_case(
     case: dict[str, Any],
     env_factory: Callable[[], Any],
@@ -112,6 +145,7 @@ def _replay_case(
         raise ReplayError(f"{case_id}: pinned task has a non-default initial state")
     source_actions = _source_actions(task)
 
+    case["user_simulator"]["task_instructions"] = structured_user_instructions(task)
     case["source"]["version"] = source_version
     case["initial_state_ref"] = snapshot_ref
     case["initial_state_hash"] = initial_agent_hash

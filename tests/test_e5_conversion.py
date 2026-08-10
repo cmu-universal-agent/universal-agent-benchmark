@@ -129,6 +129,7 @@ class E5ConversionTests(unittest.TestCase):
                 {
                     "case_id": "E5-001",
                     "source": {"task_ref": "1", "version": "<pin>"},
+                    "user_simulator": {"task_instructions": "."},
                     "initial_state_ref": "<snapshot>",
                     "initial_state_hash": None,
                     "gold_write_actions": [action],
@@ -141,6 +142,15 @@ class E5ConversionTests(unittest.TestCase):
         }
         tasks = {
             "1": {
+                "user_scenario": {
+                    "instructions": {
+                        "domain": "retail",
+                        "reason_for_call": "Resolve an order.",
+                        "known_info": "The order id is known.",
+                        "unknown_info": None,
+                        "task_instructions": ".",
+                    }
+                },
                 "evaluation_criteria": {
                     "actions": [
                         {
@@ -167,6 +177,11 @@ class E5ConversionTests(unittest.TestCase):
             "agent-1",
         )
         self.assertTrue(filled["cases"][0]["final_state"]["gold_replay_clean"])
+        self.assertEqual(
+            filled["cases"][0]["user_simulator"]["task_instructions"],
+            "Domain: retail\nReason for call:\n\tResolve an order.\n"
+            "Known info:\n\tThe order id is known.\nTask instructions:\n\t.",
+        )
         self.assertEqual(filled["pending_fill"], "user_simulator.model")
         self.assertIsNone(document["cases"][0]["initial_state_hash"])
         with self.assertRaises(REPLAY.ReplayError):

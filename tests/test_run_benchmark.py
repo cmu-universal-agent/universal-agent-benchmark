@@ -1,9 +1,13 @@
+import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from scripts.run_benchmark import (
     _append_attempt,
+    _load_gold,
     _next_attempt,
     _require_session_runs,
     _result_count,
@@ -11,6 +15,43 @@ from scripts.run_benchmark import (
 
 
 class RunBenchmarkTests(unittest.TestCase):
+    def test_single_case_loads_sibling_gold(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            case = root / "cases" / "task_E5-001.json"
+            gold = root / "gold" / "E5.jsonl"
+            case.parent.mkdir()
+            gold.parent.mkdir()
+            case.write_text("{}", encoding="utf-8")
+            gold.write_text(
+                json.dumps({"case_id": "E5-001", "gold": {}}) + "\n",
+                encoding="utf-8",
+            )
+
+            self.assertIn("E5-001", _load_gold(case))
+
+    def test_single_case_prefers_configured_versioned_e5_gold(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            case = root / "cases" / "task_E5-001.json"
+            gold = root / "pilot-60-v1.3" / "E5.jsonl"
+            case.parent.mkdir()
+            gold.parent.mkdir()
+            case.write_text("{}", encoding="utf-8")
+            gold.write_text(
+                json.dumps({"case_id": "E5-001", "gold": {"version": "v1.3"}})
+                + "\n",
+                encoding="utf-8",
+            )
+            with patch.dict(
+                os.environ,
+                {"BENCHMARK_E5_GOLD_PATH": str(gold)},
+                clear=False,
+            ):
+                loaded = _load_gold(case)
+
+            self.assertEqual(loaded["E5-001"]["gold"]["version"], "v1.3")
+
     def test_missing_current_experiment_row_cannot_fall_back_to_old_result(self):
         with self.assertRaisesRegex(RuntimeError, "found 0"):
             _require_session_runs(
