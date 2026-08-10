@@ -20,7 +20,8 @@ final report.
 | Framework | openai_agents_sdk / langgraph / crewai |
 | Experiment ID | |
 | Logical run ID | |
-| Attempt number | 1 / 2 / 3 |
+| Repeat logical run | 1 / 2 / 3 |
+| Attempt number | 1 / 2 |
 | Model (frozen config) | |
 | Formal experiment commit | |
 | Include in report? | yes / appendix / no |
@@ -82,11 +83,16 @@ Use `docs/case_study_failure_taxonomy.md`.
 
 ### Targeted repeats (if representative case)
 
-| Attempt | Outcome | Consistent? |
-|---:|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
+The three observations are distinct logical runs: the main-pilot run plus two
+additional targeted repeats. Each logical run starts at attempt `1`; attempt
+`2` is reserved for one documented infrastructure retry and is never used to
+replace a poor result.
+
+| Repeat logical run | Logical run ID | Attempt (1 / 2) | Outcome | Consistent? |
+|---:|---|---:|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
 
 **Repeat inconsistency?** yes / no — if yes, describe what varied.
 
@@ -144,16 +150,18 @@ Use `docs/case_study_failure_taxonomy.md`.
 
 | Artifact | Path or ID |
 |---|---|
-| Result JSONL row | `results/metrics/...` |
-| Attempt ledger entry | |
-| Trace / run log | |
+| Result row reference | Local-only path or run ID; do not commit raw output |
+| Attempt ledger entry | Local-only ledger reference |
+| Trace / run log | Local-only reference; do not commit raw trace |
 | Screenshot (if dashboard) | |
 
 ---
 
 ## Checklist before submission
 
-- [ ] No evaluator-only gold, rubric criteria, or private E5 hashes in text.
+- [ ] No evaluator-only gold, rubric criteria, per-run H5 criterion annotations,
+      or private E5 hashes in text.
+- [ ] Raw outputs, attempt ledgers, and traces remain local-only.
 - [ ] Root cause uses taxonomy precedence.
 - [ ] Infrastructure failures marked P3 unless reporting rerun policy.
 - [ ] Cross-framework table filled or marked N/A with reason.
