@@ -228,5 +228,60 @@ class GenerateDashboardTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, html)
 
+    def test_framework_order_and_colors_are_frozen(self) -> None:
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[],
+        ):
+            payload = generate_dashboard.build_payload("retail")
+
+        self.assertEqual(
+            [framework["id"] for framework in payload["frameworks"]],
+            ["langgraph", "openai_agents_sdk", "crewai"],
+        )
+        self.assertEqual(
+            {framework["id"]: framework["color"] for framework in payload["frameworks"]},
+            {
+                "langgraph": "#3B4CC0",
+                "openai_agents_sdk": "#0E8F8F",
+                "crewai": "#B0476A",
+            },
+        )
+
+    def test_case_prompt_is_truncated_to_max_len_in_matrix_rows(self) -> None:
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[_row("RETAIL-E5-001", "technical_smoke", "n/a")],
+        ):
+            payload = generate_dashboard.build_payload("retail")
+
+        cases = payload["cases_by_label"]["technical_smoke"]
+        case = next(c for c in cases if c["id"] == "RETAIL-E5-001")
+        self.assertLessEqual(len(case["name"]), generate_dashboard.CASE_PROMPT_MAX_LEN)
+        self.assertTrue(case["name"].endswith("..."))
+
+    def test_default_label_follows_preference_order(self) -> None:
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[
+                _row("RETAIL-E5-001", "benchmark", "n/a"),
+                _row("RETAIL-E5-001", "pilot", "n/a"),
+            ],
+        ):
+            payload = generate_dashboard.build_payload("retail")
+        self.assertEqual(payload["default_label"], "pilot")
+
+        with patch.object(
+            generate_dashboard,
+            "_load_latest_dashboard_results",
+            return_value=[_row("RETAIL-E5-001", "zzz-custom", "n/a")],
+        ):
+            payload = generate_dashboard.build_payload("retail")
+        self.assertEqual(payload["default_label"], "zzz-custom")
+
+
 if __name__ == "__main__":
     unittest.main()
