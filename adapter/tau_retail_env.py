@@ -18,6 +18,7 @@ from adapter.validation import validate_tool_arguments
 
 ROOT = Path(__file__).resolve().parents[1]
 TAU_WORKER_RESPONSE_PREFIX = "__TAU_WORKER_RESPONSE__="
+MAX_TAU_WORKER_NOISE_LINES = 100
 
 
 def _utc_now() -> str:
@@ -64,6 +65,7 @@ class TauRetailEnv:
             raise RuntimeError("tau2 worker pipes are unavailable")
         self._worker.stdin.write(json.dumps(payload) + "\n")
         self._worker.stdin.flush()
+        skipped_lines = 0
         while True:
             line = self._worker.stdout.readline()
             if not line:
@@ -76,6 +78,11 @@ class TauRetailEnv:
             if line.startswith(TAU_WORKER_RESPONSE_PREFIX):
                 response = json.loads(line.removeprefix(TAU_WORKER_RESPONSE_PREFIX))
                 break
+            skipped_lines += 1
+            if skipped_lines > MAX_TAU_WORKER_NOISE_LINES:
+                raise RuntimeError(
+                    "tau2 worker exceeded the stdout-noise limit without a response"
+                )
         if not response.get("ok"):
             raise RuntimeError(
                 f"{response.get('error_type')}: {response.get('message')}"

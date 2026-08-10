@@ -11,6 +11,32 @@ from adapter.schemas import BenchmarkTask
 
 
 class E5SessionTests(unittest.TestCase):
+    def test_rejects_missing_simulator_fields_before_provider_call(self):
+        task = BenchmarkTask(
+            task_id="E5",
+            case_id="E5-001",
+            vertical="retail",
+            prompt="",
+        )
+        gold = {
+            "case_id": task.case_id,
+            "gold": {"user_simulator": {"seed": 0, "max_turns": 4}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "E5.jsonl"
+            path.write_text(json.dumps(gold) + "\n", encoding="utf-8")
+            with (
+                patch.dict(
+                    os.environ,
+                    {"BENCHMARK_E5_GOLD_PATH": str(path)},
+                    clear=False,
+                ),
+                patch("adapter.e5_session.OpenAI") as client,
+                self.assertRaisesRegex(RuntimeError, "task_instructions"),
+            ):
+                run_e5_session(task, lambda _: ("", {}))
+        client.assert_not_called()
+
     def test_rejects_placeholder_instructions_before_provider_call(self):
         task = BenchmarkTask(
             task_id="E5",

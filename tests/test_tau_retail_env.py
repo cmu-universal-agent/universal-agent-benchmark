@@ -3,7 +3,11 @@ from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from adapter.tau_retail_env import TAU_WORKER_RESPONSE_PREFIX, TauRetailEnv
+from adapter.tau_retail_env import (
+    MAX_TAU_WORKER_NOISE_LINES,
+    TAU_WORKER_RESPONSE_PREFIX,
+    TauRetailEnv,
+)
 
 
 class TauRetailEnvTests(unittest.TestCase):
@@ -20,6 +24,17 @@ class TauRetailEnvTests(unittest.TestCase):
         )
 
         self.assertEqual(env._request({"op": "state"})["value"], 1)
+
+    def test_request_rejects_unbounded_worker_stdout_noise(self):
+        env = TauRetailEnv.__new__(TauRetailEnv)
+        env._worker = SimpleNamespace(
+            stdin=StringIO(),
+            stdout=StringIO("noise\n" * (MAX_TAU_WORKER_NOISE_LINES + 1)),
+            stderr=StringIO(),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stdout-noise limit"):
+            env._request({"op": "state"})
 
     def test_failed_reset_does_not_mark_environment_ready(self):
         env = TauRetailEnv.__new__(TauRetailEnv)

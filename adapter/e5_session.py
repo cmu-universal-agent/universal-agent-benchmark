@@ -87,9 +87,21 @@ def run_e5_session(
     ],
 ) -> E5SessionResult:
     gold = _load_gold(task)
+    user_simulator = gold.get("user_simulator")
+    if not isinstance(user_simulator, dict):
+        raise RuntimeError("formal E5 requires a user_simulator configuration")
+    required_simulator_fields = ("seed", "task_instructions", "max_turns")
+    missing_fields = [
+        key for key in required_simulator_fields if key not in user_simulator
+    ]
+    if missing_fields:
+        raise RuntimeError(
+            "formal E5 user_simulator is missing required fields: "
+            + ", ".join(missing_fields)
+        )
     simulator = {
-        key: gold["user_simulator"][key]
-        for key in ("seed", "task_instructions", "max_turns")
+        key: user_simulator[key]
+        for key in required_simulator_fields
     }
     instructions = str(simulator["task_instructions"]).strip()
     if (

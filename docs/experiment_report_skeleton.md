@@ -1,5 +1,10 @@
 # Universal Agent Benchmark Experiment Report
 
+This is the live, pilot-specific report scaffold for the controlled 60-case
+experiment, not a reusable cross-experiment template. Public-safe owner names,
+dates, and case counts may be filled here; sensitive freeze values and raw
+evidence remain in the private execution record.
+
 ## Claim status
 
 - Experiment ID: assigned in the private frozen execution record
