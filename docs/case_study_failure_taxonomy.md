@@ -7,24 +7,34 @@ Related: `docs/stress_failure_rubric.md` (stress-only; out of formal delivery sc
 
 ## Purpose
 
-Classify failures observed in the **252-run controlled pilot** so case studies
-can attribute outcomes to the correct layer: model, framework adapter, evaluator,
-or infrastructure. This taxonomy is for **analysis and limitations**, not for
-replacing the runtime `failure_mode` field in `results/metrics/*.jsonl`.
+Classify failures observed in the **228-logical-run controlled pilot** (180
+main-pilot runs plus 48 targeted repeats) so case studies can attribute
+outcomes to the correct layer: model, framework adapter, evaluator, or
+infrastructure. The separate 24 readiness preflights bring the execution plan
+to 252 logical runs but are not controlled-pilot result rows. Retry attempts do
+not create additional logical runs.
+
+This taxonomy is for **analysis and limitations**, not for replacing the
+`failure_mode` derived by the evaluator/report layer.
 
 Use this document when writing case studies, failure-analysis sections, and
 limitations. Do not merge stress-test failures into standard pilot accuracy.
 
-## Relationship to runtime failure modes
+## Relationship to evaluator failure modes
 
-`adapter/evaluator.py` assigns one primary `failure_mode` per run (for example
-`invalid_json`, `task_accuracy_failure`, `timeout`). The case-study taxonomy
-adds a **root-cause layer** and optional **secondary tags** for narrative
-analysis.
+`adapter/evaluator.py` derives one primary `failure_mode` after reading a result
+row. The current vocabulary is `runtime_exception:<error_type>`,
+`invalid_json`, `missing_required_keys`, `output_schema_invalid`,
+`instruction_drift`, `tool_overuse`, and `ok`. It is not stored as a runtime
+field in the result JSONL. `timeout` is an attempt-ledger status, and
+`task_accuracy_failure` is not in the evaluator vocabulary.
+
+The case-study taxonomy adds a **root-cause layer** and optional **secondary
+tags** for narrative analysis.
 
 Mapping rule:
 
-- Runtime `failure_mode` → primary symptom.
+- Evaluator-derived `failure_mode` or attempt status → primary symptom.
 - Case-study **root_cause_category** → why the symptom occurred.
 - When multiple layers contribute, pick the **earliest preventable layer** as
   primary root cause and list others as contributing factors.
@@ -104,8 +114,9 @@ Examples:
 - Missing venv, wrong Python version, corrupted output file.
 - E5 tau worker subprocess failure.
 
-Evidence: maps to runtime `runtime_exception:*` or `timeout`; empty or partial
-JSONL; retry succeeds with identical prompt; permitted under rerun policy.
+Evidence: maps to evaluator-derived `runtime_exception:*` or attempt-ledger
+status `timeout`; empty or partial JSONL; retry succeeds with identical prompt;
+permitted under the frozen rerun policy.
 
 **Handling:** one documented retry allowed; otherwise mark `error` and exclude
 from accuracy numerators per protocol.
@@ -161,7 +172,8 @@ Infrastructure and protocol issues must not be reported as model weaknesses.
 
 ## Adjudication workflow
 
-1. **Triage** from JSONL: runtime `failure_mode`, trace summary, evaluator metrics.
+1. **Triage** from the result JSONL, attempt ledger, trace summary, and
+   evaluator/report output.
 2. **Classify** root cause using this taxonomy.
 3. **Confirm** with Chloe if `evaluator_or_gold` is suspected.
 4. **Confirm** with Jessica if `framework_adapter` is suspected.

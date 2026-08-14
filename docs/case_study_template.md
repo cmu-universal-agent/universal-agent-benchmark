@@ -21,7 +21,6 @@ final report.
 | Experiment ID | |
 | Logical run ID | |
 | Repeat logical run | 1 / 2 / 3 |
-| Attempt number | 1 / 2 |
 | Model (frozen config) | |
 | Formal experiment commit | |
 | Include in report? | yes / appendix / no |
@@ -44,7 +43,7 @@ final report.
 
 | Field | Value |
 |---|---|
-| Runtime `failure_mode` | |
+| Evaluator-derived `failure_mode` | |
 | Evaluator pass/fail | |
 | Primary metric(s) | |
 | Tool call count | |
@@ -84,17 +83,41 @@ Use `docs/case_study_failure_taxonomy.md`.
 ### Targeted repeats (if representative case)
 
 The three observations are distinct logical runs: the main-pilot run plus two
-additional targeted repeats. Each logical run starts at attempt `1`; attempt
-`2` is reserved for one documented infrastructure retry and is never used to
-replace a poor result.
+additional targeted repeats. Record one row per attempt so a permitted retry
+does not erase attempt `1`. Attempt `2` is reserved for one documented,
+manually confirmed infrastructure retry and is never used to replace a poor
+result.
 
-| Repeat logical run | Logical run ID | Attempt (1 / 2) | Outcome | Consistent? |
-|---:|---|---:|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
+| Repeat | Logical run ID | Attempt | Status | Rerun reason | Result run ID | Outcome | Included in analysis? |
+|---:|---|---:|---|---|---|---|---|
+| 1 | | 1 | | | | | |
+| 1 | | 2 (if allowed) | | | | | |
+| 2 | | 1 | | | | | |
+| 2 | | 2 (if allowed) | | | | | |
+| 3 | | 1 | | | | | |
+| 3 | | 2 (if allowed) | | | | | |
 
 **Repeat inconsistency?** yes / no — if yes, describe what varied.
+
+### Run/result field mapping
+
+| Field | Current source |
+|---|---|
+| `case_id`, `task_id`, `framework`, `experiment_id`, result run ID | Result JSONL; result run ID is `run_id` |
+| `logical_run_id`, `repeat`, `attempt`, `status`, `rerun_reason` | Attempt ledger |
+
+Automatic joining is **pending**. The current result JSONL lacks
+`logical_run_id` and `attempt`, while the attempt ledger lacks the corresponding
+result `run_id`. Suitability reporting and dashboard grouping also do not yet
+preserve repeats/attempts. Until a follow-up runner/report integration change
+adds an unambiguous join key and repeat-safe grouping, record both references
+manually and do not claim automated run-matrix completeness.
+
+The runner currently enforces a non-empty rerun reason and at most two
+attempts; it does not validate the prior failure class. Before attempt `2`, a
+human reviewer must confirm that attempt `1` was an eligible infrastructure
+failure. Include only the final eligible attempt in aggregate analysis while
+retaining every attempt for audit.
 
 ---
 

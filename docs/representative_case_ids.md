@@ -13,6 +13,9 @@ Select **one representative case per task type** for the 48 targeted-repeat runs
 (8 cases × 3 frameworks × 2 additional logical runs). The first observation for
 each case is already included in the 180-run main pilot; the two additional
 logical runs produce three observations per framework and representative case.
+The controlled-pilot analysis therefore contains 228 logical runs. The separate
+24 readiness preflights bring the execution plan to 252 logical runs; retry
+attempts do not increase either count.
 
 ## Frozen eight IDs
 
@@ -50,6 +53,12 @@ owner approval, and revalidation of the affected preflight/repeat plan.
 - Attempt `2` is permitted only for one documented infrastructure retry under
   the frozen rerun policy.
 - A poor answer, score, or tool choice is not retry-eligible.
+- Until runner-side eligibility validation exists, a human reviewer must verify
+  the prior attempt was an infrastructure failure before authorizing attempt
+  `2`; a non-empty reason alone is not proof of eligibility.
+- Automatic result/ledger/report joining is pending a follow-up integration
+  change. Preserve both attempt-ledger and result `run_id` references manually
+  without folding repeats or failed attempts.
 
 ## Approval record
 
