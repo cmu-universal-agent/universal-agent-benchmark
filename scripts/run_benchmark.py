@@ -17,11 +17,15 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-load_dotenv(ROOT / ".env", override=False)
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    pass
+else:
+    load_dotenv(ROOT / ".env", override=False)
 
 from adapter.evaluator import evaluate_core_gold, evaluate_result
 from adapter.e5_evaluator import evaluate_agent_result

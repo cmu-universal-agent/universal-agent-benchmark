@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import sys
 import unittest
 from subprocess import TimeoutExpired
 from pathlib import Path
@@ -17,6 +19,16 @@ from scripts.run_benchmark import (
 
 
 class RunBenchmarkTests(unittest.TestCase):
+    def test_help_runs_without_site_packages(self):
+        completed = subprocess.run(
+            [sys.executable, "-S", "scripts/run_benchmark.py", "--help"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_single_case_loads_sibling_gold(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
