@@ -15,13 +15,22 @@ from adapter.schemas import BenchmarkTask
 FIRST_AGENT_MESSAGE = "Hi! How can I help you today?"
 STOP_MARKERS = ("###STOP###", "###TRANSFER###", "###OUT-OF-SCOPE###")
 SIMULATOR_VERSION = "tau2-user-simulator@1d244f5"
-SESSION_PROTOCOL_VERSION = "1.4"
+SESSION_PROTOCOL_VERSION = "1.6"
 SIMULATOR_MODEL = "gpt-4o-mini"
 E5_AGENT_SYSTEM_PROMPT = (
     "You are a retail customer-support agent. Use the provided tools to resolve "
     "the customer's issue. Follow policy and only use allowed tools. A tool "
     "response with ok=false means the action did not happen; do not claim that it "
-    "did. Reply with one JSON object and follow the task's specified output schema."
+    "did. Reply with exactly one JSON object matching the public E5 schema. "
+    "Include schema_version='1.0', the task's case_id, task_id='E5', result, "
+    "explanation, evidence_ids, confidence, and risk_or_uncertainty. The result "
+    "must include resolution_status, customer_message, and final_state. "
+    "The result.final_state object must report action_taken as refund, exchange, "
+    "return, escalate, or no_action; when escalating it must also report the "
+    "tool-call escalation_reason. Report only values directly supported by tool "
+    "calls/results. Never invent ticket_id, order_status, or other unavailable "
+    "business state. Authoritative final state is verified locally from the tool "
+    "trace and replay evaluator."
 )
 SIMULATOR_GUIDELINES = """# User Simulation Guidelines
 You are playing the role of a customer contacting a customer service representative.
@@ -73,7 +82,7 @@ def _sum_usage(
 def _agent_prompt(task: BenchmarkTask, transcript: list[tuple[str, str]]) -> str:
     history = "\n\n".join(f"{role}: {content}" for role, content in transcript)
     return (
-        f"{task.prompt}\n\n"
+        f"Case ID: {task.case_id}\nTask ID: E5\n\n{task.prompt}\n\n"
         "Continue this customer-support conversation. Use tools when needed. "
         "Respond only to the latest customer message.\n\n"
         f"{history}"

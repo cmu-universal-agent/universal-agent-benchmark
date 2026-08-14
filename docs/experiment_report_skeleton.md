@@ -52,6 +52,10 @@ preflights are frozen. Chloe closed the remaining metric decisions on
 - E5 final-state replay: independently applies the approved gold actions and
   observed successful tool calls to pinned simulator instances, then compares
   agent and user database hashes. Response and state criteria must both pass.
+- E5 public output boundary (protocol v1.6): `result.final_state` reports only
+  tool-observable `action_taken` and, for escalation, `escalation_reason`.
+  Unavailable ticket IDs and order statuses are not requested from the model.
+  The local replay evaluator remains authoritative.
 - E5 privacy boundary: only `user_simulator.task_instructions` and the pinned
   simulator controls required to generate the customer turn may enter the
   OpenAI user-simulator request. Response contracts, gold actions, rubrics,
