@@ -166,25 +166,24 @@ def _append_attempt(ledger: Path, record: dict) -> None:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
-def _result_count(
+def _attempt_result_rows(
     path: Path,
     *,
-    experiment_id: str,
-    case_key: str,
-    framework: str,
-) -> int:
+    logical_run_id: str,
+    attempt: int,
+) -> list[dict]:
     if not path.exists():
-        return 0
-    return sum(
-        d.get("experiment_id") == experiment_id
-        and (d.get("case_id") or d.get("task_id")) == case_key
-        and d.get("framework") == framework
+        return []
+    return [
+        d
         for d in (
             json.loads(line)
             for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         )
-    )
+        if d.get("logical_run_id") == logical_run_id
+        and d.get("attempt") == attempt
+    ]
 
 
 def main():
@@ -280,9 +279,8 @@ def main():
         else [row for row in FRAMEWORKS if row[0] == args.framework]
     )
 
-    # (vertical, case identity, framework) once per run, in run order.
-    run_records: list[tuple[str, str, str]] = []
-    baseline_counts: dict[tuple[str, str, str], int] = {}
+    # One entry per completed logical-run attempt, in execution order.
+    run_records: list[tuple[str, str, str, str, int]] = []
     for task_path in task_paths:
         task = load_task(task_path)
         vertical = task.vertical
@@ -296,12 +294,6 @@ def main():
                 print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
                 continue
 
-            baseline_counts[(vertical, case_key, name)] = _result_count(
-                default_result_path(vertical),
-                experiment_id=experiment_id,
-                case_key=case_key,
-                framework=name,
-            )
             for rep in range(args.repeats):
                 print(f"--- Running {name} (repeat {rep + 1}/{args.repeats}) ---")
                 logical_run_id = (
@@ -312,17 +304,37 @@ def main():
                     logical_run_id,
                     args.rerun_reason,
                 )
+                attempt_env = child_env.copy()
+                attempt_env.update(
+                    {
+                        "BENCHMARK_LOGICAL_RUN_ID": logical_run_id,
+                        "BENCHMARK_REPEAT": str(rep + 1),
+                        "BENCHMARK_ATTEMPT": str(attempt),
+                    }
+                )
                 started_at = datetime.now(timezone.utc).isoformat()
                 try:
                     returncode = _run_framework_process(
                         [str(python_bin), str(script), "--task", str(task_path)],
-                        env=child_env,
+                        env=attempt_env,
                         timeout=args.timeout_seconds,
                     )
                     status = "completed" if returncode == 0 else "process_error"
                 except subprocess.TimeoutExpired:
                     status = "timeout"
                     returncode = None
+                result_rows = _attempt_result_rows(
+                    default_result_path(vertical),
+                    logical_run_id=logical_run_id,
+                    attempt=attempt,
+                )
+                result_run_id = (
+                    result_rows[0].get("run_id") if len(result_rows) == 1 else None
+                )
+                if status == "completed" and (
+                    len(result_rows) != 1 or not result_run_id
+                ):
+                    status = "output_write_failure"
                 _append_attempt(
                     ATTEMPT_LEDGER,
                     {
@@ -339,16 +351,22 @@ def main():
                         "completed_at": datetime.now(timezone.utc).isoformat(),
                         "status": status,
                         "returncode": returncode,
+                        "result_run_id": result_run_id,
+                        "result_row_count": len(result_rows),
                     },
                 )
                 if status != "completed":
                     raise RuntimeError(f"{logical_run_id} ended with {status}")
-                run_records.append((vertical, case_key, name))
+                run_records.append(
+                    (vertical, case_key, name, logical_run_id, attempt)
+                )
 
     print("\n--- Summary ---")
-    by_vertical: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for vertical, case_key, name in run_records:
-        by_vertical[vertical].append((case_key, name))
+    by_vertical: dict[str, list[tuple[str, str, str, int]]] = defaultdict(list)
+    for vertical, case_key, name, logical_run_id, attempt in run_records:
+        by_vertical[vertical].append(
+            (case_key, name, logical_run_id, attempt)
+        )
 
     failure_modes_by_framework: dict[str, Counter] = defaultdict(Counter)
 
@@ -358,30 +376,35 @@ def main():
             print(f"no results written to {results_path}")
             continue
 
-        all_by_key: dict[tuple[str, str], list[dict]] = defaultdict(list)
+        all_by_attempt: dict[tuple[str, int], list[dict]] = defaultdict(list)
         with open(results_path, "r", encoding="utf-8") as f:
             for line in f:
                 d = json.loads(line)
                 if d.get("experiment_id") != experiment_id:
                     continue
-                result_case_key = d.get("case_id") or d["task_id"]
-                all_by_key[(result_case_key, d["framework"])].append(d)
+                logical_run_id = d.get("logical_run_id")
+                attempt = d.get("attempt")
+                if logical_run_id and isinstance(attempt, int):
+                    all_by_attempt[(logical_run_id, attempt)].append(d)
 
-        key_counts = Counter(records)
-        seen: set[tuple[str, str]] = set()
-        for key in records:
-            if key in seen:
-                continue
-            seen.add(key)
+        grouped_records: dict[
+            tuple[str, str], list[tuple[str, int]]
+        ] = defaultdict(list)
+        for case_key, name, logical_run_id, attempt in records:
+            grouped_records[(case_key, name)].append((logical_run_id, attempt))
 
-            case_key, name = key
-            n = key_counts[key]
-            session_runs = _require_session_runs(
-                all_by_key[key][baseline_counts[(vertical, case_key, name)]:],
-                expected=n,
-                case_key=case_key,
-                framework=name,
-            )
+        for (case_key, name), logical_attempts in grouped_records.items():
+            session_runs = []
+            for logical_run_id, attempt in logical_attempts:
+                session_runs.extend(
+                    _require_session_runs(
+                        all_by_attempt[(logical_run_id, attempt)],
+                        expected=1,
+                        case_key=case_key,
+                        framework=name,
+                    )
+                )
+            n = len(session_runs)
             results_objs = [AgentRunResult(**d) for d in session_runs]
             task = tasks_by_key[(vertical, case_key)]
             evaluation = task.metadata.get("evaluation", {})

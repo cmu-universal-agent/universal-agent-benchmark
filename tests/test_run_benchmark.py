@@ -10,10 +10,10 @@ from unittest.mock import patch
 
 from scripts.run_benchmark import (
     _append_attempt,
+    _attempt_result_rows,
     _load_gold,
     _next_attempt,
     _require_session_runs,
-    _result_count,
     _run_framework_process,
 )
 
@@ -90,27 +90,32 @@ class RunBenchmarkTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "rerun limit reached"):
                 _next_attempt(ledger, record["logical_run_id"], "provider error")
 
-    def test_result_count_is_scoped_to_logical_run(self):
+    def test_result_rows_join_on_logical_run_and_attempt(self):
         with TemporaryDirectory() as directory:
             path = Path(directory) / "results.jsonl"
             path.write_text(
                 "\n".join(
                     [
-                        '{"experiment_id":"old","case_id":"H1","framework":"fw"}',
-                        '{"experiment_id":"exp","case_id":"H1","framework":"fw"}',
-                        '{"experiment_id":"exp","case_id":"H2","framework":"fw"}',
+                        '{"logical_run_id":"logical-1","attempt":1,"run_id":"run-1"}',
+                        '{"logical_run_id":"logical-1","attempt":2,"run_id":"run-2"}',
+                        '{"logical_run_id":"logical-2","attempt":1,"run_id":"run-3"}',
                     ]
                 ),
                 encoding="utf-8",
             )
             self.assertEqual(
-                _result_count(
+                _attempt_result_rows(
                     path,
-                    experiment_id="exp",
-                    case_key="H1",
-                    framework="fw",
+                    logical_run_id="logical-1",
+                    attempt=2,
                 ),
-                1,
+                [
+                    {
+                        "logical_run_id": "logical-1",
+                        "attempt": 2,
+                        "run_id": "run-2",
+                    }
+                ],
             )
 
     @patch("scripts.run_benchmark._terminate_process_tree")

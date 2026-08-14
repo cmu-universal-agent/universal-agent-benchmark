@@ -40,23 +40,34 @@ def result_models(vertical: str) -> list[str]:
 def load_latest_results(
     vertical: str,
     model_name: str | None = None,
-) -> dict[tuple[str, str], dict]:
+) -> dict[tuple[str, str, str, str], dict]:
     """Read results/metrics/<vertical>_results.jsonl and keep only the
-    latest row per (task_id, framework) -- results are append-only, so
-    older duplicate runs are superseded by newer ones for the same key.
+    latest attempt per logical run without folding cases or repeats.
 
     When model_name is provided, rows from other models are excluded. Legacy
     rows without model metadata belong to the explicit "unknown" group.
     """
     path = default_result_path(vertical)
-    latest: dict[tuple[str, str], dict] = {}
+    latest: dict[tuple[str, str, str, str], dict] = {}
     if not path.exists():
         return latest
     with open(path, "r", encoding="utf-8") as f:
-        for line in f:
+        for row_number, line in enumerate(f, start=1):
             d = json.loads(line)
             row_model = d.get("model_name") or "unknown"
             if model_name is not None and row_model != model_name:
                 continue
-            latest[(d["task_id"], d["framework"])] = d
+            case_id = d.get("case_id") or d["task_id"]
+            experiment_id = d.get("experiment_id") or "legacy"
+            logical_run_id = (
+                d.get("logical_run_id")
+                or d.get("run_id")
+                or f"legacy-row-{row_number}"
+            )
+            key = (case_id, d["framework"], experiment_id, logical_run_id)
+            previous = latest.get(key)
+            if previous is None or (d.get("attempt") or 1) >= (
+                previous.get("attempt") or 1
+            ):
+                latest[key] = d
     return latest

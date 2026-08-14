@@ -84,6 +84,10 @@ preflights are frozen. Chloe closed the remaining metric decisions on
 - Artifact inventory: frozen manifest, owner approvals, evaluator versions,
   environment record, run outputs, append-only attempt ledger, aggregate
   tables, report, and dashboard reconciliation evidence.
+- Join rule: each result records `logical_run_id`, `repeat`, and `attempt`;
+  the append-only attempt ledger stores the matching result `run_id`. Reports
+  retain distinct cases and repeats, select the latest attempt per logical run
+  for aggregate analysis, and keep every attempt visible in the dashboard.
 
 ## Calibration / preflight
 

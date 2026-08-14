@@ -30,6 +30,9 @@ class AgentRunResult:
     case_id: str | None = None
     run_id: str | None = None
     experiment_id: str | None = None
+    logical_run_id: str | None = None
+    repeat: int | None = None
+    attempt: int | None = None
     framework_version: str | None = None
     model_provider: str | None = None
     model_name: str | None = None

@@ -15,10 +15,12 @@ def _row(
     note: str,
     framework: str = "langgraph",
 ) -> dict:
+    run_id = f"run-{case_id}-{framework}-{sum(map(ord, note))}"
     return {
         "task_id": "E5",
         "case_id": case_id,
         "framework": framework,
+        "run_id": run_id,
         "latency_seconds": 0.1,
         "success": True,
         "error": None,
@@ -49,13 +51,15 @@ def _row(
 
 
 class GenerateDashboardTests(unittest.TestCase):
-    def test_latest_rows_are_kept_per_case_framework_and_label(self) -> None:
+    def test_repeats_and_attempts_are_not_folded(self) -> None:
         rows = [
             _row("RETAIL-E5-001", "pilot", "old"),
             _row("RETAIL-E5-002", "pilot", "second case"),
             _row("RETAIL-E5-001", "pilot", "latest"),
             _row("RETAIL-E5-001", "technical_smoke", "other label"),
         ]
+        rows[0].update(logical_run_id="logical-1", repeat=1, attempt=1)
+        rows[2].update(logical_run_id="logical-1", repeat=1, attempt=2)
         rows[0]["raw_metadata"]["final_state_correct"] = False
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "retail_results.jsonl"
@@ -70,36 +74,27 @@ class GenerateDashboardTests(unittest.TestCase):
             ):
                 payload = generate_dashboard.build_payload("retail")
 
-        keyed = {
-            (run["case_id"], run["framework"], run["experiment_label"]): run
+        self.assertEqual(len(payload["runs"]), 4)
+        attempts = [
+            run
             for run in payload["runs"]
-        }
-        self.assertEqual(len(keyed), 3)
+            if run["logical_run_id"] == "logical-1"
+        ]
         self.assertEqual(
-            keyed[("RETAIL-E5-001", "langgraph", "pilot")][
-                "final_state_verdict"
-            ],
-            "correct",
-        )
-        self.assertIn(("RETAIL-E5-002", "langgraph", "pilot"), keyed)
-        self.assertIn(
-            ("RETAIL-E5-001", "langgraph", "technical_smoke"),
-            keyed,
+            [(run["attempt"], run["final_state_verdict"]) for run in attempts],
+            [(1, "incorrect"), (2, "correct")],
         )
 
         html = generate_dashboard.render_html(payload)
         self.assertIn(
-            "runByDomKey[runDomKey(r.case_id, r.framework, r.experiment_label)]",
+            "runByDomKey[runDomKey(r)]",
             html,
         )
         self.assertIn(
-            "const lookupKey = runDomKey(c.id, f.id, state.label);",
+            "const lookupKey = cellRunKey(c.id, f.id, state.label);",
             html,
         )
-        self.assertIn(
-            "const domKey = runDomKey(r.case_id, r.framework, r.experiment_label);",
-            html,
-        )
+        self.assertIn("const domKey = runDomKey(r);", html)
         self.assertIn('data-run="${esc(domKey)}"', html)
         self.assertIn("const r = runByDomKey[domKey];", html)
 
@@ -115,7 +110,7 @@ class GenerateDashboardTests(unittest.TestCase):
         ]
         with patch.object(
             generate_dashboard,
-            "_load_latest_dashboard_results",
+            "_load_dashboard_results",
             return_value=rows,
         ):
             payload = generate_dashboard.build_payload("retail")
@@ -154,7 +149,7 @@ class GenerateDashboardTests(unittest.TestCase):
     def test_framework_cards_show_evidence_availability_not_scores(self) -> None:
         with patch.object(
             generate_dashboard,
-            "_load_latest_dashboard_results",
+            "_load_dashboard_results",
             return_value=[
                 _row("RETAIL-E5-001", "technical_smoke", "available")
             ],
@@ -182,7 +177,7 @@ class GenerateDashboardTests(unittest.TestCase):
     def test_dashboard_declares_dual_industry_60_case_readiness(self) -> None:
         with patch.object(
             generate_dashboard,
-            "_load_latest_dashboard_results",
+            "_load_dashboard_results",
             return_value=[],
         ):
             payload = generate_dashboard.build_payload("retail")
@@ -199,7 +194,7 @@ class GenerateDashboardTests(unittest.TestCase):
     def test_synthetic_walkthrough_is_populated_and_public_safe(self) -> None:
         with patch.object(
             generate_dashboard,
-            "_load_latest_dashboard_results",
+            "_load_dashboard_results",
             return_value=[],
         ):
             payload = generate_dashboard.build_payload(
