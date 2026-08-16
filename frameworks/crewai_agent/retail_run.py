@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from adapter.result_writer import append_result
-from adapter.e5_session import run_e5_session
+from adapter.e5_session import E5_AGENT_SYSTEM_PROMPT, run_e5_session
 from adapter.tau_retail_env import make_retail_env
 from adapter.runtime import (
     GenerationSettings,
@@ -34,12 +34,7 @@ WRAPPER_VERSION = "0.1.0"
 
 
 def _system_prompt() -> str:
-    return (
-        "You are a retail customer-support agent. Use the provided tools to resolve "
-        "the customer's issue. Follow policy and only use allowed tools. "
-        "When finished, reply with a single JSON object (no markdown) containing "
-        'at least "resolution" (string) and "actions_taken" (array of strings).'
-    )
+    return E5_AGENT_SYSTEM_PROMPT
 
 
 def _run_retail_agent(

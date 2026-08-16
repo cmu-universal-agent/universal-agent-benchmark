@@ -15,6 +15,14 @@ from adapter.schemas import BenchmarkTask
 FIRST_AGENT_MESSAGE = "Hi! How can I help you today?"
 STOP_MARKERS = ("###STOP###", "###TRANSFER###", "###OUT-OF-SCOPE###")
 SIMULATOR_VERSION = "tau2-user-simulator@1d244f5"
+SESSION_PROTOCOL_VERSION = "1.4"
+SIMULATOR_MODEL = "gpt-4o-mini"
+E5_AGENT_SYSTEM_PROMPT = (
+    "You are a retail customer-support agent. Use the provided tools to resolve "
+    "the customer's issue. Follow policy and only use allowed tools. A tool "
+    "response with ok=false means the action did not happen; do not claim that it "
+    "did. Reply with one JSON object and follow the task's specified output schema."
+)
 SIMULATOR_GUIDELINES = """# User Simulation Guidelines
 You are playing the role of a customer contacting a customer service representative.
 Your goal is to simulate realistic customer interactions while following specific scenario instructions.
@@ -62,9 +70,10 @@ def _sum_usage(
             total[key] = (total[key] or 0) + int(value[key])
 
 
-def _agent_prompt(transcript: list[tuple[str, str]]) -> str:
+def _agent_prompt(task: BenchmarkTask, transcript: list[tuple[str, str]]) -> str:
     history = "\n\n".join(f"{role}: {content}" for role, content in transcript)
     return (
+        f"{task.prompt}\n\n"
         "Continue this customer-support conversation. Use tools when needed. "
         "Respond only to the latest customer message.\n\n"
         f"{history}"
@@ -78,12 +87,34 @@ def run_e5_session(
     ],
 ) -> E5SessionResult:
     gold = _load_gold(task)
-    simulator = gold["user_simulator"]
+    user_simulator = gold.get("user_simulator")
+    if not isinstance(user_simulator, dict):
+        raise RuntimeError("formal E5 requires a user_simulator configuration")
+    required_simulator_fields = ("seed", "task_instructions", "max_turns")
+    missing_fields = [
+        key for key in required_simulator_fields if key not in user_simulator
+    ]
+    if missing_fields:
+        raise RuntimeError(
+            "formal E5 user_simulator is missing required fields: "
+            + ", ".join(missing_fields)
+        )
+    simulator = {
+        key: user_simulator[key]
+        for key in required_simulator_fields
+    }
+    instructions = str(simulator["task_instructions"]).strip()
+    if (
+        not instructions
+        or instructions == "."
+        or (instructions.startswith("<") and instructions.endswith(">"))
+    ):
+        raise RuntimeError("formal E5 requires non-placeholder task_instructions")
+    simulator["task_instructions"] = instructions
     client = OpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
         base_url=os.getenv("OPENAI_BASE_URL"),
     )
-    model = str(simulator["model"]).rsplit("/", 1)[-1]
     system = (
         f"{SIMULATOR_GUIDELINES}\n<scenario>\n"
         f"{simulator['task_instructions']}\n</scenario>"
@@ -104,7 +135,7 @@ def run_e5_session(
 
     for _ in range(int(simulator["max_turns"])):
         response = client.chat.completions.create(
-            model=model,
+            model=SIMULATOR_MODEL,
             messages=simulator_messages,
             seed=int(simulator["seed"]),
         )
@@ -121,8 +152,9 @@ def run_e5_session(
                 token_usage=agent_usage,
                 assistant_turns=assistant_turns,
                 simulator={
+                    "protocol_version": SESSION_PROTOCOL_VERSION,
                     "version": SIMULATOR_VERSION,
-                    "model": simulator["model"],
+                    "model": SIMULATOR_MODEL,
                     "seed": simulator["seed"],
                     "turns": len(assistant_turns) - 1,
                     "token_usage": simulator_usage,
@@ -133,7 +165,7 @@ def run_e5_session(
             )
 
         transcript.append(("Customer", user_message))
-        final_output, turn_usage = run_agent_turn(_agent_prompt(transcript))
+        final_output, turn_usage = run_agent_turn(_agent_prompt(task, transcript))
         _sum_usage(agent_usage, turn_usage)
         transcript.append(("Assistant", final_output))
         assistant_turns.append(final_output)

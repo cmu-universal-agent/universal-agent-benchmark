@@ -184,6 +184,45 @@ class CorePilotCompletenessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("cases=8 gold=8 leakage=0", result.stdout)
 
+    def test_frozen_manifest_requires_freeze_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            _write_complete_output(output)
+            manifest_path = output / "split_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["status"] = "frozen"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            incomplete = _validate(output)
+            manifest.update(
+                manifest_version="pilot-test-v1",
+                frozen_by="Chloe",
+                frozen_at="2026-08-03",
+            )
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            complete = _validate(output)
+
+        self.assertNotEqual(incomplete.returncode, 0)
+        self.assertIn(
+            "split_manifest.json does not match the production contract",
+            incomplete.stdout,
+        )
+        self.assertEqual(complete.returncode, 0, complete.stdout + complete.stderr)
+
+    def test_accepts_owner_approved_coverage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            _write_complete_output(output)
+            report_path = output / "coverage_report.json"
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            for task in report["tasks"].values():
+                task["status"] = "owner_approved"
+            report_path.write_text(json.dumps(report), encoding="utf-8")
+
+            result = _validate(output)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_rejects_missing_required_artifacts(self):
         for artifact in ("split_manifest.json", "coverage_report.json"):
             with self.subTest(artifact=artifact):

@@ -9,6 +9,7 @@ prints an aggregated evaluation summary per (task, framework) pair.
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import uuid
@@ -18,6 +19,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    pass
+else:
+    load_dotenv(ROOT / ".env", override=False)
 
 from adapter.evaluator import evaluate_core_gold, evaluate_result
 from adapter.e5_evaluator import evaluate_agent_result
@@ -36,6 +44,43 @@ def _venv_python(venv_name: str) -> Path:
     windows_python = venv_root / "Scripts" / "python.exe"
     posix_python = venv_root / "bin" / "python"
     return windows_python if windows_python.exists() else posix_python
+
+
+def _terminate_process_tree(process: subprocess.Popen) -> None:
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _run_framework_process(
+    command: list[str], *, env: dict[str, str], timeout: int
+) -> int:
+    process = subprocess.Popen(
+        command,
+        cwd=ROOT,
+        env=env,
+        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
+        start_new_session=os.name != "nt",
+    )
+    try:
+        return process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _terminate_process_tree(process)
+        raise
 
 
 FRAMEWORKS = [
@@ -64,13 +109,18 @@ def _resolve_task_paths(task_arg: Path) -> list[Path]:
 
 
 def _load_gold(task_arg: Path) -> dict[str, dict]:
-    if not task_arg.is_dir():
-        return {}
-    gold_dir = task_arg.parent / "gold"
-    if not gold_dir.is_dir():
-        return {}
+    configured_e5_gold = os.getenv("BENCHMARK_E5_GOLD_PATH")
+    if task_arg.is_file() and configured_e5_gold:
+        gold_paths = [Path(configured_e5_gold)]
+    else:
+        gold_dir = (
+            task_arg.parent / "gold"
+            if task_arg.is_dir()
+            else task_arg.parent.parent / "gold"
+        )
+        gold_paths = sorted(gold_dir.glob("*.jsonl")) if gold_dir.is_dir() else []
     rows = {}
-    for path in sorted(gold_dir.glob("*.jsonl")):
+    for path in gold_paths:
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 row = json.loads(line)
@@ -264,15 +314,12 @@ def main():
                 )
                 started_at = datetime.now(timezone.utc).isoformat()
                 try:
-                    completed = subprocess.run(
+                    returncode = _run_framework_process(
                         [str(python_bin), str(script), "--task", str(task_path)],
-                        cwd=ROOT,
-                        check=False,
                         env=child_env,
                         timeout=args.timeout_seconds,
                     )
-                    status = "completed" if completed.returncode == 0 else "process_error"
-                    returncode = completed.returncode
+                    status = "completed" if returncode == 0 else "process_error"
                 except subprocess.TimeoutExpired:
                     status = "timeout"
                     returncode = None

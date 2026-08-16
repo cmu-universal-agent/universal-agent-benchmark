@@ -250,9 +250,15 @@ def main() -> None:
     manifest_case_ids: set[str] = set()
     if manifest is not None:
         manifest_tasks = manifest.get("tasks")
+        manifest_status = manifest.get("status")
+        frozen_metadata_valid = manifest_status != "frozen" or all(
+            isinstance(manifest.get(field), str) and manifest[field].strip()
+            for field in ("manifest_version", "frozen_by", "frozen_at")
+        )
         if (
             manifest.get("schema_version") != "1.0"
-            or manifest.get("status") != "local_review_manifest"
+            or manifest_status not in {"local_review_manifest", "frozen"}
+            or not frozen_metadata_valid
             or not isinstance(manifest.get("seed"), int)
             or not isinstance(manifest_tasks, dict)
         ):
@@ -347,8 +353,13 @@ def main() -> None:
                 if not isinstance(status, dict):
                     errors.append(f"coverage {task_id} status must be an object")
                     continue
-                if status.get("status") != "generated_for_review":
-                    errors.append(f"coverage {task_id} is not generated_for_review")
+                if status.get("status") not in {
+                    "generated_for_review",
+                    "owner_approved",
+                }:
+                    errors.append(
+                        f"coverage {task_id} has an invalid review status"
+                    )
                 if status.get("cases") != counts[task_id]:
                     errors.append(
                         f"coverage {task_id} case count mismatch: "

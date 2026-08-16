@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.fill_e5_replay import load_tau_environment, verify_source
+from adapter.tau_retail_env import TAU_WORKER_RESPONSE_PREFIX
 
 
 def _jsonable(value: Any) -> Any:
@@ -62,7 +63,7 @@ def main() -> int:
                 "error_type": type(exc).__name__,
                 "message": str(exc),
             }
-        print(json.dumps(response, default=str), flush=True)
+        print(TAU_WORKER_RESPONSE_PREFIX + json.dumps(response, default=str), flush=True)
     return 0
 
 
