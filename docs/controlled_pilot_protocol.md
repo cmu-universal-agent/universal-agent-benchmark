@@ -3,7 +3,7 @@
 Status: **Content complete; execution freeze pending**
 Owner: Mickey
 Prepared: 2026-08-15
-Pilot protocol: `pilot-60-v1.1`
+Pilot protocol: `pilot-60-v1.6` candidate
 E5 session protocol: `1.6` candidate
 
 ## Purpose and claim status
@@ -24,7 +24,7 @@ merged commit and the private execution record is frozen.
 |---|---|---|
 | Representative-case documentation | PR #25 merged as `9a2248c` | IDs and owner semantics must remain unchanged |
 | Preflight hardening | PR #26 head `1111210` on 2026-08-15 | Record its eventual merged `main` commit |
-| E5 v1.6 and run/attempt linkage | PR #27 head `b7a82f2` on 2026-08-15 | Record its eventual merged `main` commit |
+| E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 head `b20a739` on 2026-08-15 | Record its eventual merged `main` commit |
 | Formal code commit | Pending | One clean `main` commit after PR #26 and PR #27 integration |
 
 PR heads are review references, not frozen execution commits. If either head
@@ -62,7 +62,7 @@ run counts.
 | Agent model | `gpt-4o-mini` through the frozen OpenAI-compatible provider |
 | E5 user-simulator model | `gpt-4o-mini` |
 | Temperature | `0` |
-| Maximum output tokens | Provider default when unsupported or not exposed; record the effective value |
+| Maximum output tokens | Pending final freeze: record one explicit requested value; if unsupported, record `null`/`unsupported` and the exact provider/model version instead of relying on a provider default |
 | Seed | Record the requested and effective value; use null when the provider does not support it |
 | Per-attempt timeout | 300 seconds |
 | Token budget | No separate cap; record provider-reported usage when available |
@@ -72,10 +72,14 @@ run counts.
 | Evaluators | H1/H2/H4/H5/E1/E2/E3 semantics 1.0; E5 semantics 0.3; hashes retained privately |
 | Results | Private local-only JSONL and append-only attempt ledger |
 
-The final freeze record must also capture the exact `main` commit, dependency
-lock evidence, experiment IDs, provider endpoint identity, prompt and schema
+Before any preflight call, a candidate freeze record must capture the exact
+merged `main` commit, configuration, and preflight experiment ID. After all 24
+preflights pass, the final freeze record must capture the formal experiment ID,
+dependency lock evidence, provider endpoint identity, prompt and schema
 versions, output root, timestamps, approver, and successful readiness checks.
-Do not reconstruct any of those values after execution.
+The formal code and configuration must match the preflight candidate; otherwise
+version the change and repeat the affected preflights. Do not reconstruct any
+of these values after execution.
 
 ## Readiness gates
 
@@ -95,12 +99,14 @@ Complete the gates in this order:
    intended cases with no duplicate identity, model calls, or result writes.
 5. **Repeat-selection gate:** the runner can execute or retry one exact
    `(experiment_id, case_id, framework, repeat)` without executing an earlier
-   successful repeat. This gate is not satisfied by PR #27's current
-   `--repeats` loop; see "Known execution blocker."
+   successful repeat. PR #27 head `b20a739` provides `--repeat N`; this gate
+   passes only after that head is integrated and validated on the frozen
+   candidate commit.
 6. **Preflight gate:** run one case for each of the eight tasks on each of the
-   three frameworks, for 24 logical runs under a preflight experiment ID. Each
-   must finish with exactly one linked, schema-valid, traceable result and no
-   privacy violation.
+   three frameworks, for 24 logical runs under the candidate commit,
+   configuration, and preflight experiment ID frozen before the first call.
+   Each must finish with exactly one linked, schema-valid, traceable final
+   result and no privacy violation; preserve any eligible failed attempt.
 7. **Freeze gate:** record the exact formal configuration and approvals after
    all 24 preflights pass. Start the controlled pilot only after this record is
    complete.
@@ -208,18 +214,18 @@ No third attempt is permitted. If the retry would require a code, dependency,
 prompt, case, gold, evaluator, or configuration change, create a new protocol
 version and repeat the affected readiness gates instead.
 
-## Known execution blocker
+## Repeat-selection implementation status
 
-At PR #27 head `b7a82f2`, `run_benchmark.py --repeats N` always iterates from
-repeat 1. After an earlier repeat succeeds, invoking the command again to retry
-repeat 2 or 3 would first revisit repeat 1 and consume or violate its retry
-allowance. A non-empty `--rerun-reason` does not prove that the selected prior
-attempt was an eligible infrastructure failure.
+PR #27 head `b20a739` adds a mutually exclusive `--repeat N` path so repeat 2
+or 3 can be executed or retried without revisiting repeat 1. Its focused runner
+tests pass in all three pinned Python 3.12 environments. A non-empty
+`--rerun-reason` still does not prove that the selected prior attempt was an
+eligible infrastructure failure; the human eligibility review remains
+required.
 
-Do not start the formal 228-run pilot until the repeat-selection gate provides
-and tests an exact-repeat execution path, or an equivalent owner-approved path
-is documented and validated. Do not edit the append-only ledger to work around
-this constraint.
+Do not start the formal 228-run pilot until this head is integrated into
+`main` and the repeat-selection gate passes on the frozen candidate commit. Do
+not edit the append-only ledger to work around this gate.
 
 ## Privacy and publication boundary
 
