@@ -13,12 +13,17 @@ from scripts.run_benchmark import (
     _attempt_result_rows,
     _load_gold,
     _next_attempt,
+    _repeat_numbers,
     _require_session_runs,
     _run_framework_process,
 )
 
 
 class RunBenchmarkTests(unittest.TestCase):
+    def test_exact_repeat_selection_skips_earlier_repeats(self):
+        self.assertEqual(_repeat_numbers(3, 2), [2])
+        self.assertEqual(_repeat_numbers(3, None), [1, 2, 3])
+
     def test_help_runs_without_site_packages(self):
         completed = subprocess.run(
             [sys.executable, "-S", "scripts/run_benchmark.py", "--help"],

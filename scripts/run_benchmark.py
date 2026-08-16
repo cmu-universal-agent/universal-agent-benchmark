@@ -186,6 +186,13 @@ def _attempt_result_rows(
     ]
 
 
+def _repeat_numbers(repeats: int, repeat: int | None) -> list[int]:
+    selected = [repeat] if repeat is not None else list(range(1, repeats + 1))
+    if not selected or any(value < 1 for value in selected):
+        raise ValueError("repeat values must be positive")
+    return selected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -204,11 +211,18 @@ def main():
         default=None,
         help="Stable ID grouping all runs in this invocation. Generated when omitted.",
     )
-    parser.add_argument(
+    repeat_group = parser.add_mutually_exclusive_group()
+    repeat_group.add_argument(
         "--repeats",
         type=int,
         default=1,
         help="Number of times to run each (task, framework) pair, to measure consistency.",
+    )
+    repeat_group.add_argument(
+        "--repeat",
+        type=int,
+        default=None,
+        help="Run one exact positive repeat number without touching earlier repeats.",
     )
     parser.add_argument(
         "--framework",
@@ -241,6 +255,10 @@ def main():
         help="Load and list resolved cases without calling a model or writing results.",
     )
     args = parser.parse_args()
+    try:
+        repeat_numbers = _repeat_numbers(args.repeats, args.repeat)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     experiment_id = args.experiment_id or f"exp-{uuid.uuid4().hex}"
     child_env = os.environ.copy()
@@ -294,10 +312,10 @@ def main():
                 print(f"skipping {name}: {python_bin} not found (run scripts/setup_envs.sh)")
                 continue
 
-            for rep in range(args.repeats):
-                print(f"--- Running {name} (repeat {rep + 1}/{args.repeats}) ---")
+            for repeat_number in repeat_numbers:
+                print(f"--- Running {name} (repeat {repeat_number}) ---")
                 logical_run_id = (
-                    f"{experiment_id}:{case_key}:{name}:repeat-{rep + 1}"
+                    f"{experiment_id}:{case_key}:{name}:repeat-{repeat_number}"
                 )
                 attempt = _next_attempt(
                     ATTEMPT_LEDGER,
@@ -308,7 +326,7 @@ def main():
                 attempt_env.update(
                     {
                         "BENCHMARK_LOGICAL_RUN_ID": logical_run_id,
-                        "BENCHMARK_REPEAT": str(rep + 1),
+                        "BENCHMARK_REPEAT": str(repeat_number),
                         "BENCHMARK_ATTEMPT": str(attempt),
                     }
                 )
@@ -343,7 +361,7 @@ def main():
                         "case_id": case_key,
                         "task_id": task_id,
                         "framework": name,
-                        "repeat": rep + 1,
+                        "repeat": repeat_number,
                         "attempt": attempt,
                         "rerun_reason": args.rerun_reason,
                         "timeout_seconds": args.timeout_seconds,
