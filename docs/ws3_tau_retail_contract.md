@@ -68,6 +68,16 @@ The bounded state record intentionally contains only collection counts, a
 canonical state hash, sequence index, and mutation count. It contains no raw
 customer, order, product, gold, rubric, or expected-action content.
 
+`adapter/tau_retail_env.py`'s `TauRetailEnv` is a separate, private bridge
+used only for formal E5 final-state replay (`adapter/e5_evaluator.py`). Its
+`get_final_state()` intentionally does not conform to
+`schemas/tau_retail_state_record.schema.json`: it returns `agent_db_hash` and
+`user_db_hash` instead of `state_sha256`/`entity_counts`, because E5 scoring
+compares those two hashes directly (see `docs/e5_gold_semantics_v0.3.md`).
+This is a documented exception, not a contract violation — the bounded state
+record above applies to the shared public `RetailEnv`/`RetailDB` path, not to
+the private E5 replay bridge.
+
 ## Structured errors
 
 Wrappers map core failures to the existing `tool_call.error.error_type` field.
