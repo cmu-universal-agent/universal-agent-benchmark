@@ -2,7 +2,7 @@
 
 Status: **Content complete; execution freeze pending**
 Owner: Mickey
-Prepared: 2026-08-15
+Prepared: 2026-08-15; integration status refreshed 2026-08-17
 Pilot protocol: `pilot-60-v1.6` candidate
 E5 session protocol: `1.6` candidate
 
@@ -24,12 +24,12 @@ merged commit and the private execution record is frozen.
 |---|---|---|
 | Representative-case documentation | PR #25 merged as `9a2248c` | IDs and owner semantics must remain unchanged |
 | Preflight hardening | PR #26 merged as `8b8e5bb` on 2026-08-16 | Preserve the merged `main` commit |
-| E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 head `7311329` on 2026-08-16 | Record its eventual merged `main` commit |
-| Formal code commit | Pending | One clean `main` commit after PR #26 and PR #27 integration |
+| E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 merged as `464a0d5` on 2026-08-17 | Preserve the merged `main` commit |
+| Formal code commit | Integrated code baseline `464a0d5`; execution freeze pending | Pin one clean merged `main` commit before preflight |
 
-The PR #27 head is a review reference, not a frozen execution commit. If it
-changes, repeat the applicable offline checks before freezing the formal code
-commit.
+The merged PR #27 commit is integration evidence, not yet a frozen execution
+commit. If `main` changes before freeze, repeat the applicable offline checks
+before recording the formal code commit.
 
 ## Execution terms
 
@@ -99,9 +99,8 @@ Complete the gates in this order:
    intended cases with no duplicate identity, model calls, or result writes.
 5. **Repeat-selection gate:** the runner can execute or retry one exact
    `(experiment_id, case_id, framework, repeat)` without executing an earlier
-   successful repeat. PR #27 head `7311329` provides `--repeat N`; this gate
-   passes only after that head is integrated and validated on the frozen
-   candidate commit.
+   successful repeat. Merged PR #27 commit `464a0d5` provides `--repeat N`;
+   this gate passes after validation on the frozen candidate commit.
 6. **Preflight gate:** run one case for each of the eight tasks on each of the
    three frameworks, for 24 logical runs under the candidate commit,
    configuration, and preflight experiment ID frozen before the first call.
@@ -183,7 +182,7 @@ hashes locally; do not commit them.
 
 ## Run identity and attempt ledger
 
-The pending v1.6 runner constructs logical-run IDs as:
+The merged v1.6 runner constructs logical-run IDs as:
 
 ```text
 <experiment_id>:<case_id>:<framework>:repeat-<repeat>
@@ -216,17 +215,16 @@ version and repeat the affected readiness gates instead.
 
 ## Repeat-selection implementation status
 
-PR #27 head `7311329` adds a mutually exclusive `--repeat N` path so repeat 2
-or 3 can be executed or retried without revisiting repeat 1. After merging
-current `main`, shared suites pass 104/104 in all three pinned Python 3.12
-environments and wrapper suites pass 7/7, 8/8, and 8/8. A non-empty
-`--rerun-reason` still does not prove that the selected prior attempt was an
-eligible infrastructure failure; the human eligibility review remains
-required.
+Merged PR #27 commit `464a0d5` adds a mutually exclusive `--repeat N` path so
+repeat 2 or 3 can be executed or retried without revisiting repeat 1. Shared
+suites pass 104/104 in all three pinned Python 3.12 environments and wrapper
+suites pass 7/7, 8/8, and 8/8. A non-empty `--rerun-reason` still does not prove
+that the selected prior attempt was an eligible infrastructure failure; the
+human eligibility review remains required.
 
-Do not start the formal 228-run pilot until this head is integrated into
-`main` and the repeat-selection gate passes on the frozen candidate commit. Do
-not edit the append-only ledger to work around this gate.
+Do not start the formal 228-run pilot until the exact final merged `main` is
+frozen and the repeat-selection gate passes on that commit. Do not edit the
+append-only ledger to work around this gate.
 
 ## Privacy and publication boundary
 
