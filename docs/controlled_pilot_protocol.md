@@ -23,11 +23,11 @@ merged commit and the private execution record is frozen.
 | Item | Candidate evidence | Freeze rule |
 |---|---|---|
 | Representative-case documentation | PR #25 merged as `9a2248c` | IDs and owner semantics must remain unchanged |
-| Preflight hardening | PR #26 head `1111210` on 2026-08-15 | Record its eventual merged `main` commit |
-| E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 head `b20a739` on 2026-08-15 | Record its eventual merged `main` commit |
+| Preflight hardening | PR #26 merged as `8b8e5bb` on 2026-08-16 | Preserve the merged `main` commit |
+| E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 head `7311329` on 2026-08-16 | Record its eventual merged `main` commit |
 | Formal code commit | Pending | One clean `main` commit after PR #26 and PR #27 integration |
 
-PR heads are review references, not frozen execution commits. If either head
+The PR #27 head is a review reference, not a frozen execution commit. If it
 changes, repeat the applicable offline checks before freezing the formal code
 commit.
 
@@ -99,7 +99,7 @@ Complete the gates in this order:
    intended cases with no duplicate identity, model calls, or result writes.
 5. **Repeat-selection gate:** the runner can execute or retry one exact
    `(experiment_id, case_id, framework, repeat)` without executing an earlier
-   successful repeat. PR #27 head `b20a739` provides `--repeat N`; this gate
+   successful repeat. PR #27 head `7311329` provides `--repeat N`; this gate
    passes only after that head is integrated and validated on the frozen
    candidate commit.
 6. **Preflight gate:** run one case for each of the eight tasks on each of the
@@ -216,9 +216,10 @@ version and repeat the affected readiness gates instead.
 
 ## Repeat-selection implementation status
 
-PR #27 head `b20a739` adds a mutually exclusive `--repeat N` path so repeat 2
-or 3 can be executed or retried without revisiting repeat 1. Its focused runner
-tests pass in all three pinned Python 3.12 environments. A non-empty
+PR #27 head `7311329` adds a mutually exclusive `--repeat N` path so repeat 2
+or 3 can be executed or retried without revisiting repeat 1. After merging
+current `main`, shared suites pass 104/104 in all three pinned Python 3.12
+environments and wrapper suites pass 7/7, 8/8, and 8/8. A non-empty
 `--rerun-reason` still does not prove that the selected prior attempt was an
 eligible infrastructure failure; the human eligibility review remains
 required.
