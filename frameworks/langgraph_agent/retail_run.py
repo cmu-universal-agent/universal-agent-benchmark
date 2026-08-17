@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,16 +40,74 @@ from frameworks.langgraph_agent.retail_tools import make_retail_tools
 DATA_DIR = str(ROOT / "verticals" / "retail")
 FRAMEWORK_NAME = "langgraph"
 WRAPPER_VERSION = "0.1.0"
+MAX_RETAIL_TOOL_ROUNDS = 4
 
 load_dotenv(ROOT / ".env", override=False)
 
 
 class MessagesState(TypedDict):
     messages: Annotated[list, operator.add]
+    tool_rounds: int
 
 
 def _system_prompt() -> str:
     return E5_AGENT_SYSTEM_PROMPT
+
+
+def _route_after_model(state: MessagesState) -> str:
+    if not getattr(state["messages"][-1], "tool_calls", None):
+        return END
+    if state["tool_rounds"] >= MAX_RETAIL_TOOL_ROUNDS:
+        return "force_final"
+    return "tools"
+
+
+def _build_retail_graph(llm: ChatOpenAI, tools: list[Any]):
+    llm_bound = llm.bind_tools(tools) if tools else llm
+
+    def call_model(state: MessagesState):
+        response = llm_bound.invoke(
+            [SystemMessage(content=_system_prompt())] + state["messages"]
+        )
+        return {"messages": [response]}
+
+    def increment_tool_rounds(state: MessagesState):
+        return {"tool_rounds": state["tool_rounds"] + 1}
+
+    def force_final(state: MessagesState):
+        response = llm.invoke(
+            [
+                SystemMessage(
+                    content=(
+                        _system_prompt()
+                        + " The tool-call limit is reached. Do not call more tools; "
+                        "return the best truthful final JSON now."
+                    )
+                )
+            ]
+            + state["messages"]
+        )
+        return {"messages": [response]}
+
+    graph_builder = StateGraph(MessagesState)
+    graph_builder.add_node("call_model", call_model)
+    graph_builder.add_edge(START, "call_model")
+    if not tools:
+        graph_builder.add_edge("call_model", END)
+        return graph_builder.compile()
+
+    graph_builder.add_node("tools", ToolNode(tools))
+    graph_builder.add_node("increment_tool_rounds", increment_tool_rounds)
+    graph_builder.add_node("force_final", force_final)
+    graph_builder.add_conditional_edges(
+        "call_model",
+        _route_after_model,
+        {"tools": "tools", "force_final": "force_final", END: END},
+    )
+    graph_builder.add_edge("tools", "increment_tool_rounds")
+    graph_builder.add_edge("increment_tool_rounds", "call_model")
+    graph_builder.add_edge("force_final", END)
+    return graph_builder.compile()
 
 
 def _build_llm(
@@ -85,28 +143,14 @@ def _run_retail_agent(
     allowed_tools: list[str] | None,
 ) -> tuple[str, dict[str, int | None], list[dict[str, Any]], dict[str, Any]]:
     tools = make_retail_tools(env, allowed_tools)
-    use_tools = bool(tools)
-    llm_bound = llm.bind_tools(tools) if use_tools else llm
-
-    def call_model(state: MessagesState):
-        response = llm_bound.invoke(
-            [SystemMessage(content=_system_prompt())] + state["messages"]
-        )
-        return {"messages": [response]}
-
-    graph_builder = StateGraph(MessagesState)
-    graph_builder.add_node("call_model", call_model)
-    graph_builder.add_edge(START, "call_model")
-
-    if use_tools:
-        graph_builder.add_node("tools", ToolNode(tools))
-        graph_builder.add_conditional_edges("call_model", tools_condition)
-        graph_builder.add_edge("tools", "call_model")
-    else:
-        graph_builder.add_edge("call_model", END)
-
-    agent_graph = graph_builder.compile()
-    result = agent_graph.invoke({"messages": [HumanMessage(content=prompt)]})
+    agent_graph = _build_retail_graph(llm, tools)
+    result = agent_graph.invoke(
+        {
+            "messages": [HumanMessage(content=prompt)],
+            "tool_rounds": 0,
+        },
+        config={"recursion_limit": MAX_RETAIL_TOOL_ROUNDS * 3 + 5},
+    )
 
     usage_rows = [
         message.usage_metadata

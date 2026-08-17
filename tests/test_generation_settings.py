@@ -197,22 +197,34 @@ class RunFrameworkTaskModelConstructionTests(unittest.TestCase):
         def _build_model_ok(settings):
             return object(), resolve_generation_settings(settings, settings)
 
-        result = run_framework_task(
-            _task(),
-            framework="test",
-            package_name="missing-test-package",
-            tool_modules=(),
-            requested_settings=_settings(),
-            build_model=_build_model_ok,
-            run_model=lambda _model, _settings: (
-                "{}",
-                {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
-                {"wrapper_detail": "recorded"},
-            ),
-        )
+        with patch.dict(
+            os.environ,
+            {
+                "BENCHMARK_LOGICAL_RUN_ID": "logical-1",
+                "BENCHMARK_REPEAT": "2",
+                "BENCHMARK_ATTEMPT": "1",
+            },
+            clear=False,
+        ):
+            result = run_framework_task(
+                _task(),
+                framework="test",
+                package_name="missing-test-package",
+                tool_modules=(),
+                requested_settings=_settings(),
+                build_model=_build_model_ok,
+                run_model=lambda _model, _settings: (
+                    "{}",
+                    {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+                    {"wrapper_detail": "recorded"},
+                ),
+            )
 
         self.assertTrue(result.success)
         self.assertEqual(result.raw_metadata["wrapper_detail"], "recorded")
+        self.assertEqual(result.logical_run_id, "logical-1")
+        self.assertEqual(result.repeat, 2)
+        self.assertEqual(result.attempt, 1)
 
 
 @unittest.skipUnless(

@@ -62,7 +62,7 @@ def _run_retail_agent(
     task = crewai_run.Task(
         description=prompt,
         expected_output=(
-            "Exactly one JSON object with resolution and actions_taken. "
+            "Exactly one JSON object matching the public E5 output schema. "
             "No markdown and no extra text."
         ),
         agent=agent,

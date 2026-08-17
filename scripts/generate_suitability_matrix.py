@@ -3,7 +3,7 @@
 CLAUDE.md, comparing LangGraph, CrewAI, and OpenAI Agents SDK across the
 Medical Diagnostic and E-commerce Trend Researcher verticals.
 
-Pulls from the latest result per (task_id, framework, model) in
+Pulls from the latest attempt per logical run and model in
 results/metrics/*.jsonl and writes a single Markdown report with summary
 tables and ASCII bar charts to results/framework_suitability_matrix.md.
 """
@@ -54,7 +54,12 @@ def _vertical_stats(vertical: str, model_name: str) -> dict[str, dict | None]:
     results = load_latest_results(vertical, model_name=model_name)
 
     by_framework: dict[str, list[dict]] = defaultdict(list)
-    for (_task_id, framework), r in results.items():
+    for (
+        _case_id,
+        framework,
+        _experiment_id,
+        _logical_run_id,
+    ), r in results.items():
         by_framework[framework].append(r)
 
     stats: dict[str, dict | None] = {}

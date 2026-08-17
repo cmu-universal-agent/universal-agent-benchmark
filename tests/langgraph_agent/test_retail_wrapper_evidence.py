@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +34,32 @@ else:
     "LangGraph is not installed in this virtual environment",
 )
 class TestLangGraphRetailWrapperEvidence(unittest.TestCase):
+    def test_tool_loop_forces_final_response_after_bounded_rounds(self) -> None:
+        tool_message = SimpleNamespace(tool_calls=[{"name": "get_order_details"}])
+        final_message = SimpleNamespace(tool_calls=[])
+
+        self.assertEqual(
+            retail_run._route_after_model(
+                {"messages": [tool_message], "tool_rounds": 0}
+            ),
+            "tools",
+        )
+        self.assertEqual(
+            retail_run._route_after_model(
+                {
+                    "messages": [tool_message],
+                    "tool_rounds": retail_run.MAX_RETAIL_TOOL_ROUNDS,
+                }
+            ),
+            "force_final",
+        )
+        self.assertEqual(
+            retail_run._route_after_model(
+                {"messages": [final_message], "tool_rounds": 0}
+            ),
+            retail_run.END,
+        )
+
     def test_main_langgraph_entrypoint_routes_retail_cases(self) -> None:
         task = load_task(
             ROOT / "verticals" / "retail" / "cases" / "RETAIL-E5-001.json"

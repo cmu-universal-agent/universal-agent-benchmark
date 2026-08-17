@@ -90,20 +90,12 @@ All tasks retain required outer fields: `schema_version`, `case_id`, `task_id`, 
 
 ### E-commerce
 
-Every E5 `final_state` requires:
-
-- `action_taken`: `refund`, `exchange`, `return`, `escalate`, or `no_action`;
-- `order_status`: a simulator-controlled enum, not arbitrary text.
-
-Conditional fields:
-
-- refund: `refund_amount` and `refund_currency`;
-- exchange: `new_item_id`;
-- return: `return_authorization_id`;
-- escalation: `ticket_id` and `escalation_reason`;
-- no action: no additional business field.
-
-The exact `order_status` enum remains pending validation against the simulator.
+Protocol v1.6 supersedes the earlier draft E5 public final-state shape. Every
+E5 `final_state` requires tool-observable `action_taken`: `refund`, `exchange`,
+`return`, `escalate`, or `no_action`. Escalation additionally requires the
+tool-call `escalation_reason`. Unavailable `ticket_id`, `order_status`, and
+other business-state values remain outside the public response; the local
+tool-trace replay evaluator is authoritative.
 
 ### Tool calls
 
@@ -128,7 +120,7 @@ These items do not require final benchmark scores:
 
 - **Data validation:** H2 source-label mapping and coverage check.
 - **Registry validation:** final list of implemented canonical tools and their input schemas.
-- **Simulator validation:** E5 `order_status` enum and conditional final-state fixtures.
+- **E5 output validation:** protocol v1.6 tool-observable final-state fixtures.
 - **Implementation validation:** schema-backed argument validation, retries, truncation metadata, run-log serialization, pricing enrichment, and evaluator-data isolation.
 - **Framework smoke test:** 8–12 cases covering normal success, schema-invalid output, invalid tool arguments, tool failure, retry, oversized tool result, medical safety handling, and E5 state change.
 
