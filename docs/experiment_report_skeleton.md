@@ -105,6 +105,10 @@ policy-permitted infrastructure reruns.
 - Exclusions:
 - Aggregate metrics:
 - Framework comparison:
+- Figures: `results/pilot_dashboard.html` (`scripts/generate_pilot_dashboard.py`)
+  is a placeholder v0 — it renders the frozen run matrix with every status
+  cell "pending" and no fabricated outcomes. Regenerate from real results
+  once main-pilot and repeat runs exist.
 
 ## Targeted repeats
 
