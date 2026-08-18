@@ -193,6 +193,23 @@ def _repeat_numbers(repeats: int, repeat: int | None) -> list[int]:
     return selected
 
 
+def _core_score_summary(core_metrics: list[dict]) -> str:
+    scored = [
+        metric
+        for metric in core_metrics
+        if metric["supported"] and metric["score"] is not None
+    ]
+    if scored:
+        score = sum(metric["score"] for metric in scored) / len(scored)
+        return f"core_gold_score={score:.0%} "
+    if any(
+        metric.get("rubric_status") == "manual_review_required"
+        for metric in core_metrics
+    ):
+        return "core_gold_score=manual_review_required "
+    return ""
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -489,15 +506,7 @@ def main():
             if required_keys:
                 req_rate = sum(m["required_keys_present"] for m in metrics_list) / n
                 required_keys_field = f"required_keys_rate={req_rate:.0%} "
-            core_score_field = ""
-            supported_core = [
-                metric for metric in core_metrics if metric["supported"]
-            ]
-            if supported_core:
-                core_score = sum(metric["score"] for metric in supported_core) / len(
-                    supported_core
-                )
-                core_score_field = f"core_gold_score={core_score:.0%} "
+            core_score_field = _core_score_summary(core_metrics)
             if e5_metrics:
                 e5_passes = sum(metric["verdict"] == "pass" for metric in e5_metrics)
                 core_score_field = f"e5_pass_rate={e5_passes / len(e5_metrics):.0%} "
