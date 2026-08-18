@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,10 @@ WRAPPER_VERSION = "0.1.0"
 MAX_RETAIL_ITERATIONS = 4
 
 
+def _log_step(_step: Any) -> None:
+    print("CREWAI_PROGRESS phase=step_complete", file=sys.stderr, flush=True)
+
+
 def _system_prompt() -> str:
     return E5_AGENT_SYSTEM_PROMPT
 
@@ -60,6 +65,7 @@ def _run_retail_agent(
         verbose=False,
         allow_delegation=False,
         max_iter=MAX_RETAIL_ITERATIONS,
+        step_callback=_log_step,
     )
     task = crewai_run.Task(
         description=prompt,
