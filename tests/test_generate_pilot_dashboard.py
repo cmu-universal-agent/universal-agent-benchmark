@@ -9,7 +9,8 @@ class GeneratePilotDashboardTests(unittest.TestCase):
     def test_frozen_run_matrix_totals(self) -> None:
         payload = pilot_dashboard.build_payload()
 
-        self.assertEqual(payload["gate_status"], "technical_smoke_only")
+        report = pilot_dashboard.REPORT_PATH.read_text(encoding="utf-8")
+        self.assertIn(f"- Gate status: `{payload['gate_status']}`", report)
         self.assertEqual(len(payload["tasks"]), 8)
         self.assertEqual(payload["totals"]["cases"], 60)
         self.assertEqual(payload["totals"]["preflights"], 24)
@@ -28,9 +29,11 @@ class GeneratePilotDashboardTests(unittest.TestCase):
         self.assertEqual(e5["controlled_total"], 18)
 
     def test_render_html_has_no_fabricated_status(self) -> None:
-        html = pilot_dashboard.render_html(pilot_dashboard.build_payload())
+        payload = pilot_dashboard.build_payload()
+        html = pilot_dashboard.render_html(payload)
 
-        self.assertIn("technical_smoke_only", html)
+        self.assertIn(payload["gate_status"], html)
+        self.assertNotIn("No controlled-pilot run has executed", html)
         self.assertEqual(html.count(">pending<"), 8 * 3)
         self.assertNotIn("correct", html)
         self.assertNotIn("incorrect", html)

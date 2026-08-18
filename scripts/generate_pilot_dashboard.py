@@ -3,11 +3,9 @@
 
 Renders results/pilot_dashboard.html: a structural preview of the frozen
 60-case controlled-pilot run matrix (docs/representative_case_ids.md,
-docs/experiment_report_skeleton.md). The controlled pilot has not executed
---  gate status is `technical_smoke_only` -- so every cell is intentionally
-"pending". This script never fabricates run outcomes; it only lays out the
-already-frozen task/case/repeat counts so the real dashboard has a known
-shape to fill in once results exist.
+docs/experiment_report_skeleton.md). Every cell is intentionally "pending".
+This script never fabricates run outcomes; it only lays out the already-frozen
+task/case/repeat counts so the real dashboard has a known shape.
 """
 
 import sys
@@ -20,8 +18,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.generate_dashboard import FRAMEWORK_COLORS, FRAMEWORK_LABELS, KNOWN_FRAMEWORK_ORDER
 
 OUTPUT_PATH = ROOT / "results" / "pilot_dashboard.html"
-
-GATE_STATUS = "technical_smoke_only"
+REPORT_PATH = ROOT / "docs" / "experiment_report_skeleton.md"
 
 # Frozen per docs/representative_case_ids.md and docs/experiment_report_skeleton.md.
 WS4_TASKS = [
@@ -36,6 +33,14 @@ WS4_TASKS = [
 ]
 FRAMEWORKS_PER_TASK = 3
 REPEATS_PER_REPRESENTATIVE_CASE = 2  # additional targeted repeats, one representative case per task
+
+
+def _gate_status() -> str:
+    prefix = "- Gate status: `"
+    for line in REPORT_PATH.read_text(encoding="utf-8").splitlines():
+        if line.startswith(prefix) and line.endswith("`"):
+            return line[len(prefix) : -1]
+    raise ValueError(f"Gate status not found in {REPORT_PATH.relative_to(ROOT)}")
 
 
 def _task_row(task: dict) -> dict:
@@ -68,7 +73,7 @@ def build_payload() -> dict:
     }
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        "gate_status": GATE_STATUS,
+        "gate_status": _gate_status(),
         "frameworks": frameworks,
         "tasks": tasks,
         "totals": totals,
@@ -151,7 +156,7 @@ HTML_TEMPLATE = """<!doctype html>
 <body>
   <h1>WS4 controlled-pilot dashboard &mdash; placeholder v0</h1>
   <p class="hint">Generated {generated_at}. Structural preview only &mdash; not benchmark results.</p>
-  <div class="banner">Gate status: {gate_status}. No controlled-pilot run has executed. Every status cell below is "pending" by construction, not a measured outcome.</div>
+  <div class="banner">Gate status: {gate_status}. No result data is loaded; every status cell below is "pending" by construction, not a measured outcome.</div>
 
   <section>
     <h2>Frozen run matrix</h2>

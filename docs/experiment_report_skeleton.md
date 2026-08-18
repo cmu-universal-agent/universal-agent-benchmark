@@ -114,8 +114,8 @@ policy-permitted infrastructure reruns.
 - Framework comparison:
 - Figures: `results/pilot_dashboard.html` (`scripts/generate_pilot_dashboard.py`)
   is a placeholder v0 — it renders the frozen run matrix with every status
-  cell "pending" and no fabricated outcomes. Regenerate from real results
-  once main-pilot and repeat runs exist.
+  cell "pending" and no fabricated outcomes. It reads gate status from this
+  section and does not load private result data.
 
 ## Targeted repeats
 
