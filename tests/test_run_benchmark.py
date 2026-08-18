@@ -11,6 +11,7 @@ from unittest.mock import patch
 from scripts.run_benchmark import (
     _append_attempt,
     _attempt_result_rows,
+    _core_score_summary,
     _load_gold,
     _next_attempt,
     _repeat_numbers,
@@ -20,6 +21,20 @@ from scripts.run_benchmark import (
 
 
 class RunBenchmarkTests(unittest.TestCase):
+    def test_manual_review_score_is_not_aggregated_as_a_number(self):
+        self.assertEqual(
+            _core_score_summary(
+                [
+                    {
+                        "supported": True,
+                        "score": None,
+                        "rubric_status": "manual_review_required",
+                    }
+                ]
+            ),
+            "core_gold_score=manual_review_required ",
+        )
+
     def test_exact_repeat_selection_skips_earlier_repeats(self):
         self.assertEqual(_repeat_numbers(3, 2), [2])
         self.assertEqual(_repeat_numbers(3, None), [1, 2, 3])
