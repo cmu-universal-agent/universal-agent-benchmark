@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r4 candidate freeze; no r4 provider call has started**
+Status: **Revision r5 candidate freeze; no r5 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,15 +8,18 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r4`. The earlier `da35b7d` candidate stopped
+Implementation freeze revision: `r5`. The earlier `da35b7d` candidate stopped
 after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
 r2 candidate exposed a missing local E5 gold-path binding after 21 valid
 non-E5 results and three traceable E5 infrastructure failures. The `68f8e68`
 r3 candidate then exposed the stale one-character E5-001 simulator leaf in the
 v1.0 gold copy. Revision r4 uses Chloe's already approved, hash-verified v1.3
 structured simulator-instruction rendering without changing E5 evaluator 0.3
-semantics. All candidate rows remain immutable engineering evidence and are
-excluded from the fresh r4 readiness gate, analysis, claims, and denominators.
+semantics. The r4 candidate then produced a valid OpenAI E5 result but timed
+out twice in LangGraph because parallel `ToolNode` calls shared one pinned tau
+worker pipe. Revision r5 serializes those calls at graph invocation. All
+candidate rows remain immutable engineering evidence and are excluded from the
+fresh r5 readiness gate, analysis, claims, and denominators.
 
 ## Purpose
 
