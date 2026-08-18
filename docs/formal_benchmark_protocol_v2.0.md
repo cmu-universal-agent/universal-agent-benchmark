@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r3 candidate freeze; no r3 provider call has started**
+Status: **Revision r4 candidate freeze; no r4 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,12 +8,15 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r3`. The earlier `da35b7d` candidate stopped
+Implementation freeze revision: `r4`. The earlier `da35b7d` candidate stopped
 after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
 r2 candidate exposed a missing local E5 gold-path binding after 21 valid
-non-E5 results and three traceable E5 infrastructure failures. All candidate
-rows remain immutable engineering evidence and are excluded from the fresh r3
-readiness gate, analysis, claims, and denominators.
+non-E5 results and three traceable E5 infrastructure failures. The `68f8e68`
+r3 candidate then exposed the stale one-character E5-001 simulator leaf in the
+v1.0 gold copy. Revision r4 uses Chloe's already approved, hash-verified v1.3
+structured simulator-instruction rendering without changing E5 evaluator 0.3
+semantics. All candidate rows remain immutable engineering evidence and are
+excluded from the fresh r4 readiness gate, analysis, claims, and denominators.
 
 ## Purpose
 
@@ -48,7 +51,8 @@ v2.0 readiness gate, result aggregates, repeats, claims, and denominators.
 | E5 simulator generation settings | temperature `0`; maximum output tokens `4096`; scenario seed from the frozen evaluator-only gold |
 | Per-attempt timeout | 300 seconds |
 | Framework environments | Three isolated Python 3.12 environments from committed requirement files |
-| Manifest | Private frozen `pilot-60-v1.0`, unchanged |
+| Manifest | Private frozen `pilot-60-v1.0` case manifest, unchanged |
+| Evaluator-only gold | Owner-frozen v1.0 records, with the approved `pilot-60-v1.3` structured E5 simulator-instruction rendering |
 | Evaluators | H1/H2/H4/H5/E1/E2/E3 semantics 1.0; E5 semantics 0.3, unchanged |
 | Output | Private local-only JSONL, attempt ledger, evaluator records, and freeze evidence |
 | Retry | Attempt 2 only for a documented infrastructure failure; no third attempt |
