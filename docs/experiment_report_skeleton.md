@@ -10,15 +10,17 @@ evidence remain in the private execution record.
 - Experiment ID: assigned in the private frozen execution record
 - Formal experiment commit: the commit containing this report; exact SHA is
   retained in the private frozen execution record
-- Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot
-  candidate; all v1.x attempts remain excluded `technical_smoke_only` evidence
-- Gate status: `candidate_formal_preflight_pending`
-- Freeze timestamp and approver: data/evaluator package approved by Chloe on
-  2026-08-02/03 with final metric decisions on 2026-08-10; full Experiment
-  Ready gate remains open until all 24 preflights pass
+- Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot; all
+  v1.x attempts remain excluded `technical_smoke_only` evidence
+- Gate status: `formal_run_matrix_complete_scoring_pending`
+- Freeze and review status: data/evaluator package approved by Chloe on
+  2026-08-02/03 with final metric decisions on 2026-08-10; 24/24 fresh
+  preflight and 228/228 formal result logical runs are complete. H5 annotation,
+  aggregate privacy review, and claims freeze remain pending.
 
-No result may be described as a formal benchmark unless the frozen-manifest,
-evaluator, environment, and 24-run preflight gates all passed before execution.
+The formal v2.0 execution passed the frozen-manifest, evaluator, environment,
+and 24-run preflight gates before its result matrix started. Final aggregate
+tables and claims remain pending review.
 
 ## Frozen configuration
 
@@ -34,9 +36,9 @@ evaluator, environment, and 24-run preflight gates all passed before execution.
 | Output root | Private `local-only` metrics directory | Freeze record |
 | Rerun policy | One retry only for documented infrastructure failure; original attempt remains immutable | Attempt ledger |
 
-These are candidate execution values until the v2.0 code commit and 24 fresh
-preflights are frozen. No v1.x attempt may be reused in the v2.0 gate or result
-denominators. The evaluator semantics remain unchanged.
+These values were frozen for the v2.0 r10 execution. No v1.x attempt is reused
+in the v2.0 gate or result denominators. The evaluator semantics remain
+unchanged.
 
 ## Architecture and implementation
 
@@ -92,26 +94,27 @@ denominators. The evaluator semantics remain unchanged.
 
 | Task | OpenAI Agents SDK | LangGraph | CrewAI | Gate |
 |---|---|---|---|---|
-| H1 | | | | |
-| H2 | | | | |
-| H4 | | | | |
-| H5 | | | | |
-| E1 | | | | |
-| E2 | | | | |
-| E3 | | | | |
-| E5 | | | | |
+| H1 | complete | complete | complete | passed |
+| H2 | complete | complete | complete | passed |
+| H4 | complete | complete | complete | passed |
+| H5 | complete | complete | complete | passed |
+| E1 | complete | complete | complete | passed |
+| E2 | complete | complete | complete | passed |
+| E3 | complete | complete | complete | passed |
+| E5 | complete | complete | complete | passed |
 
-Expected attempts: 8 tasks × 3 frameworks = 24, excluding documented,
-policy-permitted infrastructure reruns.
+Completed preflight logical runs: 8 tasks × 3 frameworks = 24. Documented,
+policy-permitted infrastructure reruns remain separate attempts.
 
 ## Main experiment results
 
-- Planned runs:
-- Completed logical runs:
-- Errors and permitted reruns:
-- Exclusions:
-- Aggregate metrics:
-- Framework comparison:
+- Planned runs: 228 formal result logical runs.
+- Completed logical runs: 228 (180 main + 48 targeted repeats).
+- Errors and permitted reruns: retained in the private append-only evidence
+  pending final privacy and claims review.
+- Exclusions: all v1.x technical-smoke and v2.0 candidate-revision rows.
+- Aggregate metrics: pending H5 annotation and privacy/claims review.
+- Framework comparison: pending; no overall-winner claim is permitted.
 - Figures: `results/pilot_dashboard.html` (`scripts/generate_pilot_dashboard.py`)
   is a placeholder v0 — it renders the frozen run matrix with every status
   cell "pending" and no fabricated outcomes. It reads gate status from this
