@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Formal r10 run matrix complete; H5 scoring and claims freeze pending**
+Status: **Formal r10 scoring complete; privacy confirmed; claims freeze pending**
 
 Execution owner: Jessica
 

@@ -12,15 +12,16 @@ evidence remain in the private execution record.
   retained in the private frozen execution record
 - Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot; all
   v1.x attempts remain excluded `technical_smoke_only` evidence
-- Gate status: `formal_run_matrix_complete_scoring_pending`
+- Gate status: `formal_scoring_complete_claims_review_pending`
 - Freeze and review status: data/evaluator package approved by Chloe on
   2026-08-02/03 with final metric decisions on 2026-08-10; 24/24 fresh
-  preflight and 228/228 formal result logical runs are complete. H5 annotation,
-  aggregate privacy review, and claims freeze remain pending.
+  preflight and 228/228 formal result logical runs are complete. Chloe's 30 H5
+  annotations are applied and the privacy boundary is confirmed. Claims review
+  and downstream dashboard/report reconciliation remain pending.
 
 The formal v2.0 execution passed the frozen-manifest, evaluator, environment,
-and 24-run preflight gates before its result matrix started. Final aggregate
-tables and claims remain pending review.
+and 24-run preflight gates before its result matrix started. Scoring is
+complete; public aggregate tables and claims remain pending final review.
 
 ## Frozen configuration
 
@@ -111,9 +112,10 @@ policy-permitted infrastructure reruns remain separate attempts.
 - Planned runs: 228 formal result logical runs.
 - Completed logical runs: 228 (180 main + 48 targeted repeats).
 - Errors and permitted reruns: retained in the private append-only evidence
-  pending final privacy and claims review.
+  under the confirmed privacy boundary.
 - Exclusions: all v1.x technical-smoke and v2.0 candidate-revision rows.
-- Aggregate metrics: pending H5 annotation and privacy/claims review.
+- Aggregate metrics: frozen locally after H5 aggregation; public tables remain
+  pending claims review.
 - Framework comparison: pending; no overall-winner claim is permitted.
 - Figures: `results/pilot_dashboard.html` (`scripts/generate_pilot_dashboard.py`)
   is a placeholder v0 — it renders the frozen run matrix with every status
