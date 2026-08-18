@@ -10,10 +10,9 @@ evidence remain in the private execution record.
 - Experiment ID: assigned in the private frozen execution record
 - Formal experiment commit: the commit containing this report; exact SHA is
   retained in the private frozen execution record
-- Protocol version: `pilot-60-v1.1`; case/gold/evaluator semantics are
-  unchanged from v1.0, and only the E5 user-simulator transmission allowlist
-  changed
-- Gate status: `technical_smoke_only`
+- Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot
+  candidate; all v1.x attempts remain excluded `technical_smoke_only` evidence
+- Gate status: `candidate_formal_preflight_pending`
 - Freeze timestamp and approver: data/evaluator package approved by Chloe on
   2026-08-02/03 with final metric decisions on 2026-08-10; full Experiment
   Ready gate remains open until all 24 preflights pass
@@ -26,7 +25,7 @@ evaluator, environment, and 24-run preflight gates all passed before execution.
 | Item | Frozen value | Evidence |
 |---|---|---|
 | Model/provider/version | OpenAI-compatible provider; `gpt-4o-mini`; provider version unavailable | Private freeze record |
-| Temperature/max output/seed | `0`; provider defaults where unsupported/unexposed | Private freeze record and run metadata |
+| Temperature/max output/seed | `0`; requested maximum output `4096`; requested seed `42`, recorded null/unsupported where unavailable | Private freeze record and run metadata |
 | Run and token budgets | 24 preflights + 180 pilot + 48 repeats; usage recorded; no separate token cap | Protocol arithmetic |
 | Case manifest and SHA-256 | `pilot-60-v1.0`, 60 cases; checksum retained privately | Owner freeze record |
 | Evaluator versions and SHA-256 | H1/H2/H4/H5/E1/E2/E3 semantics 1.0; E5 semantics 0.3; checksums retained privately | Owner approvals |
@@ -35,9 +34,9 @@ evaluator, environment, and 24-run preflight gates all passed before execution.
 | Output root | Private `local-only` metrics directory | Freeze record |
 | Rerun policy | One retry only for documented infrastructure failure; original attempt remains immutable | Attempt ledger |
 
-These are candidate execution values until the formal code commit and 24
-preflights are frozen. Chloe closed the remaining metric decisions on
-2026-08-10.
+These are candidate execution values until the v2.0 code commit and 24 fresh
+preflights are frozen. No v1.x attempt may be reused in the v2.0 gate or result
+denominators. The evaluator semantics remain unchanged.
 
 ## Architecture and implementation
 
