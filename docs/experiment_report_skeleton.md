@@ -117,16 +117,19 @@ policy-permitted infrastructure reruns remain separate attempts.
 - Aggregate metrics: frozen locally after H5 aggregation; public tables remain
   pending claims review.
 - Framework comparison: pending; no overall-winner claim is permitted.
-- Figures: `results/pilot_dashboard.html` (`scripts/generate_pilot_dashboard.py`)
-  is a placeholder v0 — it renders the frozen run matrix with every status
-  cell "pending" and no fabricated outcomes. It reads gate status from this
-  section and does not load private result data.
+- Figures: `scripts/generate_pilot_dashboard.py` defaults to a no-result
+  placeholder. It can render an ignored local candidate only when supplied a
+  matching allowlisted aggregate and privacy-confirmed freeze record; it
+  rejects extra fields and does not expose the private experiment ID. Claims
+  approval and public-release authorization remain separate gates.
 
 ## Targeted repeats
 
-- Selection rule and case IDs:
-- Planned/completed runs:
-- Repeat outcomes:
+- Selection rule and case IDs: the eight owner-approved representative IDs in
+  `docs/representative_case_ids.md`, with repeats 2 and 3 selected explicitly.
+- Planned/completed runs: 48/48 additional repeat logical runs.
+- Repeat outcomes: frozen locally; public interpretation remains pending
+  claims review.
 
 ## Deviations and rerun ledger
 
