@@ -10,8 +10,9 @@ evidence remain in the private execution record.
 - Experiment ID: assigned in the private frozen execution record
 - Formal experiment commit: the commit containing this report; exact SHA is
   retained in the private frozen execution record
-- Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot; all
-  v1.x attempts remain excluded `technical_smoke_only` evidence
+- Protocol version: `pilot-60-v2.0`, prospectively frozen before the formal
+  controlled-pilot execution; all v1.x attempts remain excluded
+  `technical_smoke_only` evidence
 - Gate status: `formal_scoring_complete_claims_review_pending`
 - Freeze and review status: data/evaluator package approved by Chloe on
   2026-08-02/03 with final metric decisions on 2026-08-10; 24/24 fresh
@@ -138,14 +139,32 @@ approval, and repeated preflight evidence. Original attempts remain immutable.
 
 | Timestamp | Logical run | Attempt | Reason | Disposition | Artifact |
 |---|---|---:|---|---|---|
-| | | | | | |
+| 2026-08-18 | Private formal E5 logical run | 2 | Attempt 1 reached the frozen user-simulator turn limit and was reviewed as infrastructure-eligible | Attempt 2 retained as the final row; it remained an error; no attempt 3 | Private append-only attempt ledger |
 
 ## Limitations and claim boundary
 
-- Protocol limitations:
-- Evaluator limitations:
-- Provider/model limitations:
-- External-validity limitations:
+- **Protocol limitations:** This is a controlled 60-case pilot rather than a
+  population benchmark. Only the eight owner-approved representative cases
+  receive two additional observations; the other cases have one observation
+  per framework. Stress testing and the deferred 400-case extension are not
+  part of the formal denominator.
+- **Evaluator limitations:** Metrics are task-specific and are not combined
+  into a composite. H5 requires owner-reviewed human criterion annotations
+  before deterministic aggregation. Exact full-case pass rules can obscure
+  partially correct component behavior, so component metrics must retain their
+  own definitions and denominators.
+- **Provider/model limitations:** One agent model and one frozen generation
+  configuration are used. The requested seed is recorded as unsupported where
+  the provider does not expose an effective seed, so the targeted repeats are
+  the observed stability evidence rather than proof of deterministic sampling.
+- **E5 limitation:** E5 requires both public response-contract and local
+  final-state replay criteria. The OpenAI Agents SDK E5 sweep is invalid under
+  the frozen error-rate rule and cannot support a strong comparative claim;
+  no attempt 3 or score rerun is permitted.
+- **External validity:** The selected healthcare and e-commerce cases,
+  provider, model, framework versions, and pinned retail simulator bound the
+  findings. The pilot does not establish an overall best framework, complete
+  robustness, production safety, or generalization to other models and tools.
 
 ## Technical-method appendix
 
