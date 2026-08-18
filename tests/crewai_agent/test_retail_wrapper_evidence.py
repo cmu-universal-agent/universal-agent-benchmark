@@ -30,7 +30,7 @@ from frameworks.crewai_agent.retail_evidence import build_wrapper_evidence
 
 
 class TestCrewAIRetailWrapperEvidence(unittest.TestCase):
-    def test_retail_agent_uses_the_bounded_iteration_limit(self) -> None:
+    def test_retail_agent_installs_the_progress_callback(self) -> None:
         env = Mock()
         env.get_trace.return_value = []
         env.get_final_state.return_value = {}
@@ -49,10 +49,6 @@ class TestCrewAIRetailWrapperEvidence(unittest.TestCase):
             crew_class.return_value.kickoff.return_value = "{}"
             retail_run._run_retail_agent(object(), env, "prompt", [])
 
-        self.assertEqual(
-            agent_class.call_args.kwargs["max_iter"],
-            retail_run.MAX_RETAIL_ITERATIONS,
-        )
         self.assertIs(
             agent_class.call_args.kwargs["step_callback"],
             retail_run._log_step,

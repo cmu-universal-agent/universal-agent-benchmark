@@ -41,7 +41,6 @@ DATA_DIR = str(ROOT / "verticals" / "retail")
 FRAMEWORK_NAME = "langgraph"
 WRAPPER_VERSION = "0.1.0"
 MAX_RETAIL_TOOL_ROUNDS = 4
-MAX_RETAIL_TOOL_CONCURRENCY = 1
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -150,10 +149,7 @@ def _run_retail_agent(
             "messages": [HumanMessage(content=prompt)],
             "tool_rounds": 0,
         },
-        config={
-            "recursion_limit": MAX_RETAIL_TOOL_ROUNDS * 3 + 5,
-            "max_concurrency": MAX_RETAIL_TOOL_CONCURRENCY,
-        },
+        config={"recursion_limit": MAX_RETAIL_TOOL_ROUNDS * 3 + 5},
     )
 
     usage_rows = [
