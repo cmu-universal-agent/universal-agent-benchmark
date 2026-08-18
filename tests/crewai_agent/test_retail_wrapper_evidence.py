@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "scripts" / "validate_ws3_tau_retail_contract.py"
@@ -30,6 +30,30 @@ from frameworks.crewai_agent.retail_evidence import build_wrapper_evidence
 
 
 class TestCrewAIRetailWrapperEvidence(unittest.TestCase):
+    def test_retail_agent_uses_the_bounded_iteration_limit(self) -> None:
+        env = Mock()
+        env.get_trace.return_value = []
+        env.get_final_state.return_value = {}
+
+        with (
+            patch.object(retail_run, "make_retail_tools", return_value=[]),
+            patch.object(crewai_run, "Agent") as agent_class,
+            patch.object(crewai_run, "Task"),
+            patch.object(crewai_run, "Crew") as crew_class,
+            patch.object(
+                crewai_run,
+                "_extract_token_usage",
+                return_value=({}, {}),
+            ),
+        ):
+            crew_class.return_value.kickoff.return_value = "{}"
+            retail_run._run_retail_agent(object(), env, "prompt", [])
+
+        self.assertEqual(
+            agent_class.call_args.kwargs["max_iter"],
+            retail_run.MAX_RETAIL_ITERATIONS,
+        )
+
     def test_main_entrypoint_routes_retail_cases(self) -> None:
         task = load_task(
             ROOT / "verticals" / "retail" / "cases" / "RETAIL-E5-001.json"

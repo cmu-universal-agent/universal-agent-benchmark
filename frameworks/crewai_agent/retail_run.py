@@ -31,6 +31,7 @@ from frameworks.crewai_agent.retail_tools import make_retail_tools
 DATA_DIR = str(ROOT / "verticals" / "retail")
 FRAMEWORK_NAME = "crewai"
 WRAPPER_VERSION = "0.1.0"
+MAX_RETAIL_ITERATIONS = 4
 
 
 def _system_prompt() -> str:
@@ -58,6 +59,7 @@ def _run_retail_agent(
         tools=tools,
         verbose=False,
         allow_delegation=False,
+        max_iter=MAX_RETAIL_ITERATIONS,
     )
     task = crewai_run.Task(
         description=prompt,
