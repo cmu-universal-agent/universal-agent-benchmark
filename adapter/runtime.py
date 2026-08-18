@@ -213,6 +213,9 @@ def configured_generation_settings() -> GenerationSettings:
 class RunContext:
     run_id: str
     experiment_id: str
+    logical_run_id: str | None
+    repeat: int | None
+    attempt: int | None
     framework: str
     framework_version: str | None
     model_provider: str
@@ -249,6 +252,9 @@ def begin_run(
     return RunContext(
         run_id=run_id,
         experiment_id=experiment_id,
+        logical_run_id=os.getenv("BENCHMARK_LOGICAL_RUN_ID") or None,
+        repeat=_optional_int("BENCHMARK_REPEAT"),
+        attempt=_optional_int("BENCHMARK_ATTEMPT"),
         framework=framework,
         framework_version=_package_version(package_name),
         model_provider=os.getenv("OPENAI_MODEL_PROVIDER", "openai"),
@@ -388,6 +394,9 @@ def finish_run(
         case_id=task.case_id,
         run_id=context.run_id,
         experiment_id=context.experiment_id,
+        logical_run_id=context.logical_run_id,
+        repeat=context.repeat,
+        attempt=context.attempt,
         framework_version=context.framework_version,
         model_provider=context.model_provider,
         model_name=context.model_name,

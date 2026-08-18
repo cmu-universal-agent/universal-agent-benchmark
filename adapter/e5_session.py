@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -15,13 +16,24 @@ from adapter.schemas import BenchmarkTask
 FIRST_AGENT_MESSAGE = "Hi! How can I help you today?"
 STOP_MARKERS = ("###STOP###", "###TRANSFER###", "###OUT-OF-SCOPE###")
 SIMULATOR_VERSION = "tau2-user-simulator@1d244f5"
-SESSION_PROTOCOL_VERSION = "1.4"
+SESSION_PROTOCOL_VERSION = "1.6"
 SIMULATOR_MODEL = "gpt-4o-mini"
+SIMULATOR_TEMPERATURE = 0
+SIMULATOR_MAX_OUTPUT_TOKENS = 4096
 E5_AGENT_SYSTEM_PROMPT = (
     "You are a retail customer-support agent. Use the provided tools to resolve "
     "the customer's issue. Follow policy and only use allowed tools. A tool "
     "response with ok=false means the action did not happen; do not claim that it "
-    "did. Reply with one JSON object and follow the task's specified output schema."
+    "did. Reply with exactly one JSON object matching the public E5 schema. "
+    "Include schema_version='1.0', the task's case_id, task_id='E5', result, "
+    "explanation, evidence_ids, confidence, and risk_or_uncertainty. The result "
+    "must include resolution_status, customer_message, and final_state. "
+    "The result.final_state object must report action_taken as refund, exchange, "
+    "return, escalate, or no_action; when escalating it must also report the "
+    "tool-call escalation_reason. Report only values directly supported by tool "
+    "calls/results. Never invent ticket_id, order_status, or other unavailable "
+    "business state. Authoritative final state is verified locally from the tool "
+    "trace and replay evaluator."
 )
 SIMULATOR_GUIDELINES = """# User Simulation Guidelines
 You are playing the role of a customer contacting a customer service representative.
@@ -73,7 +85,7 @@ def _sum_usage(
 def _agent_prompt(task: BenchmarkTask, transcript: list[tuple[str, str]]) -> str:
     history = "\n\n".join(f"{role}: {content}" for role, content in transcript)
     return (
-        f"{task.prompt}\n\n"
+        f"Case ID: {task.case_id}\nTask ID: E5\n\n{task.prompt}\n\n"
         "Continue this customer-support conversation. Use tools when needed. "
         "Respond only to the latest customer message.\n\n"
         f"{history}"
@@ -133,13 +145,25 @@ def run_e5_session(
     simulator_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     final_output = FIRST_AGENT_MESSAGE
 
-    for _ in range(int(simulator["max_turns"])):
+    for turn_index in range(1, int(simulator["max_turns"]) + 1):
+        print(
+            f"E5_PROGRESS phase=simulator_request turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         response = client.chat.completions.create(
             model=SIMULATOR_MODEL,
             messages=simulator_messages,
+            temperature=SIMULATOR_TEMPERATURE,
+            max_completion_tokens=SIMULATOR_MAX_OUTPUT_TOKENS,
             seed=int(simulator["seed"]),
         )
         user_message = response.choices[0].message.content or ""
+        print(
+            f"E5_PROGRESS phase=simulator_response turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         usage = response.usage
         if usage is not None:
             simulator_usage["input_tokens"] += usage.prompt_tokens or 0
@@ -147,6 +171,11 @@ def run_e5_session(
             simulator_usage["total_tokens"] += usage.total_tokens or 0
         simulator_messages.append({"role": "assistant", "content": user_message})
         if any(marker in user_message for marker in STOP_MARKERS):
+            print(
+                f"E5_PROGRESS phase=terminated turn={turn_index}",
+                file=sys.stderr,
+                flush=True,
+            )
             return E5SessionResult(
                 final_output=final_output,
                 token_usage=agent_usage,
@@ -155,6 +184,8 @@ def run_e5_session(
                     "protocol_version": SESSION_PROTOCOL_VERSION,
                     "version": SIMULATOR_VERSION,
                     "model": SIMULATOR_MODEL,
+                    "temperature": SIMULATOR_TEMPERATURE,
+                    "max_output_tokens": SIMULATOR_MAX_OUTPUT_TOKENS,
                     "seed": simulator["seed"],
                     "turns": len(assistant_turns) - 1,
                     "token_usage": simulator_usage,
@@ -165,7 +196,17 @@ def run_e5_session(
             )
 
         transcript.append(("Customer", user_message))
+        print(
+            f"E5_PROGRESS phase=agent_request turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         final_output, turn_usage = run_agent_turn(_agent_prompt(task, transcript))
+        print(
+            f"E5_PROGRESS phase=agent_response turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         _sum_usage(agent_usage, turn_usage)
         transcript.append(("Assistant", final_output))
         assistant_turns.append(final_output)

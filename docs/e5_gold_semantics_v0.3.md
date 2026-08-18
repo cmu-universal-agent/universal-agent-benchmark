@@ -50,6 +50,20 @@ upstream DB-only component under `run_log.sanity.tau3_db`. That sanity result
 never overrides the verdict; a Criterion-B disagreement is reproduced by
 Jessica and adjudicated by Chloe.
 
+## Protocol v1.6 public output boundary
+
+Chloe approved the protocol v1.6 public E5 output rule on 2026-08-13. The
+agent-reported `final_state` contains only tool-observable action evidence:
+`action_taken`, plus `escalation_reason` when the action is `escalate`.
+Unavailable `ticket_id`, `order_status`, and other business-state values are
+neither required nor permitted in the public response.
+
+This public shape does not replace the v0.3 verdict. Authoritative final-state
+comparison continues to replay successful observed tool calls and approved
+gold actions locally. A normally completed, schema-valid run whose evaluator
+verdict is `fail` is a frozen model result, not an infrastructure error, and is
+not retry-eligible for score improvement.
+
 ## Tool policy
 
 Every case exposes the complete 16-tool retail registry:

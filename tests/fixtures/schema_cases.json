@@ -144,11 +144,26 @@
       "document": {
         "schema_version": "1.0", "case_id": "E5-FIXTURE-001", "task_id": "E5",
         "result": {
-          "resolution_status": "resolved",
-          "customer_message": "A synthetic refund was initiated.",
-          "final_state": {"action_taken": "refund", "order_status": "refund_pending", "refund_amount": 25.0, "refund_currency": "USD"}
+          "resolution_status": "escalated",
+          "customer_message": "The synthetic request was escalated.",
+          "final_state": {"action_taken": "escalate", "escalation_reason": "The request requires human review."}
         },
         "explanation": "The reported state matches the synthetic simulator fixture.", "evidence_ids": [],
+        "confidence": 0.9, "risk_or_uncertainty": null
+      }
+    },
+    {
+      "name": "invalid_e5_unobservable_business_state",
+      "schema": "ecommerce_output.schema.json",
+      "expected_valid": false,
+      "document": {
+        "schema_version": "1.0", "case_id": "E5-FIXTURE-002", "task_id": "E5",
+        "result": {
+          "resolution_status": "escalated",
+          "customer_message": "The synthetic request was escalated.",
+          "final_state": {"action_taken": "escalate", "escalation_reason": "Human review is required.", "ticket_id": "UNOBSERVED", "order_status": "UNOBSERVED"}
+        },
+        "explanation": "This fixture must fail because the public response invents unavailable state.", "evidence_ids": [],
         "confidence": 0.9, "risk_or_uncertainty": null
       }
     },

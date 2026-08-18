@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report hallucination-risk metrics across all frameworks.
 
-Uses the latest result per (task_id, framework, model) in results/metrics/*.jsonl,
+Uses the latest attempt per logical run and model in results/metrics/*.jsonl,
 matched against each task's ground truth in verticals/<vertical>/task_*.json.
 The headline metric is "confidently wrong": answers stated with high
 confidence that don't match ground truth -- the failure mode CLAUDE.md's
@@ -28,7 +28,13 @@ def main():
         for model_name in result_models(vertical):
             results = load_latest_results(vertical, model_name=model_name)
             by_framework: dict[str, list[dict]] = defaultdict(list)
-            for (task_id, framework), r in results.items():
+            for (
+                _case_id,
+                framework,
+                _experiment_id,
+                _logical_run_id,
+            ), r in results.items():
+                task_id = r["task_id"]
                 if task_id not in ground_truth:
                     continue
                 result = AgentRunResult(**r)

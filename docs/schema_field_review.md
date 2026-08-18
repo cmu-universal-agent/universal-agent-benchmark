@@ -6,7 +6,7 @@
 |---|---|
 |Benchmark Case Schema|Field design approved; implementation validation pending|
 |Healthcare Output Schema|Field design approved; implementation validation pending|
-|E-commerce Output Schema|Conditional E5 final-state shape added; simulator enum pending|
+|E-commerce Output Schema|Protocol v1.6 tool-observable E5 final-state shape implemented|
 |Tool-Call Schema|Retry/truncation fields added; registry and tool input schemas pending|
 |Run Log Schema|Latency/pricing metadata revised; enrichment implementation pending|
 |Formal schema validation tests|14 valid and 11 invalid contract fixtures pass locally|
@@ -90,7 +90,7 @@ Confirmed revisions:
 4. Define `safety.safety_flag` as material risk present in the input/request that requires safety handling. Whether the agent produced an unsafe answer is a separate evaluator result such as `unsafe_response`.
 5. For H2, `recommend_professional_care` is normally true for `emergency`, `urgent`, `routine`, and `uncertain`, and normally false for `self_care` unless another risk requires escalation. For H5, determine it from the safety rubric and case context, not from `boundary_action` alone.
 6. Keep the five H2 urgency values. Final approval of the mapping depends on `mappings/h2_urgency_mapping.json` for the selected dataset; no full benchmark run is required.
-7. Make E5 `final_state` conditional on `action_taken`. Use simulator-controlled `order_status` values and include return-specific fields as well as refund, exchange, and escalation fields.
+7. Superseded by Chloe's protocol v1.6 decision: make E5 `final_state` require only tool-observable `action_taken`, plus `escalation_reason` for escalation. Keep authoritative state comparison in the local replay evaluator.
 8. Store canonical tools in `tools/tool_registry.json`, limited to implemented benchmark tools. Bind the same canonical names in all three frameworks where possible; normalize unavoidable framework aliases in the adapter.
 9. Compute `arguments_valid` with the shared JSON Schema for the canonical tool. It measures argument-shape validity, not execution success; execution result remains in `outcome`.
 10. Log one tool-call record per attempt. Add required-but-nullable `retry_of`; it is null for the first attempt and points to the root/first `tool_call_id` for retries. `sequence_index` remains global execution order within the run.
@@ -260,7 +260,7 @@ File: `schemas/ecommerce_output.schema.json`
 |---|--:|---|---|---|---|
 |`result.resolution_status`|Yes|`resolved`, `partially_resolved`, `unresolved`, `escalated`|Task success|Keep|Mapping from environment outcome to this status is an evaluator rule, not a schema field.|
 |`result.customer_message`|Yes|Free text|User-facing quality|Keep|Consistency with `final_state` is checked by the evaluator.|
-|`result.final_state`|Yes|Conditional object|Final-state correctness|Modify|Require `action_taken` and simulator-controlled `order_status`. Conditionally require refund amount/currency, exchange item, return authorization ID, or escalation ticket/reason. Validate against actual simulator output before freezing.|
+|`result.final_state`|Yes|Tool-observable object|Action evidence; authoritative state is local|Modify|Require `action_taken`; require `escalation_reason` only for escalation. Do not request unavailable ticket IDs, order statuses, or other business-state values.|
 
 ### E-commerce Decisions Required
 
@@ -270,7 +270,7 @@ File: `schemas/ecommerce_output.schema.json`
 - [x] E2 relevance is scored by the evaluator against the gold recommendation set, not enforced in the schema.
 - [x] E3 decisions are mutually exclusive by construction (single enum value).
 - [x] E3 doesn't need explicit policy IDs for the pilot; `policy_reason` free text is enough. Can revisit later.
-- [ ] **Pending implementation validation:** implement the conditional E5 `final_state` schema and validate it against simulator fixtures.
+- [x] Protocol v1.6 tool-observable E5 `final_state` schema and fixtures implemented.
 - [x] Categorical fields (`trend_direction`, `decision`, `resolution_status`) use exact-match scoring; free-text fields use a rubric.
 
 ## 4. Tool-Call Schema Review
@@ -312,6 +312,9 @@ File: `schemas/run_log.schema.json`
 | `schema_version`                      |           Yes | Runner               | Tracks log-format changes           | Reproducibility               | Same for all           | Keep                                       | Fixed at `1.0` for the pilot.                                                                                                                                                                                    |
 | `run_id`                              |           Yes | Runner               | Unique execution identifier         | Traceability                  | Same for all           | Keep                                       | Must be unique.                                                                                                                                                                                                  |
 | `experiment_id`                       |           Yes | Runner/config        | Groups comparable runs              | Experiment comparison         | Same for all           | Keep                                       | One experiment uses one fixed model configuration.                                                                                                                                                               |
+| `logical_run_id`                      |           No | Runner               | Identifies one planned logical run   | Repeat/retry traceability     | Same for all           | Keep                                       | Non-null for unified-runner executions; shared by attempt 1 and its permitted attempt 2.                                                                                                                         |
+| `repeat`                              |           No | Runner               | Identifies the planned repeat        | Repeat analysis               | Same for all           | Keep                                       | One-based; non-null for unified-runner executions.                                                                                                                                                               |
+| `attempt`                             |           No | Runner               | Identifies infrastructure attempt    | Retry audit                   | Same for all           | Keep                                       | One-based, maximum 2; non-null for unified-runner executions.                                                                                                                                                    |
 | `case_id`                             |           Yes | Runner               | Links run to case                   | Case-level analysis           | Same for all           | Keep                                       | Must match case.                                                                                                                                                                                                 |
 | `task_id`                             |           Yes | Runner               | Identifies task                     | Task metrics                  | Same for all           | Keep                                       | Must match case.                                                                                                                                                                                                 |
 | `vertical`                            |           Yes | Runner               | Identifies vertical                 | Vertical comparison           | Same for all           | Keep                                       | Must match case.                                                                                                                                                                                                 |
@@ -373,6 +376,7 @@ These checks cannot be enforced completely by validating one JSON file at a time
 |Evidence IDs|Every output evidence ID exists in the case sources or tool results|Evaluator|Pending|
 |Allowed tools|Every called tool is compared with `allowed_tools`|Evaluator|Pending|
 |Tool/run `run_id`|Must match|Runner|Pending|
+|Attempt ledger/result|Join on `logical_run_id` + `attempt`; ledger stores result `run_id`|Runner|Implemented|
 |Framework configuration|Logged framework and version match the actual adapter|Adapter|Pending|
 |Model configuration|Logged model matches the actual request|Adapter|Pending|
 |Token totals|Total equals input plus output when all values exist|Evaluator|Pending|
@@ -420,7 +424,7 @@ The approved field design may be released as formal v1.0 when all of the followi
 - [x] Apply the non-dataset-dependent field revisions to all five draft JSON Schemas.
 - [ ] Commit the selected-dataset H2 urgency mapping and pass a complete coverage check.
 - [ ] Commit the canonical tool registry and one input schema per implemented tool.
-- [ ] Validate E5 conditional final states against simulator fixtures.
+- [x] Validate protocol v1.6 tool-observable E5 final-state fixtures.
 - [ ] Store gold answers and rubrics outside agent-visible cases and verify isolation.
 - [x] Pass the current valid/invalid fixtures and implemented semantic consistency checks locally.
 - [ ] Pass the 8–12 case framework smoke-test matrix on all three adapters.

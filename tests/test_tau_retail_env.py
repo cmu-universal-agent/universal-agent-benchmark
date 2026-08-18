@@ -1,5 +1,8 @@
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -11,6 +14,40 @@ from adapter.tau_retail_env import (
 
 
 class TauRetailEnvTests(unittest.TestCase):
+    def test_call_tool_serializes_the_shared_worker_transaction(self):
+        env = TauRetailEnv.__new__(TauRetailEnv)
+        env._tool_lock = threading.RLock()
+        env._env = True
+        env.allowed_tools = frozenset({"list_all_product_types"})
+        env._trace = Mock()
+        env._mutation_count = 0
+        env._state = Mock(return_value={"agent_db_hash": "same"})
+        counter_lock = threading.Lock()
+        active = 0
+        max_active = 0
+
+        def request(_payload):
+            nonlocal active, max_active
+            with counter_lock:
+                active += 1
+                max_active = max(max_active, active)
+            time.sleep(0.02)
+            with counter_lock:
+                active -= 1
+            return {"result": []}
+
+        env._request = request
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(
+                executor.map(
+                    lambda _: env.call_tool("list_all_product_types", {}),
+                    range(2),
+                )
+            )
+
+        self.assertTrue(all(result.ok for result in results))
+        self.assertEqual(max_active, 1)
+
     def test_request_ignores_worker_stdout_noise(self):
         env = TauRetailEnv.__new__(TauRetailEnv)
         env._worker = SimpleNamespace(

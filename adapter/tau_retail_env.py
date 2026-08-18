@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -43,6 +44,8 @@ class TauRetailEnv:
         self._env: Any = None
         self._trace = Trace(run_id=f"run-{uuid.uuid4().hex}")
         self._mutation_count = 0
+        # ponytail: one worker means one lock; split only if the worker protocol changes.
+        self._tool_lock = threading.RLock()
         self._worker = subprocess.Popen(
             [
                 str(python_bin),
@@ -104,6 +107,16 @@ class TauRetailEnv:
         return {"case": {"case_id": case_id}, "state": self.get_final_state()}
 
     def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        *,
+        retry_of: str | None = None,
+    ) -> ToolResult:
+        with self._tool_lock:
+            return self._call_tool(name, arguments, retry_of=retry_of)
+
+    def _call_tool(
         self,
         name: str,
         arguments: dict[str, Any],

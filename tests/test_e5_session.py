@@ -159,12 +159,19 @@ class E5SessionTests(unittest.TestCase):
 
         self.assertEqual(result.final_output, '{"resolution":"done"}')
         self.assertEqual(result.token_usage["total_tokens"], 9)
-        self.assertEqual(result.simulator["protocol_version"], "1.4")
+        self.assertEqual(result.simulator["protocol_version"], "1.6")
         self.assertEqual(result.simulator["model"], "gpt-4o-mini")
         self.assertEqual(result.simulator["termination"], "###STOP###")
         self.assertEqual(len(result.assistant_turns), 2)
         outbound = json.dumps(api_requests)
         self.assertTrue(all(row["model"] == "gpt-4o-mini" for row in api_requests))
+        self.assertTrue(all(row["temperature"] == 0 for row in api_requests))
+        self.assertTrue(
+            all(row["max_completion_tokens"] == 4096 for row in api_requests)
+        )
+        self.assertTrue(all(row["seed"] == 0 for row in api_requests))
+        self.assertEqual(result.simulator["temperature"], 0)
+        self.assertEqual(result.simulator["max_output_tokens"], 4096)
         self.assertNotIn("<fixed-model>", outbound)
         self.assertIn("Ask for help.", outbound)
         self.assertIn("Reason for call", outbound)
@@ -172,8 +179,10 @@ class E5SessionTests(unittest.TestCase):
         self.assertIn("Unknown info", outbound)
         self.assertNotIn("DO_NOT_SEND", outbound)
         self.assertNotIn("AGENT_VISIBLE_TASK_PROMPT", outbound)
+        self.assertIn("Case ID: E5-001", agent_prompts[0])
         self.assertIn("AGENT_VISIBLE_TASK_PROMPT", agent_prompts[0])
         self.assertNotIn("actions_taken", E5_AGENT_SYSTEM_PROMPT)
+        self.assertIn("Never invent ticket_id, order_status", E5_AGENT_SYSTEM_PROMPT)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import sys
 from typing import Any
 
 from pydantic import BaseModel, PrivateAttr
@@ -38,7 +39,19 @@ class RetailTool(BaseTool):
         self._invoke = invoke
 
     def _run(self, **arguments: Any) -> dict[str, Any]:
-        return self._invoke(**arguments)
+        print(
+            f"CREWAI_PROGRESS phase=tool_start tool={self.name}",
+            file=sys.stderr,
+            flush=True,
+        )
+        try:
+            return self._invoke(**arguments)
+        finally:
+            print(
+                f"CREWAI_PROGRESS phase=tool_end tool={self.name}",
+                file=sys.stderr,
+                flush=True,
+            )
 
 
 def make_retail_tools(

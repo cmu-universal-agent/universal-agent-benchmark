@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import sys
 import uuid
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,10 @@ FRAMEWORK_NAME = "crewai"
 WRAPPER_VERSION = "0.1.0"
 
 
+def _log_step(_step: Any) -> None:
+    print("CREWAI_PROGRESS phase=step_complete", file=sys.stderr, flush=True)
+
+
 def _system_prompt() -> str:
     return E5_AGENT_SYSTEM_PROMPT
 
@@ -58,11 +63,12 @@ def _run_retail_agent(
         tools=tools,
         verbose=False,
         allow_delegation=False,
+        step_callback=_log_step,
     )
     task = crewai_run.Task(
         description=prompt,
         expected_output=(
-            "Exactly one JSON object with resolution and actions_taken. "
+            "Exactly one JSON object matching the public E5 output schema. "
             "No markdown and no extra text."
         ),
         agent=agent,
