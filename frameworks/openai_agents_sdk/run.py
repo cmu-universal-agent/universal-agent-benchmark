@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import os
 import sys
 from pathlib import Path
@@ -34,6 +35,7 @@ os.environ["OPENAI_AGENTS_DISABLE_TRACING"] = "1"
 
 from agents import (
     Agent,
+    AgentOutputSchema,
     ModelSettings,
     Runner,
     function_tool,
@@ -110,6 +112,10 @@ def _build_agent(
             max_tokens=supported_settings.max_output_tokens,
             extra_args=extra_args,
         ),
+        output_type=AgentOutputSchema(
+            dict[str, object],
+            strict_json_schema=False,
+        ),
         tools=tools,
     )
     model_settings = agent.model_settings
@@ -130,7 +136,7 @@ async def _run_agent(
 ) -> tuple[str, dict[str, int]]:
     result = await Runner.run(agent, prompt)
     usage = result.context_wrapper.usage
-    return str(result.final_output), {
+    return json.dumps(result.final_output, ensure_ascii=False), {
         "input_tokens": usage.input_tokens,
         "output_tokens": usage.output_tokens,
         "total_tokens": usage.total_tokens,

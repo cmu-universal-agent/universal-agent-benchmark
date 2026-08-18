@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r9 candidate freeze; no r9 provider call has started**
+Status: **Revision r10 candidate freeze; no r10 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,7 +8,7 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r9`. The earlier `da35b7d` candidate stopped
+Implementation freeze revision: `r10`. The earlier `da35b7d` candidate stopped
 after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
 r2 candidate exposed a missing local E5 gold-path binding after 21 valid
 non-E5 results and three traceable E5 infrastructure failures. The `68f8e68`
@@ -31,7 +31,11 @@ and captured two concurrent tool starts with no matching end. Revision r9 fixes
 the shared root cause by locking the complete tau state-before, tool-call,
 state-after, and trace transaction. It removes the provisional framework-level
 concurrency and iteration caps while retaining privacy-safe observability. All
-prior rows are excluded from the fresh r9 readiness gate, analysis, claims, and
+three E5 rows and all three E1 rows completed normally. During E2, the OpenAI
+Agents SDK model emitted truncated JSON while the other two frameworks completed.
+Revision r10 uses that SDK's native non-plain-text output type to guarantee a
+JSON object while leaving task-specific schema scoring in the frozen evaluator.
+All prior rows are excluded from the fresh r10 readiness gate, analysis, claims, and
 denominators.
 
 ## Purpose
