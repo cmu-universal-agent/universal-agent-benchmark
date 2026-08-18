@@ -53,6 +53,10 @@ class TestCrewAIRetailWrapperEvidence(unittest.TestCase):
             agent_class.call_args.kwargs["max_iter"],
             retail_run.MAX_RETAIL_ITERATIONS,
         )
+        self.assertIs(
+            agent_class.call_args.kwargs["step_callback"],
+            retail_run._log_step,
+        )
 
     def test_main_entrypoint_routes_retail_cases(self) -> None:
         task = load_task(
