@@ -1,5 +1,7 @@
+import asyncio
 import importlib
 import importlib.util
+import json
 import os
 import unittest
 from types import SimpleNamespace
@@ -250,6 +252,30 @@ class OpenAIAgentsGenerationSettingsTests(unittest.TestCase):
         self.assertEqual(model_settings.temperature, settings.temperature)
         self.assertEqual(model_settings.max_tokens, settings.max_output_tokens)
         self.assertEqual(model_settings.extra_args, {"seed": settings.seed})
+        output_type = constructor.call_args.kwargs["output_type"]
+        self.assertFalse(output_type.is_plain_text())
+        self.assertFalse(output_type.is_strict_json_schema())
+
+    def test_run_agent_serializes_structured_output_as_json(self):
+        sdk_result = SimpleNamespace(
+            final_output={"schema_version": "1.0"},
+            context_wrapper=SimpleNamespace(
+                usage=SimpleNamespace(
+                    input_tokens=1,
+                    output_tokens=2,
+                    total_tokens=3,
+                )
+            ),
+        )
+        with patch.object(
+            self.runner.Runner,
+            "run",
+            new=AsyncMock(return_value=sdk_result),
+        ):
+            output, usage = asyncio.run(self.runner._run_agent("prompt", object()))
+
+        self.assertEqual(json.loads(output), sdk_result.final_output)
+        self.assertEqual(usage["total_tokens"], 3)
 
     def test_run_log_uses_settings_passed_to_agent(self):
         settings = _settings()
