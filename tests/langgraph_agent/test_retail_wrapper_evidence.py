@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "scripts" / "validate_ws3_tau_retail_contract.py"
@@ -34,26 +34,6 @@ else:
     "LangGraph is not installed in this virtual environment",
 )
 class TestLangGraphRetailWrapperEvidence(unittest.TestCase):
-    def test_tool_calls_use_the_single_worker_pipe_serially(self) -> None:
-        graph = Mock()
-        graph.invoke.return_value = {
-            "messages": [SimpleNamespace(content="{}", usage_metadata=None)]
-        }
-        env = Mock()
-        env.get_trace.return_value = []
-        env.get_final_state.return_value = {}
-
-        with (
-            patch.object(retail_run, "make_retail_tools", return_value=[]),
-            patch.object(retail_run, "_build_retail_graph", return_value=graph),
-        ):
-            retail_run._run_retail_agent(object(), env, "prompt", [])
-
-        self.assertEqual(
-            graph.invoke.call_args.kwargs["config"]["max_concurrency"],
-            1,
-        )
-
     def test_tool_loop_forces_final_response_after_bounded_rounds(self) -> None:
         tool_message = SimpleNamespace(tool_calls=[{"name": "get_order_details"}])
         final_message = SimpleNamespace(tool_calls=[])

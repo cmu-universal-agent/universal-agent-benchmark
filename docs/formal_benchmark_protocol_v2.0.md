@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r8 candidate freeze; no r8 provider call has started**
+Status: **Revision r9 candidate freeze; no r9 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,7 +8,7 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r8`. The earlier `da35b7d` candidate stopped
+Implementation freeze revision: `r9`. The earlier `da35b7d` candidate stopped
 after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
 r2 candidate exposed a missing local E5 gold-path binding after 21 valid
 non-E5 results and three traceable E5 infrastructure failures. The `68f8e68`
@@ -27,8 +27,11 @@ r7 adds content-free phase/turn progress markers so a timeout can be localized
 without logging prompts, conversations, gold, tool arguments, or outputs. All
 its CrewAI attempt remained inside the first agent request for the full timeout.
 Revision r8 adds content-free CrewAI step and public tool-name start/end markers
-to distinguish a provider/agent stall from a tau worker stall. All prior rows
-are excluded from the fresh r8 readiness gate, analysis, claims, and
+and captured two concurrent tool starts with no matching end. Revision r9 fixes
+the shared root cause by locking the complete tau state-before, tool-call,
+state-after, and trace transaction. It removes the provisional framework-level
+concurrency and iteration caps while retaining privacy-safe observability. All
+prior rows are excluded from the fresh r9 readiness gate, analysis, claims, and
 denominators.
 
 ## Purpose
