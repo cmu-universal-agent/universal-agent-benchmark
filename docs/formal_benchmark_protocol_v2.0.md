@@ -37,9 +37,8 @@ v2.0 readiness gate, result aggregates, repeats, claims, and denominators.
 | Frameworks | OpenAI Agents SDK, LangGraph, CrewAI |
 | Agent model | `gpt-4o-mini` |
 | E5 user simulator | `gpt-4o-mini` |
-| Temperature | `0` |
-| Requested maximum output tokens | `4096` |
-| Requested seed | `42`; record `null`/unsupported when unavailable |
+| Agent generation settings | temperature `0`; requested maximum output tokens `4096`; requested seed `42` |
+| E5 simulator generation settings | temperature `0`; maximum output tokens `4096`; scenario seed from the frozen evaluator-only gold |
 | Per-attempt timeout | 300 seconds |
 | Framework environments | Three isolated Python 3.12 environments from committed requirement files |
 | Manifest | Private frozen `pilot-60-v1.0`, unchanged |

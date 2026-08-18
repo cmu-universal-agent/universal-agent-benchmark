@@ -165,6 +165,13 @@ class E5SessionTests(unittest.TestCase):
         self.assertEqual(len(result.assistant_turns), 2)
         outbound = json.dumps(api_requests)
         self.assertTrue(all(row["model"] == "gpt-4o-mini" for row in api_requests))
+        self.assertTrue(all(row["temperature"] == 0 for row in api_requests))
+        self.assertTrue(
+            all(row["max_completion_tokens"] == 4096 for row in api_requests)
+        )
+        self.assertTrue(all(row["seed"] == 0 for row in api_requests))
+        self.assertEqual(result.simulator["temperature"], 0)
+        self.assertEqual(result.simulator["max_output_tokens"], 4096)
         self.assertNotIn("<fixed-model>", outbound)
         self.assertIn("Ask for help.", outbound)
         self.assertIn("Reason for call", outbound)

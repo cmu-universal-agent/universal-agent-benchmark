@@ -17,6 +17,8 @@ STOP_MARKERS = ("###STOP###", "###TRANSFER###", "###OUT-OF-SCOPE###")
 SIMULATOR_VERSION = "tau2-user-simulator@1d244f5"
 SESSION_PROTOCOL_VERSION = "1.6"
 SIMULATOR_MODEL = "gpt-4o-mini"
+SIMULATOR_TEMPERATURE = 0
+SIMULATOR_MAX_OUTPUT_TOKENS = 4096
 E5_AGENT_SYSTEM_PROMPT = (
     "You are a retail customer-support agent. Use the provided tools to resolve "
     "the customer's issue. Follow policy and only use allowed tools. A tool "
@@ -146,6 +148,8 @@ def run_e5_session(
         response = client.chat.completions.create(
             model=SIMULATOR_MODEL,
             messages=simulator_messages,
+            temperature=SIMULATOR_TEMPERATURE,
+            max_completion_tokens=SIMULATOR_MAX_OUTPUT_TOKENS,
             seed=int(simulator["seed"]),
         )
         user_message = response.choices[0].message.content or ""
@@ -164,6 +168,8 @@ def run_e5_session(
                     "protocol_version": SESSION_PROTOCOL_VERSION,
                     "version": SIMULATOR_VERSION,
                     "model": SIMULATOR_MODEL,
+                    "temperature": SIMULATOR_TEMPERATURE,
+                    "max_output_tokens": SIMULATOR_MAX_OUTPUT_TOKENS,
                     "seed": simulator["seed"],
                     "turns": len(assistant_turns) - 1,
                     "token_usage": simulator_usage,
