@@ -56,9 +56,9 @@ owner approval, and revalidation of the affected preflight/repeat plan.
 - Until runner-side eligibility validation exists, a human reviewer must verify
   the prior attempt was an infrastructure failure before authorizing attempt
   `2`; a non-empty reason alone is not proof of eligibility.
-- Automatic result/ledger/report joining is pending a follow-up integration
-  change. Preserve both attempt-ledger and result `run_id` references manually
-  without folding repeats or failed attempts.
+- Automatic result/ledger/report joining is pending PR #27 integration.
+  Preserve both attempt-ledger and result `run_id` references manually without
+  folding repeats or failed attempts until that gate passes.
 
 ## Approval record
 
@@ -66,11 +66,12 @@ owner approval, and revalidation of the affected preflight/repeat plan.
 |---|---|---|---|
 | Chloe | approved | 2026-08-10 | Approved the eight `001` representative cases |
 | Jessica | verified | 2026-08-10 | Verified IDs against the frozen local manifest and owner record |
-| Mickey | pending integration | | Add the frozen IDs to report/run tracking without changing them |
+| Mickey | integrated into WS4 protocol | 2026-08-15 | Added the frozen IDs unchanged to `docs/controlled_pilot_protocol.md` |
 
 ## Handoff
 
 - **To Jessica:** use exactly these eight IDs for the two additional targeted
   repeats per framework.
 - **To Chloe:** score and QA the resulting logical runs against local-only gold.
-- **To Mickey:** use these frozen IDs in the report and run matrix.
+- **To Mickey:** WS4 run-matrix integration is complete in
+  `docs/controlled_pilot_protocol.md`; later report use belongs to WS5.
