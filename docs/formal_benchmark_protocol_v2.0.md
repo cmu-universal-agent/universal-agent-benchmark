@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r5 candidate freeze; no r5 provider call has started**
+Status: **Revision r6 candidate freeze; no r6 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,7 +8,7 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r5`. The earlier `da35b7d` candidate stopped
+Implementation freeze revision: `r6`. The earlier `da35b7d` candidate stopped
 after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
 r2 candidate exposed a missing local E5 gold-path binding after 21 valid
 non-E5 results and three traceable E5 infrastructure failures. The `68f8e68`
@@ -18,8 +18,12 @@ structured simulator-instruction rendering without changing E5 evaluator 0.3
 semantics. The r4 candidate then produced a valid OpenAI E5 result but timed
 out twice in LangGraph because parallel `ToolNode` calls shared one pinned tau
 worker pipe. Revision r5 serializes those calls at graph invocation. All
-candidate rows remain immutable engineering evidence and are excluded from the
-fresh r5 readiness gate, analysis, claims, and denominators.
+candidate rows remain immutable engineering evidence. The r5 candidate proved
+the LangGraph fix, then CrewAI exhausted two 300-second attempts because its
+agent retained the dependency default of 25 iterations per simulator turn.
+Revision r6 caps the CrewAI retail agent at four iterations, matching the
+bounded retail policy. All prior rows are excluded from the fresh r6 readiness
+gate, analysis, claims, and denominators.
 
 ## Purpose
 
