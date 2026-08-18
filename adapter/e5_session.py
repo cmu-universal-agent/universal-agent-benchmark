@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -144,7 +145,12 @@ def run_e5_session(
     simulator_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     final_output = FIRST_AGENT_MESSAGE
 
-    for _ in range(int(simulator["max_turns"])):
+    for turn_index in range(1, int(simulator["max_turns"]) + 1):
+        print(
+            f"E5_PROGRESS phase=simulator_request turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         response = client.chat.completions.create(
             model=SIMULATOR_MODEL,
             messages=simulator_messages,
@@ -153,6 +159,11 @@ def run_e5_session(
             seed=int(simulator["seed"]),
         )
         user_message = response.choices[0].message.content or ""
+        print(
+            f"E5_PROGRESS phase=simulator_response turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         usage = response.usage
         if usage is not None:
             simulator_usage["input_tokens"] += usage.prompt_tokens or 0
@@ -160,6 +171,11 @@ def run_e5_session(
             simulator_usage["total_tokens"] += usage.total_tokens or 0
         simulator_messages.append({"role": "assistant", "content": user_message})
         if any(marker in user_message for marker in STOP_MARKERS):
+            print(
+                f"E5_PROGRESS phase=terminated turn={turn_index}",
+                file=sys.stderr,
+                flush=True,
+            )
             return E5SessionResult(
                 final_output=final_output,
                 token_usage=agent_usage,
@@ -180,7 +196,17 @@ def run_e5_session(
             )
 
         transcript.append(("Customer", user_message))
+        print(
+            f"E5_PROGRESS phase=agent_request turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         final_output, turn_usage = run_agent_turn(_agent_prompt(task, transcript))
+        print(
+            f"E5_PROGRESS phase=agent_response turn={turn_index}",
+            file=sys.stderr,
+            flush=True,
+        )
         _sum_usage(agent_usage, turn_usage)
         transcript.append(("Assistant", final_output))
         assistant_turns.append(final_output)
