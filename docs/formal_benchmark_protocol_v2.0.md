@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r2 candidate freeze; no r2 provider call has started**
+Status: **Revision r3 candidate freeze; no r3 provider call has started**
 
 Execution owner: Jessica
 
@@ -8,10 +8,12 @@ Prepared: 2026-08-17
 
 Protocol ID: `pilot-60-v2.0`
 
-Implementation freeze revision: `r2`. The earlier `da35b7d` preflight
-candidate stopped after exposing an H5 summary-only null-score defect. Its 12
-completed result rows remain immutable engineering evidence and are excluded
-from the fresh r2 readiness gate, analysis, claims, and denominators.
+Implementation freeze revision: `r3`. The earlier `da35b7d` candidate stopped
+after exposing an H5 summary-only null-score defect. The subsequent `d0affc8`
+r2 candidate exposed a missing local E5 gold-path binding after 21 valid
+non-E5 results and three traceable E5 infrastructure failures. All candidate
+rows remain immutable engineering evidence and are excluded from the fresh r3
+readiness gate, analysis, claims, and denominators.
 
 ## Purpose
 
