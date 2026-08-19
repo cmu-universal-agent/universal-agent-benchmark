@@ -1,6 +1,6 @@
 # WS5 Exclusion List — Lanfang (maintain locally)
 
-Status: **Initial exclusions documented; v2.0 rows pending**
+Status: **Initial exclusions documented; v2.0 formal rows scored — triage on demand**
 Owner: Lanfang Hai
 Prepared: 2026-08-18
 
@@ -35,11 +35,15 @@ record only).
 
 ---
 
-## v2.0 controlled-pilot rows (pending)
+## v2.0 controlled-pilot rows
+
+Formal scoring complete for 228/228 controlled-pilot logical runs on the pinned
+formal experiment ID. Populate per-row eligibility during case-study selection;
+do not commit raw ledger excerpts.
 
 | Case / logical run | Framework | Repeat | Attempt | Eligible | Notes |
 |---|---|---:|---:|---:|---|
-| `[awaiting Chloe package]` | | | | | |
+| See F1–F6 in `failure_taxonomy_adjudication_summary.md` | | | | Y/N per row | Adjudicated candidates only |
 
 **Target denominator for WS5 case studies:** subset of 228 controlled-pilot logical
 runs on v2.0 formal experiment ID, minus rows above.

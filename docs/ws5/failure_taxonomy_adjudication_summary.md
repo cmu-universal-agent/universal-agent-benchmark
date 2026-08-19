@@ -1,6 +1,7 @@
 # Failure Taxonomy and Adjudication — Lanfang Deliverable (WS5)
 
-Status: **Methodology complete; case-level counts pending v2.0 scored outputs**
+Status: **Methodology complete; F1–F6 candidate adjudication complete — public
+claims pending Chloe C1–C6 review**
 Owner: Lanfang Hai
 Prepared: 2026-08-18
 For: Mickey — Technical-method appendix § Failure taxonomy and adjudication
@@ -20,7 +21,7 @@ rerun boundaries in `docs/formal_benchmark_protocol_v2.0.md`.
 
 | Layer | Source | WS5 use |
 |---|---|---|
-| **Symptom** | `failure_mode` in result JSONL; E5 failure classes per `e5_gold_semantics_v0.3.md` | Tables, aggregates (Chloe-owned definitions) |
+| **Symptom** | Evaluator-derived `failure_mode` from `adapter/evaluator.py` and the report/metrics layer (not a stored result JSONL field); E5 failure classes per `e5_gold_semantics_v0.3.md` | Tables, aggregates (Chloe-owned definitions) |
 | **Root cause** | `case_study_failure_taxonomy.md` categories | Case studies, limitations narrative |
 
 Mapping rule: symptom describes **what failed**; root cause describes **where to
@@ -125,6 +126,85 @@ Do not classify or count toward pilot failure analysis:
 |---|---|
 | Taxonomy methodology | Complete |
 | Adjudication workflow | Complete |
-| Case-level root-cause assignments | **Pending** Chloe scored outputs + v2.0 gate |
+| Case-level root-cause assignments (F1–F6) | **Complete** — see § Formal r10 candidate adjudication |
 | Aggregate symptom/root-cause tables | **Pending** Chloe aggregate definitions |
-| Owner-approved case studies for report | **Pending** C1–C3 review cycle |
+| Owner-approved case studies for report | **Pending** C1–C6 claims review cycle |
+
+---
+
+## Formal r10 candidate adjudication (F1–F6)
+
+Reviewed against the frozen taxonomy in `docs/case_study_failure_taxonomy.md`.
+Symptoms use evaluator vocabulary (`adapter/evaluator.py` for non-E5 rows; E5
+failure classes per `e5_gold_semantics_v0.3.md`). Do not publish until Chloe
+approves the corresponding aggregate claims (C1–C6).
+
+### F1 — E2-REVIEW-001 / OpenAI Agents SDK / repeats 1–3
+
+| Field | Adjudication |
+|---|---|
+| Symptom | Task-specific scores 0.5, 0.5, 0.0 across repeat logical runs 1–3 (sole unstable representative repeat row in the formal set) |
+| Root cause | `model_capability` |
+| Secondary tags | `repeat_inconsistency` |
+| Severity | P1 |
+| Narrow claim | Under fixed protocol, this representative E2 anchor showed run-to-run score variation at the task-specific metric without schema or infrastructure symptoms on the adjudicated rows. |
+| Non-claim | Not evidence of overall E2 framework superiority; not a robustness guarantee. |
+| Owner note | Partial passes on repeats 1–2 sit at a rubric boundary; treat evaluator sensitivity as a contributing factor, not the primary root cause, unless Chloe revises the E2 metric interpretation. |
+
+### F2 — E5 valid sweeps (CrewAI and LangGraph)
+
+| Field | Adjudication |
+|---|---|
+| Symptom | CrewAI: five `missing_required_action`, one `invalid_arguments`; LangGraph: five `invalid_arguments`, one `missing_required_action` (valid sweeps only) |
+| Root cause | `model_capability` (one illustrative row per pattern) |
+| Secondary tags | `tool_plan_error` for `missing_required_action`; `tool_arg_error` for `invalid_arguments`; optional `cross_framework_divergence` at the pattern level (inverted class mix across frameworks) |
+| Severity | P1 |
+| Narrow claim | On valid E5 sweeps, dominant failures are missing required side-effect actions or invalid tool arguments rather than response-contract or final-state hash passes with wrong business outcome. |
+| Non-claim | Pattern counts are not a framework championship; adapter binding differences may contribute to argument-shape failures and require Jessica review before strong adapter attribution. |
+| Selection rule | At most one traceable example per root-cause pattern in case-study text. |
+
+### F3 — E5 OpenAI Agents SDK valid final rows (failure examples only)
+
+| Field | Adjudication |
+|---|---|
+| Symptom | Four `missing_required_action`, one `invalid_arguments` among valid final rows |
+| Root cause | Same mapping as F2: `model_capability` with `tool_plan_error` / `tool_arg_error` |
+| Secondary tags | `tool_plan_error`, `tool_arg_error` |
+| Severity | P1 (isolated examples) |
+| Narrow claim | Individual OpenAI E5 rows may be cited as failure illustrations using the same E5 failure-class semantics as F2. |
+| Non-claim | **Do not** treat the OpenAI E5 sweep as valid for cross-framework comparison — one final row is an `error` under the frozen sweep rule (see F4 and claim C5). |
+
+### F4 — E5-003 / OpenAI Agents SDK / repeat 1
+
+| Field | Adjudication |
+|---|---|
+| Symptom | Final row after one policy-permitted infrastructure retry remains `tool_runtime_failure` |
+| Root cause | `infrastructure` |
+| Secondary tags | — |
+| Severity | P3 (aggregate / error ledger) |
+| Narrow claim | Preserve both attempts: attempt 2 documents infrastructure-policy compliance; the scored final row is harness `error`, not agent `fail`. |
+| Non-claim | Not evidence that the model would have passed on a third attempt; not usable in valid-sweep E5 comparisons. |
+
+### F5 — Schema-invalid final rows
+
+| Field | Adjudication |
+|---|---|
+| Cases | E1-REVIEW-003 (CrewAI); E1-REVIEW-007 (CrewAI); H1-REVIEW-006 (OpenAI Agents SDK); E5-004 (OpenAI Agents SDK) |
+| Symptom | Evaluator-derived `output_schema_invalid` (or equivalent formatting symptom in the metrics layer) |
+| Root cause | `model_formatting` |
+| Secondary tags | — |
+| Severity | P2 |
+| Narrow claim | These rows fail structural output checks separately from the E5 semantic failure classes in F2–F3; attribute to formatting unless a row also shows content gold mismatch on a scored non-E5 metric. |
+| Non-claim | Do not merge schema-invalid counts into E5 action-plan failure numerators without Chloe's aggregate definitions. |
+
+### F6 — H4 across all frameworks
+
+| Field | Adjudication |
+|---|---|
+| Symptom | 0/30 full-case passes (10 cases × 3 frameworks) |
+| Root cause | **Provisional** `evaluator_or_gold` — escalate to Chloe before strong causal attribution |
+| Secondary tags | `evaluator_borderline` until component precision/recall is reviewed |
+| Severity | P1 (pattern); case studies P2 until component review completes |
+| Narrow claim | Under the frozen full-case H4 metric, no observation reached a full-case pass across any framework in this pilot. |
+| Non-claim | Do not assert a single shared model root cause or a uniform evaluator failure without component-level precision/recall review (claim C4). |
+| Owner note | Per-field extraction may pass while full-case fails; component metrics require evaluator-owner approval before public tables. |

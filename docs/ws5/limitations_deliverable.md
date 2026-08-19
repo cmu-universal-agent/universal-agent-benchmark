@@ -9,11 +9,12 @@ formal controlled pilot)
 Paste target: report section **Limitations and claim boundary** (delta only; do not
 overwrite the live scaffold's frozen-configuration table).
 
-**Mickey — tense rule:** While the v2.0 readiness gate is still open, keep the
-conditional wording in the claim-boundary paragraph below. After the gate passes,
-replace it with past tense, insert the frozen formal experiment ID, and align
-numeric values with the scaffold **Frozen configuration** table (for example
-requested maximum output tokens `4096`, temperature `0`, requested seed `42`).
+**Mickey — tense rule:** Formal v2.0 controlled-pilot execution and scoring are
+complete (228/228 logical runs; H5 annotations 30/30). Keep **conditional wording
+on public aggregate claims** until Chloe approves C1–C6. After claims approval,
+use past tense, insert the frozen formal experiment ID, and align numeric values
+with the scaffold **Frozen configuration** table (for example requested maximum
+output tokens `4096`, temperature `0`, requested seed `42`).
 
 ---
 
@@ -26,10 +27,10 @@ fixtures. It does **not** establish general deployment readiness, clinical
 validity, market forecasting accuracy, or an overall best agent framework.
 No composite score or framework championship is reported.
 
-Results become reportable only when the v2.0 readiness gate passes under one
-pinned formal experiment ID. All v1.x and preliminary engineering-smoke attempts
-remain **`technical_smoke_only`** and are excluded from v2.0 denominators,
-repeats, claims, and failure-analysis numerators.
+Results are **scored under one pinned formal experiment ID**; public aggregate
+wording remains subject to owner claims review (C1–C6). All v1.x and preliminary
+engineering-smoke attempts remain **`technical_smoke_only`** and are excluded from
+v2.0 denominators, repeats, claims, and failure-analysis numerators.
 
 ---
 
@@ -90,9 +91,11 @@ without state match is a failure. Harness or runtime errors (`error`) are distin
 from agent-caused failures (`fail`). A framework sweep with more than five percent
 final-attempt errors is invalidated for that framework under the frozen E5 policy.
 
-**Symptom vs attribution.** Runtime `failure_mode` records the primary symptom
-at the runner layer. Case-study root-cause categories (model, framework adapter,
-evaluator, infrastructure, protocol) are applied separately for narrative analysis.
+**Symptom vs attribution.** The report/metrics layer derives a primary
+`failure_mode` via `adapter/evaluator.py` when building scored outputs; it is not
+stored as a field in the result JSONL. E5 rows use v0.3 failure classes instead.
+Case-study root-cause categories (model, framework adapter, evaluator,
+infrastructure, protocol) are applied separately for narrative analysis.
 Suspected gold or rubric issues are escalated to the evaluation owner rather than
 resolved by relabeling in WS5.
 

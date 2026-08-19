@@ -1,8 +1,8 @@
 # Main Findings — Lanfang Deliverable (WS5)
 
-Status: **Empirical findings pending v2.0 scored outputs**
+Status: **F1–F6 adjudication complete; public release pending Chloe C1–C6 claims review**
 Owner: Lanfang Hai
-Prepared: 2026-08-18; revised 2026-08-18 (deduped against limitations deliverable)
+Prepared: 2026-08-18; revised 2026-08-19 (formal r10 gate sync + F1–F6 adjudication)
 For: Mickey — report findings section
 
 ---
@@ -11,13 +11,15 @@ For: Mickey — report findings section
 
 | Check | Status |
 |---|---|
-| v2.0 formal experiment ID frozen | **Pending** written confirmation (A0) |
-| Chloe scored outputs + failure candidates | **Not received locally** |
-| 228 controlled-pilot rows eligible for analysis | **Pending** |
-| Empirical findings (F1–F6 below) | **Blocked until gate + data** |
+| v2.0 formal controlled pilot execution | **Complete** — 228/228 logical runs scored |
+| H5 human criterion annotations | **Complete** — 30/30 applied |
+| Privacy boundary (no forbidden fields in shared deliverables) | **Confirmed** |
+| Public aggregate claims (C1–C6) | **Pending** Chloe owner review |
+| Empirical findings (F1–F6 below) | **Adjudicated — hold from public report until C1–C6 approved** |
 
-Do not paste F1–F6 into the public report until the gate row above is complete and
-Chloe's QA package is linked.
+Do not paste F1–F6 into the public report until Chloe approves the corresponding
+aggregate claims. Narrative below uses case IDs and frameworks only — no raw
+prompts, gold, traces, run IDs, hashes, or private paths.
 
 ---
 
@@ -27,8 +29,7 @@ The protocol-scope bullets previously listed here as L1–L3 are **already cover
 in `limitations_deliverable.md` (claim boundary + protocol limitations). Paste that
 file once into report § **Limitations and claim boundary** only.
 
-For the **findings / discussion** section before empirical results exist, Mickey
-may use this single bridge sentence if helpful:
+For the **findings / discussion** section, Mickey may use this bridge sentence:
 
 > This controlled pilot reports task-specific outcomes under a frozen 60-case,
 > single-model protocol without a composite framework score; failure narratives
@@ -39,62 +40,100 @@ Do **not** also paste the full limitations text into findings.
 
 ---
 
-## Empirical findings (fill after Chloe handoff)
+## Empirical findings — formal r10 candidate adjudication (F1–F6)
 
-Replace `[TBD]` with v2.0 rows only. Each finding needs case ID, framework(s),
-symptom, root-cause category, and one narrow claim.
+Each finding lists case ID, framework(s), symptom, root-cause category, and one
+narrow claim. Full methodology and secondary tags: `failure_taxonomy_adjudication_summary.md`.
 
-### F1 — Safety or policy (P0 if present)
+### F1 — Representative repeat instability (E2-REVIEW-001)
 
-`[PENDING]` On `[case_id]`, `[framework]` produced `[symptom]` while `[contrast]`.
-Root cause: `[category]`. Narrow claim: `[one sentence]`.
+On **E2-REVIEW-001** with **OpenAI Agents SDK**, task-specific scores were
+**0.5, 0.5, 0.0** across repeat logical runs 1–3 — the only unstable row among
+24 representative targeted repeats (23/24 stable under the frozen score).
 
-### F2 — Cross-framework divergence (P1)
+Symptom: partial pass then full fail at the task-specific metric layer.
+Root cause: **`model_capability`**. Secondary: **`repeat_inconsistency`**.
+Narrow claim: fixed-protocol run-to-run variation on this E2 anchor without
+schema or infrastructure symptoms on the adjudicated rows.
+**Not** an overall E2 framework ranking.
 
-`[PENDING]` For `[case_id]`, `[framework X]` vs `[framework Y]` diverged under frozen
-config. Root cause: `[framework_adapter | model_formatting]`. **Only if both
-framework sweeps are valid.**
+### F2 — E5 valid-sweep failure patterns (CrewAI, LangGraph)
 
-### F3 — Representative repeat behavior (P1 or stability note)
+On **valid E5 sweeps**, CrewAI final rows show five **`missing_required_action`**
+and one **`invalid_arguments`**; LangGraph shows five **`invalid_arguments`** and
+one **`missing_required_action`**.
 
-`[PENDING]` Representative `[case_id]` on `[framework]` was `[consistent |
-inconsistent]` across repeat logical runs 1–3. Describe symptom-layer variation only.
+Symptom: E5 failure classes per v0.3 semantics.
+Root cause: **`model_capability`** (one illustrative example per pattern).
+Secondary: **`tool_plan_error`**, **`tool_arg_error`**; optional pattern-level
+**`cross_framework_divergence`**.
+Narrow claim: dominant E5 failures on valid sweeps are missing required actions or
+invalid tool arguments, not passed response-contract with wrong final state.
+Select at most one traceable example per pattern in case-study text.
 
-### F4 — Formatting vs capability (P1/P2)
+### F3 — E5 OpenAI Agents SDK rows (failure examples only)
 
-`[PENDING]` On `[task_id]`, `[output_schema_invalid | instruction_drift]` occurred
-without content gold mismatch.
+Among **OpenAI Agents SDK** E5 valid final rows: four **`missing_required_action`**,
+one **`invalid_arguments`**.
 
-### F5 — Evaluator boundary
+Root cause: same as F2 (**`model_capability`** with tool-plan / tool-arg tags).
+Narrow claim: individual rows may illustrate E5 failure-class semantics.
+**Non-claim:** the OpenAI E5 sweep is **invalid** for cross-framework comparison
+(one final **`error`** row — see F4 and claim C5).
 
-`[PENDING — Chloe written approval required before report inclusion]` Borderline
-`[task]` at `[metric]` → `evaluator_or_gold`. No strong causal claim until resolved.
+### F4 — E5 infrastructure error boundary (E5-003)
 
-### F6 — Repeat stability (encouraged when observed)
+On **E5-003** / **OpenAI Agents SDK** / repeat 1, attempt 2 (after one
+documented infrastructure-eligible retry) remained **`tool_runtime_failure`**.
 
-`[PENDING]` Representative `[case_id]` on `[framework]` remained consistent across
-repeats 1–3 at `[metric/symptom layer]`.
+Symptom: harness **`error`**, not agent **`fail`**.
+Root cause: **`infrastructure`**. Severity P3.
+Narrow claim: preserve both attempts — retry shows policy compliance; final row
+is an error disposition, not a scored agent failure comparable to F2/F3 rows.
+
+### F5 — Formatting vs capability (schema-invalid rows)
+
+Four schema-invalid final rows: **E1-REVIEW-003** (CrewAI), **E1-REVIEW-007**
+(CrewAI), **H1-REVIEW-006** (OpenAI Agents SDK), **E5-004** (OpenAI Agents SDK).
+
+Symptom: evaluator-derived **`output_schema_invalid`** in the metrics layer.
+Root cause: **`model_formatting`**. Severity P2.
+Narrow claim: structural output failure separated from E5 semantic failure classes
+and from content gold mismatch unless a row also fails on scored content metrics.
+
+### F6 — H4 full-case pass pattern (component review required)
+
+**H4** across all frameworks: **0/30** full-case passes (10 cases × 3 frameworks).
+
+Symptom: zero full-case pass under the frozen H4 metric.
+Root cause: **provisional `evaluator_or_gold`** — Chloe must review component
+precision/recall before strong causal attribution.
+Narrow claim: no full-case H4 pass in this pilot under the frozen full-case metric.
+**Non-claim:** do not assert a single shared model or evaluator root cause until
+component-level metrics are owner-approved (claim C4).
 
 ---
 
-## Selection worksheet
+## Selection worksheet (completed targets)
 
-See `docs/failure_analysis_and_limitations_draft.md` §4 when data arrives.
+| Priority | Candidate | Status |
+|---:|---|---|
+| 1 | F1 repeat instability | Adjudicated |
+| 2 | F2 E5 valid-sweep patterns | Adjudicated |
+| 3 | F3 E5 OpenAI examples (non-comparative) | Adjudicated |
+| 4 | F4 E5-003 error boundary | Adjudicated |
+| 5 | F5 schema-invalid separation | Adjudicated |
+| 6 | F6 H4 zero full-case pass | Adjudicated (provisional root cause) |
 
-Priority targets:
-
-1. Any P0 safety/policy case Chloe flags
-2. Strongest cross-framework divergence on a non-invalidated sweep
-3. One representative-case repeat pattern (instability **or** stability)
-4. One E5 row adjudicated through v0.3 semantics
-5. One H5 row with criterion annotations attached
+Additional case studies beyond these six may be drafted locally from
+`docs/case_study_template.md` after C1–C6 approval.
 
 ---
 
 ## Handoff to Mickey
 
-| Now | After gate + Chloe |
+| Now | After C1–C6 approval |
 |---|---|
 | `limitations_deliverable.md` → § Limitations | F1–F6 (approved subset) → § Main findings |
 | `failure_taxonomy_adjudication_summary.md` → appendix | Redacted case studies (local filenames) |
-| Optional bridge sentence above → discussion | |
+| Bridge sentence above → discussion | Align numeric captions with Chloe aggregates |

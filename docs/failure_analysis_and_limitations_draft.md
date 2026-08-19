@@ -22,10 +22,10 @@ protocol and representative-ID docs match the frozen WS4 record.
 
 ## 0. Lanfang hard rules (read first)
 
-1. **Do not start WS5 case studies until gate is confirmed.** You need written
-   confirmation from Jessica or Mickey that v2.0 `gate_status` is no longer
-   `technical_smoke_only` and that a formal experiment ID is frozen. If the gate
-   is still open, you may only draft limitations prose — not findings from runs.
+1. **Do not start WS5 case studies until formal scoring is confirmed.** You need
+   written confirmation that v2.0 controlled-pilot logical runs are scored under
+   a pinned formal experiment ID (228/228 complete as of formal r10). Public
+   aggregate claims still require Chloe C1–C6 approval before report inclusion.
 2. **Use v2.0 denominators only.** All analysis rows must come from the v2.0
    experiment ID in the private freeze record. Exclude every v1.x attempt,
    readiness preflight, and any run on Chloe/Mickey's exclusion list.
@@ -54,11 +54,10 @@ protocol and representative-ID docs match the frozen WS4 record.
 
 **Lanfang exit criteria before Phase B:**
 
-- Gate confirmed not `technical_smoke_only`.
+- Formal v2.0 scoring confirmed (228/228 logical runs; H5 annotations complete).
 - You have Chloe's failure-candidate list **and** the v2.0 exclusion list.
 - Every worksheet row maps to one v2.0 controlled-pilot logical run (not preflight).
-- 228 controlled-pilot logical runs are scored with no open data-integrity flags
-  from Chloe (or you document which tasks/frameworks remain blocked).
+- No open data-integrity flags from Chloe (or document which tasks/frameworks remain blocked).
 
 ### Phase B — Triage, selection, and writing (Lanfang)
 
@@ -113,7 +112,7 @@ first; hold disputed findings until Chloe resolves.
 
 ### 2.1 E5 (mandatory extra steps)
 
-E5 does not use the generic `failure_mode` alone. For every E5 case study:
+E5 does not use the generic evaluator-derived `failure_mode` alone. For every E5 case study:
 
 1. Read E5 evaluator output and `docs/e5_gold_semantics_v0.3.md` failure classes
    (response contract, final-state hash, harness `error` vs agent `fail`).
@@ -210,29 +209,29 @@ Give Mickey a summary count only; do not commit raw ledger rows.
 
 > Replace `[TBD]` only with v2.0 scored rows. One narrow claim per finding.
 
-1. **[Finding 1 — safety or policy, P0 if present]**  
+1. **[Finding 1 — safety or policy, P0 if present]**
    On `[case_id]`, `[framework]` produced `[symptom]` while `[contrast]`.
    Root cause: `[category]`. Narrow claim: `[one sentence]`.
 
-2. **[Finding 2 — cross-framework divergence, P1]**  
+2. **[Finding 2 — cross-framework divergence, P1]**
    For `[case_id]`, `[framework X]` vs `[framework Y]` diverged under the same
    frozen config. Root cause: `[framework_adapter | model_formatting]`.
    **Only if both sweeps are valid.**
 
-3. **[Finding 3 — repeat instability, P1]**  
+3. **[Finding 3 — repeat instability, P1]**
    Representative `[case_id]` on `[framework]` was `[inconsistent]` across
    repeats 1–3. Describe what varied at symptom layer.
 
-4. **[Finding 4 — formatting vs capability, P1/P2]**  
+4. **[Finding 4 — formatting vs capability, P1/P2]**
    On `[task_id]`, `[output_schema_invalid | instruction_drift]` occurred
    without content gold mismatch — symptom vs capability separated.
 
-5. **[Finding 5 — evaluator boundary]**  
-   **Chloe written approval required before report inclusion.**  
+5. **[Finding 5 — evaluator boundary]**
+   **Chloe written approval required before report inclusion.**
    Borderline `[task]` scoring at `[metric]` → `evaluator_or_gold`; no strong
    causal claim until resolved.
 
-6. **[Finding 6 — repeat stability, optional but encouraged]**  
+6. **[Finding 6 — repeat stability, optional but encouraged]**
    Representative `[case_id]` on `[framework]` was **consistent** across repeats
    1–3 at `[metric/symptom layer]`. Supports limitation: pilot stability under
    fixed protocol for that anchor case.
@@ -295,7 +294,7 @@ delivery; incidental failures may appear as isolated case studies only.
 
 For each selected case:
 
-1. Read runtime symptom (`failure_mode` or E5 failure class) from scored row.
+1. Read evaluator-derived symptom (`failure_mode` from `adapter/evaluator.py` / metrics layer, or E5 failure class) from scored row.
 2. For **E5**, apply `e5_gold_semantics_v0.3` precedence before generic taxonomy.
 3. Assign one **root_cause_category** using `case_study_failure_taxonomy.md`
    precedence: `protocol_or_manifest` → `infrastructure` → `framework_adapter`
@@ -314,7 +313,7 @@ Infrastructure (P3) stays in rerun ledger; never frame as model weakness.
 
 - **Experiment ID / commit:** `[v2.0 frozen values]`
 - **Case ID / framework / repeat / attempt:** `[TBD]`
-- **Symptom layer:** `[failure_mode or E5 class]`
+- **Symptom layer:** `[evaluator-derived failure_mode or E5 class]`
 - **Root cause:** `[TBD]`
 - **Eligible for aggregate:** `[Y/N + reason]`
 - **Severity:** `[P0|P1|P2]`
@@ -328,7 +327,7 @@ Full template: `docs/case_study_template.md`
 
 ## 10. Lanfang checklist
 
-- [ ] A0: Written gate confirmation received (not `technical_smoke_only`)
+- [ ] A0: Formal v2.0 scoring confirmed (228/228; H5 30/30)
 - [ ] Pulled latest GitHub `main` protocol docs
 - [ ] v2.0 exclusion list applied to every worksheet row
 - [ ] Chloe failure candidates + scored outputs received
@@ -348,7 +347,7 @@ Full template: `docs/case_study_template.md`
 |---|---|---|
 | Limitations (ready for Mickey) | `docs/ws5/limitations_deliverable.md` | Complete |
 | Taxonomy adjudication summary | `docs/ws5/failure_taxonomy_adjudication_summary.md` | Complete |
-| Main findings | `docs/ws5/main_findings_deliverable.md` | L1–L3 complete; F1–F6 pending data |
+| Main findings | `docs/ws5/main_findings_deliverable.md` | F1–F6 adjudicated; hold until C1–C6 |
 | Exclusion list | `docs/ws5/exclusion_list.md` | Initial |
 | Illustrative case study (excluded) | `docs/ws5/case_studies/CS-E3-001-openai-schema-format_EXCLUDED.md` | Format only |
 | Package index | `docs/ws5/README.md` | Complete |
