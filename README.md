@@ -240,11 +240,12 @@ deactivate
 | `scripts/generate_suitability_matrix.py` | none | **`results/framework_suitability_matrix.md`** |
 | `scripts/check_result_fields.py` | none | **`results/framework_field_availability.md`** |
 
-These legacy/smoke analysis scripts read
-**`results/metrics/<vertical>_results.jsonl`**. The shared loader keeps the
-latest attempt for each `(case_id, framework, experiment_id, logical_run_id)`,
-so cases and repeats are not folded together. These scripts are not the formal
-r10 aggregate/report pipeline; if JSONL is empty, their reports are empty or
+The first three legacy/smoke analysis scripts use the shared loader, which
+keeps the latest attempt for each
+`(case_id, framework, experiment_id, logical_run_id)` without folding cases or
+repeats. `check_result_fields.py` instead scans every historical JSONL row to
+audit field availability across format changes. None of these scripts is the
+formal r10 aggregate/report pipeline; if JSONL is empty, reports are empty or
 stale.
 
 **Offline validation (no API):**

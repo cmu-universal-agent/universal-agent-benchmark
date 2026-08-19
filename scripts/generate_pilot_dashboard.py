@@ -11,6 +11,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from html import escape
+from math import isfinite
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,13 @@ WS4_TASKS = [
 ]
 FRAMEWORKS_PER_TASK = 3
 REPEATS_PER_REPRESENTATIVE_CASE = 2  # additional targeted repeats, one representative case per task
+EXPECTED_RESULTS_PER_PAIR = {
+    task["task_id"]: task["cases"] + REPEATS_PER_REPRESENTATIVE_CASE
+    for task in WS4_TASKS
+}
+REPRESENTATIVE_CASE_IDS = {
+    task["task_id"]: task["representative_case_id"] for task in WS4_TASKS
+}
 
 AGGREGATE_TOP_LEVEL_FIELDS = {
     "schema_version", "generated_at", "experiment_id", "status",
@@ -111,8 +119,15 @@ def _validate_aggregate(aggregate: dict, freeze: dict) -> None:
         for row in aggregate["targeted_repeats"]
     ):
         raise ValueError("targeted-repeat status fields must be boolean")
+    if (
+        type(aggregate["invalid_e5_frameworks"]) is not list
+        or any(type(framework) is not str for framework in aggregate["invalid_e5_frameworks"])
+    ):
+        raise ValueError("invalid_e5_frameworks must be a list of framework names")
     if freeze.get("experiment_id") != aggregate.get("experiment_id"):
         raise ValueError("aggregate and freeze experiment IDs differ")
+    if "scoring_complete" not in str(freeze.get("status", "")):
+        raise ValueError("freeze record does not confirm scoring completion")
     if freeze.get("owner_confirmations", {}).get("privacy_boundary_confirmed") is not True:
         raise ValueError("privacy boundary is not confirmed")
     privacy = freeze.get("privacy", {})
@@ -135,8 +150,66 @@ def _validate_aggregate(aggregate: dict, freeze: dict) -> None:
         raise ValueError("aggregate task/framework combinations are incomplete or duplicated")
     if set(repeat_pairs) != expected_pairs or len(repeat_pairs) != len(expected_pairs):
         raise ValueError("targeted-repeat task/framework combinations are incomplete or duplicated")
-    if sum(row["n"] for row in aggregate["rows"]) != 228:
-        raise ValueError("aggregate must contain 24 task/framework rows and 228 results")
+
+    for row in aggregate["rows"]:
+        task_id = row["task_id"]
+        expected_n = EXPECTED_RESULTS_PER_PAIR[task_id]
+        if row["n"] != expected_n:
+            raise ValueError(f"{task_id} rows must use frozen n={expected_n}")
+        if any(row[field] < 0 for field in INTEGER_ROW_FIELDS):
+            raise ValueError("aggregate integer result fields must be non-negative")
+        if not 0 <= row["schema_valid"] <= row["process_success"] <= row["n"]:
+            raise ValueError("process and schema counts are inconsistent with n")
+        if not 0 <= row["content_pass"] <= row["scored_n"] <= row["n"]:
+            raise ValueError("content pass and scored counts are inconsistent with n")
+        for field in OPTIONAL_NUMBER_ROW_FIELDS:
+            value = row[field]
+            if value is not None and (not isfinite(value) or value < 0):
+                raise ValueError("aggregate numeric result fields must be finite and non-negative")
+        if row["h5_pending"] != 0:
+            raise ValueError("scoring-complete aggregate must have h5_pending=0")
+
+        if task_id == "E5":
+            if row["scored_n"] != 0 or row["content_pass"] != 0 or row["mean_score"] is not None:
+                raise ValueError("E5 rows must use only E5 verdict fields")
+            if type(row["e5_sweep_valid"]) is not bool:
+                raise ValueError("E5 rows must declare e5_sweep_valid")
+            if row["e5_pass"] + row["e5_fail"] + row["e5_error"] != row["n"]:
+                raise ValueError("E5 verdict counts must sum to n")
+            if row["e5_pass"] + row["e5_fail"] != row["process_success"]:
+                raise ValueError("E5 pass/fail counts must match process_success")
+            expected_valid = row["e5_error"] / row["n"] <= 0.05
+            if row["e5_sweep_valid"] is not expected_valid:
+                raise ValueError("E5 sweep validity contradicts the frozen error threshold")
+        else:
+            if row["scored_n"] != row["n"]:
+                raise ValueError("non-E5 scoring-complete rows must score all n results")
+            if row["mean_score"] is None or not 0 <= row["mean_score"] <= 1:
+                raise ValueError("non-E5 mean_score must be between 0 and 1")
+            if any(row[field] != 0 for field in ("e5_pass", "e5_fail", "e5_error")):
+                raise ValueError("non-E5 rows cannot contain E5 verdict counts")
+            if row["e5_sweep_valid"] is not None:
+                raise ValueError("non-E5 rows cannot declare e5_sweep_valid")
+
+    declared_invalid = aggregate["invalid_e5_frameworks"]
+    if (
+        len(declared_invalid) != len(set(declared_invalid))
+        or any(framework not in KNOWN_FRAMEWORK_ORDER for framework in declared_invalid)
+    ):
+        raise ValueError("invalid_e5_frameworks contains unknown or duplicate frameworks")
+    expected_invalid = {
+        row["framework"]
+        for row in aggregate["rows"]
+        if row["task_id"] == "E5" and row["e5_sweep_valid"] is False
+    }
+    if set(declared_invalid) != expected_invalid:
+        raise ValueError("invalid_e5_frameworks contradicts E5 row validity")
+
+    for row in aggregate["targeted_repeats"]:
+        if row["case_id"] != REPRESENTATIVE_CASE_IDS[row["task_id"]]:
+            raise ValueError("targeted-repeat case_id does not match the frozen representative ID")
+        if type(row["observations"]) is not list or len(row["observations"]) != 3:
+            raise ValueError("each targeted-repeat row must contain three observations")
     if not all(row["complete"] for row in aggregate["targeted_repeats"]):
         raise ValueError("all 24 targeted-repeat rows must be complete")
 

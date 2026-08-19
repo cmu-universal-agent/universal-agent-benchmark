@@ -34,7 +34,7 @@ class GeneratePilotDashboardTests(unittest.TestCase):
             "rows": rows, "targeted_repeats": repeats,
         }
         freeze = {
-            "experiment_id": "exp", "status": "privacy_and_claims_confirmed_public_release_pending",
+            "experiment_id": "exp", "status": "formal_scoring_complete_privacy_confirmed",
             "owner_confirmations": {"privacy_boundary_confirmed": True},
             "privacy": {"aggregate_forbidden_field_matches": 0, "public_release_authorized": False},
         }
@@ -109,6 +109,57 @@ class GeneratePilotDashboardTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "invalid types"):
             pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_shifted_per_pair_counts(self) -> None:
+        aggregate, freeze = self._aggregate()
+        aggregate["rows"][0]["n"] = 9
+        aggregate["rows"][1]["n"] = 11
+
+        with self.assertRaisesRegex(ValueError, "frozen n=10"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_wrong_representative_case(self) -> None:
+        aggregate, freeze = self._aggregate()
+        aggregate["targeted_repeats"][0]["case_id"] = "WRONG"
+
+        with self.assertRaisesRegex(ValueError, "frozen representative ID"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_incomplete_observation_set(self) -> None:
+        aggregate, freeze = self._aggregate()
+        aggregate["targeted_repeats"][0]["observations"] = []
+
+        with self.assertRaisesRegex(ValueError, "three observations"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_pending_h5_scoring(self) -> None:
+        aggregate, freeze = self._aggregate()
+        h5 = next(row for row in aggregate["rows"] if row["task_id"] == "H5")
+        h5["h5_pending"] = 1
+
+        with self.assertRaisesRegex(ValueError, "h5_pending=0"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_inconsistent_e5_sweep_list(self) -> None:
+        aggregate, freeze = self._aggregate()
+        aggregate["invalid_e5_frameworks"] = ["openai_agents_sdk"]
+
+        with self.assertRaisesRegex(ValueError, "contradicts E5 row validity"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_invalid_numeric_relationships(self) -> None:
+        mutations = (
+            ("process_success", 11, "process and schema counts"),
+            ("content_pass", 11, "content pass and scored counts"),
+            ("mean_score", 1.1, "between 0 and 1"),
+            ("estimated_cost_usd", -0.01, "finite and non-negative"),
+        )
+        for field, value, message in mutations:
+            with self.subTest(field=field):
+                aggregate, freeze = self._aggregate()
+                aggregate["rows"][0][field] = value
+                with self.assertRaisesRegex(ValueError, message):
+                    pilot_dashboard.build_payload(aggregate, freeze)
 
 
 if __name__ == "__main__":
