@@ -10,11 +10,11 @@ Paste target: report section **Limitations and claim boundary** (delta only; do 
 overwrite the live scaffold's frozen-configuration table).
 
 **Mickey — tense rule:** Formal v2.0 controlled-pilot execution and scoring are
-complete (228/228 logical runs; H5 annotations 30/30). Keep **conditional wording
-on public aggregate claims** until Chloe approves C1–C6. After claims approval,
-use past tense, insert the frozen formal experiment ID, and align numeric values
+complete (228/228 logical runs; H5 annotations 30/30), and Chloe approved C1–C6.
+Use past tense, insert the frozen formal experiment ID, and align numeric values
 with the scaffold **Frozen configuration** table (for example requested maximum
-output tokens `4096`, temperature `0`, requested seed `42`).
+output tokens `4096`, temperature `0`, requested seed `42`). Public release
+remains a separate final authorization.
 
 ---
 
@@ -27,10 +27,11 @@ fixtures. It does **not** establish general deployment readiness, clinical
 validity, market forecasting accuracy, or an overall best agent framework.
 No composite score or framework championship is reported.
 
-Results are **scored under one pinned formal experiment ID**; public aggregate
-wording remains subject to owner claims review (C1–C6). All v1.x and preliminary
-engineering-smoke attempts remain **`technical_smoke_only`** and are excluded from
-v2.0 denominators, repeats, claims, and failure-analysis numerators.
+Results are **scored under one pinned formal experiment ID**, and C1–C6 are
+owner-approved. Publication remains subject to explicit public-release
+authorization. All v1.x and preliminary engineering-smoke attempts remain
+**`technical_smoke_only`** and are excluded from v2.0 denominators, repeats,
+claims, and failure-analysis numerators.
 
 ---
 
@@ -75,9 +76,10 @@ task-specific deterministic or rubric-backed semantics. Metrics are reported
 separately by task; they are not combined into a single composite score.
 
 **H4 extraction.** Gold fields are produced by approved programmatic extraction
-rules. Reasonable alternative phrasing at field boundaries may disagree with gold
-without indicating model failure; such cases require owner review before strong
-attribution.
+rules and scored by exact normalized-set overlap. Model outputs were not generally
+empty even though the frozen component scores were zero, so the report must not
+describe this result as an absence of extracted content or assign a single causal
+root without further semantic review.
 
 **H5 hybrid scoring.** H5 combines owner-approved human criterion annotation with
 deterministic `h5-scoring-rule-v1` aggregation. Failure analysis must not treat

@@ -1,6 +1,6 @@
 # Main Findings — Lanfang Deliverable (WS5)
 
-Status: **F1–F6 adjudication complete; public release pending Chloe C1–C6 claims review**
+Status: **F1–F6 and C1–C6 owner-approved; public release pending**
 Owner: Lanfang Hai
 Prepared: 2026-08-18; revised 2026-08-19 (formal r10 gate sync + F1–F6 adjudication)
 For: Mickey — report findings section
@@ -14,11 +14,11 @@ For: Mickey — report findings section
 | v2.0 formal controlled pilot execution | **Complete** — 228/228 logical runs scored |
 | H5 human criterion annotations | **Complete** — 30/30 applied |
 | Privacy boundary (no forbidden fields in shared deliverables) | **Confirmed** |
-| Public aggregate claims (C1–C6) | **Pending** Chloe owner review |
-| Empirical findings (F1–F6 below) | **Adjudicated — hold from public report until C1–C6 approved** |
+| Public aggregate claims (C1–C6) | **Approved** by Chloe; C4 has a non-blocking phrasing reservation |
+| Empirical findings (F1–F6 below) | **Approved for final integration; public release still pending** |
 
-Do not paste F1–F6 into the public report until Chloe approves the corresponding
-aggregate claims. Narrative below uses case IDs and frameworks only — no raw
+F1–F6 may now enter the final report draft, but public release remains a separate
+authorization. Narrative below uses case IDs and frameworks only — no raw
 prompts, gold, traces, run IDs, hashes, or private paths.
 
 ---
@@ -101,19 +101,20 @@ Root cause: **`model_formatting`**. Severity P2.
 Narrow claim: structural output failure separated from E5 semantic failure classes
 and from content gold mismatch unless a row also fails on scored content metrics.
 
-### F6 — H4 full-case pass pattern (component review required)
+### F6 — H4 exact-match interpretation boundary
 
 **H4** across all frameworks: **0/30** full-case passes across 30 scored
 observations: 24 main observations (8 cases × 3 frameworks) plus 6
 targeted-repeat observations (1 representative case × 3 frameworks × 2
 additional repeats).
 
-Symptom: zero full-case pass under the frozen H4 metric.
-Root cause: **provisional `evaluator_or_gold`** — Chloe must review component
-precision/recall before strong causal attribution.
-Narrow claim: no full-case H4 pass in this pilot under the frozen full-case metric.
-**Non-claim:** do not assert a single shared model or evaluator root cause until
-component-level metrics are owner-approved (claim C4).
+Symptom: zero full-case pass under the frozen exact normalized-set H4 metric.
+Root cause: **provisional `evaluator_or_gold`** because exact-match phrasing
+sensitivity remains a limitation; no single causal attribution is established.
+Narrow claim: no full-case H4 pass in this pilot under the frozen metric.
+**Non-claim:** this does not mean models extracted no content and does not prove a
+single shared model or evaluator root cause. Chloe approved C4 with a
+non-blocking phrasing reservation.
 
 ---
 
@@ -129,14 +130,14 @@ component-level metrics are owner-approved (claim C4).
 | 6 | F6 H4 zero full-case pass | Adjudicated (provisional root cause) |
 
 Additional case studies beyond these six may be drafted locally from
-`docs/case_study_template.md` after C1–C6 approval.
+`docs/case_study_template.md`; keep them private until release authorization.
 
 ---
 
 ## Handoff to Mickey
 
-| Now | After C1–C6 approval |
+| Final draft integration | Public-release boundary |
 |---|---|
-| `limitations_deliverable.md` → § Limitations | F1–F6 (approved subset) → § Main findings |
-| `failure_taxonomy_adjudication_summary.md` → appendix | Redacted case studies (local filenames) |
-| Bridge sentence above → discussion | Align numeric captions with Chloe aggregates |
+| `limitations_deliverable.md` → § Limitations | Release only after explicit authorization |
+| F1–F6 approved subset → § Main findings | Keep raw cases, gold, and traces private |
+| `failure_taxonomy_adjudication_summary.md` → appendix | Publish only approved aggregate captions |

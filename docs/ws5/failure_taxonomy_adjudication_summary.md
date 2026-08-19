@@ -1,7 +1,7 @@
 # Failure Taxonomy and Adjudication — Lanfang Deliverable (WS5)
 
-Status: **Methodology complete; F1–F6 candidate adjudication complete — public
-claims pending Chloe C1–C6 review**
+Status: **Methodology and F1–F6 adjudication complete; C1–C6 owner-approved;
+public release pending**
 Owner: Lanfang Hai
 Prepared: 2026-08-18
 For: Mickey — Technical-method appendix § Failure taxonomy and adjudication
@@ -72,7 +72,7 @@ shows a valid plan with wrong business outcome.
 
 | Level | Criteria | Report placement |
 |---|---|---|
-| **P0** | Safety-critical wrong action (H2 under-triage, H5 comply, E3 unauthorized refund) | Main findings; dashboard callouts only if Chloe approves |
+| **P0** | Safety-critical wrong action (H2 under-triage, H5 comply, E3 unauthorized refund) | Main findings; dashboard callouts only within the approved release boundary |
 | **P1** | Task fail with cross-framework or repeat divergence | Case study body |
 | **P2** | Formatting or single-framework isolated fail | Appendix or limitations |
 | **P3** | Infrastructure; excluded from accuracy | Rerun ledger only |
@@ -89,8 +89,8 @@ shows a valid plan with wrong business outcome.
    `repeat_inconsistency`, `tool_plan_error`, etc.).
 5. **Owner escalation** — `evaluator_or_gold` → Chloe; `framework_adapter` → Jessica.
 6. **Case study** — Complete `docs/case_study_template.md` locally; redact before share.
-7. **Aggregate boundary** — Do not publish symptom/root-cause counts unless Chloe
-   approves definitions for Mickey's tables.
+7. **Aggregate boundary** — Use only Chloe-approved aggregate definitions and do
+   not publish them until public-release authorization is explicit.
 
 ---
 
@@ -127,8 +127,8 @@ Do not classify or count toward pilot failure analysis:
 | Taxonomy methodology | Complete |
 | Adjudication workflow | Complete |
 | Case-level root-cause assignments (F1–F6) | **Complete** — see § Formal r10 candidate adjudication |
-| Aggregate symptom/root-cause tables | **Pending** Chloe aggregate definitions |
-| Owner-approved case studies for report | **Pending** C1–C6 claims review cycle |
+| Aggregate symptom/root-cause tables | Use only C1–C6 owner-approved definitions; additional tables require review |
+| Owner-approved case studies for report | C1–C6 review complete; redacted packaging pending |
 
 ---
 
@@ -136,8 +136,8 @@ Do not classify or count toward pilot failure analysis:
 
 Reviewed against the frozen taxonomy in `docs/case_study_failure_taxonomy.md`.
 Symptoms use evaluator vocabulary (`adapter/evaluator.py` for non-E5 rows; E5
-failure classes per `e5_gold_semantics_v0.3.md`). Do not publish until Chloe
-approves the corresponding aggregate claims (C1–C6).
+failure classes per `e5_gold_semantics_v0.3.md`). Chloe approved C1–C6; public
+release remains a separate final authorization.
 
 ### F1 — E2-REVIEW-001 / OpenAI Agents SDK / repeats 1–3
 
@@ -202,9 +202,9 @@ approves the corresponding aggregate claims (C1–C6).
 | Field | Adjudication |
 |---|---|
 | Symptom | 0/30 full-case passes across 30 scored observations: 24 main observations (8 cases × 3 frameworks) plus 6 targeted-repeat observations (1 representative case × 3 frameworks × 2 additional repeats) |
-| Root cause | **Provisional** `evaluator_or_gold` — escalate to Chloe before strong causal attribution |
-| Secondary tags | `evaluator_borderline` until component precision/recall is reviewed |
-| Severity | P1 (pattern); case studies P2 until component review completes |
-| Narrow claim | Under the frozen full-case H4 metric, no observation reached a full-case pass across any framework in this pilot. |
-| Non-claim | Do not assert a single shared model root cause or a uniform evaluator failure without component-level precision/recall review (claim C4). |
-| Owner note | Per-field extraction may pass while full-case fails; component metrics require evaluator-owner approval before public tables. |
+| Root cause | **Provisional** `evaluator_or_gold` — exact-match phrasing sensitivity; no single causal attribution established |
+| Secondary tags | `evaluator_borderline` |
+| Severity | P1 (pattern); case studies P2 with the exact-match caveat |
+| Narrow claim | Under the frozen exact normalized-set H4 metric, no observation reached a full-case pass across any framework in this pilot. |
+| Non-claim | The result does not mean models extracted no content and does not establish a single shared model or evaluator root cause. |
+| Owner note | Chloe approved C4 with a non-blocking phrasing reservation; preserve the exact-match limitation in report prose. |
