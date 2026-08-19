@@ -438,12 +438,13 @@ Read in this order:
 6. **`docs/ws3_methodology_and_limitations.md`** — Retail/E5 methodology,
    exclusions, and limitations.
 7. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
-   `prepare_core_pilot.py` workflow (when you move beyond legacy 20 cases).
+   `prepare_core_pilot.py` workflow for rebuilding local review inputs; it does
+   not replace the frozen formal manifest.
 
-Historical/design references include `docs/controlled_pilot_protocol.md`,
-`docs/framework_comparison_rationale.md`, `docs/schema_field_review.md`, and
-`docs/stress_testing_README.md`. Stress testing is deferred and is not part of
-the formal controlled-pilot denominator.
+Historical/design references include `docs/controlled_pilot_protocol.md` and
+`docs/framework_comparison_rationale.md`. Deferred stress-test proposals and
+superseded schema-review drafts are omitted from the final delivery; stress
+testing is not part of the formal controlled-pilot denominator.
 
 ## 8. Dashboards and specialist tooling
 

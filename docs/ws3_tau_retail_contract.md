@@ -1,6 +1,6 @@
 # WS3 Tau-Retail Canonical Contract
 
-Status: **candidate for owner review**
+Status: **frozen and implemented**
 Contract version: `0.2.0`
 Owner: Jessica
 Scope: framework-neutral tool, reset, state-evidence, and error behavior
@@ -15,15 +15,13 @@ semantics, or stress variants.
 - Mickey, Chloe, and Lanfang own the CrewAI, LangGraph, and OpenAI Agents SDK
   wrappers respectively.
 - Chloe owns evaluator-visible E5 success and final-state semantics.
-- Lanfang's PR #3 failure taxonomy remains a draft. This contract uses compatible
-  structured errors without adopting unapproved stress-schema fields.
+- Failure analysis is maintained separately from this runtime contract.
 
 ## Frozen surface
 
 `tools/tau_retail_contract.json` is the machine-readable source of truth. It
-pins 16 assistant tools used by the local 114-task tau-retail cache and the
-eight prepared E5 cases. Each tool has a Draft 2020-12 input schema under
-`tools/schemas/`.
+pins the 16 assistant tools used by the E5 runtime. Each tool has a Draft
+2020-12 input schema under `tools/schemas/`.
 
 Wrappers must expose the canonical names directly. Business rules and state
 mutation stay in the shared core; wrappers may only translate framework-native
