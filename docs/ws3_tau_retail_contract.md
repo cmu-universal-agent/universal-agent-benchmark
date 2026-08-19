@@ -21,7 +21,7 @@ semantics, or stress variants.
 ## Frozen surface
 
 `tools/tau_retail_contract.json` is the machine-readable source of truth. It
-pins 15 assistant tools used by the local 114-task tau-retail cache and the
+pins 16 assistant tools used by the local 114-task tau-retail cache and the
 eight prepared E5 cases. Each tool has a Draft 2020-12 input schema under
 `tools/schemas/`.
 

@@ -9,6 +9,26 @@ state. All adapters share `adapter/` for task loading, result shape,
 evaluation, and JSONL logging so differences come from framework behavior, not
 from incompatible prompts or schemas.
 
+## Current delivery status
+
+The formal controlled pilot is protocol `pilot-60-v2.0`, revision r10, executed
+at commit `f58baa77c7474ac2830113efa13ecc3abd63a2db`.
+
+- 24/24 fresh readiness preflights completed before result execution.
+- 180/180 main runs and 48/48 targeted repeats completed: 228 formal result
+  logical runs (229 attempts after one eligible infrastructure retry), or 252
+  logical runs including preflight.
+- Scoring, data QA, H5 aggregation, and C1–C6 claims review are complete; C4
+  retains a non-blocking phrasing reservation.
+- Public aggregate release remains pending explicit owner authorization.
+- All v1.x attempts and superseded v2.0 candidates remain immutable, excluded
+  `technical_smoke_only` evidence.
+
+Formal cases, gold, raw traces, run identifiers, hashes, and evaluator-only
+artifacts remain private. The public repository contains implementation,
+schemas, sanitized fixtures, reproducibility documentation, and only
+privacy-reviewed aggregate candidates.
+
 **Requirements:** Python **3.10–3.13** (the pinned CrewAI 1.15.1 requires
 Python `<3.14`), network access for setup and model calls, and an
 OpenAI-compatible API key in `.env`.
@@ -46,10 +66,14 @@ privacy boundary, exclusions, and known limitations.
 
 ---
 
-## 2. Five-minute quickstart
+## 2. Five-minute developer-smoke quickstart
 
 Goal: clone → configure → run **one smoke case** through all three frameworks →
 see JSONL results and a terminal summary.
+
+This workflow exercises the public smoke fixture and may make paid model calls.
+It does not reproduce the frozen formal v2.0 pilot or create formal benchmark
+evidence.
 
 | Step | macOS / Linux | Expected outcome |
 |---|---|---|
@@ -126,6 +150,10 @@ Without `--overwrite`, existing `task_*.json` files are **not** replaced.
 
 Follow `docs/core_pilot_data_preparation.md`. Short sequence:
 
+This workflow prepares a local review candidate. It does not recreate the
+frozen r10 manifest or evaluator-only gold, which remain private and versioned
+outside Git.
+
 ```bash
 .venv-openai/bin/python scripts/validate_core_dataset_caches.py
 .venv-openai/bin/python scripts/prepare_core_pilot.py --per-task 8 --overwrite
@@ -151,6 +179,10 @@ Follow `docs/core_pilot_data_preparation.md`. Short sequence:
 | `--model` | from `.env` | Overrides `OPENAI_MODEL` for this invocation |
 | `--experiment-id` | auto `exp-<uuid>` | Groups all runs in one session |
 | `--repeats` | 1 | Repeat each (task, framework) pair |
+| `--repeat` | off | Run one exact positive repeat number without touching earlier repeats |
+| `--framework` | all | Run all frameworks or one named framework |
+| `--timeout-seconds` | 300 | Per-attempt framework subprocess timeout |
+| `--rerun-reason` | off | Required when retrying an existing logical run |
 | `--required-keys` | from task `metadata.evaluation` | Override expected JSON keys; omit check when sweeping mixed verticals |
 | `--list-only` | off | Load cases and print metadata; **no API calls**, no JSONL writes |
 
@@ -166,6 +198,9 @@ When the task path is `data/generated/core_pilot/cases`, the runner loads the
 sibling gitignored `gold/` directory and reports deterministic content metrics
 for H1, H2, H4, H5, E1, E2, and E3. E5 remains on its dedicated response-contract
 and simulator-state evaluator.
+
+Formal reruns are infrastructure-only, must target the failed logical run and
+exact repeat, and may not be used to improve a completed model result.
 
 **Per-framework smoke (no JSONL orchestration)** — runs each adapter’s `run.py`
 with its built-in default task:
@@ -205,9 +240,12 @@ deactivate
 | `scripts/generate_suitability_matrix.py` | none | **`results/framework_suitability_matrix.md`** |
 | `scripts/check_result_fields.py` | none | **`results/framework_field_availability.md`** |
 
-All analysis scripts read **`results/metrics/<vertical>_results.jsonl`**, keep the
-**latest row per (task_id, framework)** (and per `model_name` where applicable).
-If JSONL is empty, reports are empty or stale.
+These legacy/smoke analysis scripts read
+**`results/metrics/<vertical>_results.jsonl`**. The shared loader keeps the
+latest attempt for each `(case_id, framework, experiment_id, logical_run_id)`,
+so cases and repeats are not folded together. These scripts are not the formal
+r10 aggregate/report pipeline; if JSONL is empty, their reports are empty or
+stale.
 
 **Offline validation (no API):**
 
@@ -356,18 +394,25 @@ Task validation before push (offline):
 Read in this order:
 
 1. **This README** — setup, commands, results layout.
-2. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
+2. **`docs/formal_benchmark_protocol_v2.0.md`** — frozen v2.0 protocol, gates,
+   execution counts, privacy boundary, and rerun policy.
+3. **`docs/experiment_report_skeleton.md`** — formal execution/scoring status
+   and approved claims boundary.
+4. **`docs/representative_case_ids.md`** — approved representative IDs and
+   logical-run arithmetic.
+5. **`docs/ws3_methodology_and_limitations.md`** — Retail/E5 methodology,
+   exclusions, and limitations.
+6. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
    `prepare_core_pilot.py` workflow (when you move beyond legacy 20 cases).
-3. **`docs/framework_comparison_rationale.md`** — experiment tiers, control
-   variables, and comparison dimensions.
-4. **`docs/schema_field_review.md`** — approved schema fields and pending
-   proposals (including stress metadata in §10 on the stress branch).
-5. **`docs/stress_testing_README.md`** — stress-testing design and fixture
-   guidance.
-Supporting references: `docs/dataset_gold_generation_plan.md`,
-`results/preliminary_technical_smoke_20260717.md`.
 
-## Retail run console (dashboard)
+Historical/design references include `docs/controlled_pilot_protocol.md`,
+`docs/framework_comparison_rationale.md`, `docs/schema_field_review.md`, and
+`docs/stress_testing_README.md`. Stress testing is deferred and is not part of
+the formal controlled-pilot denominator.
+
+## Retail run consoles
+
+### Synthetic WS3 dashboard
 
 ```bash
 python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
@@ -390,5 +435,20 @@ choose a merged wrapper, and run it locally with `OPENAI_API_KEY` configured.
 Live responses expose only the agent answer and an allowlisted trace; they are
 not written to `results/metrics`. The offline replay remains available without
 a model call.
+
+### Controlled-pilot dashboard
+
+```bash
+python3 scripts/generate_pilot_dashboard.py
+python3 scripts/generate_pilot_dashboard.py \
+  --aggregate path/to/privacy-reviewed-aggregate.json \
+  --freeze-confirmation path/to/matching-freeze-confirmation.json
+```
+
+The default output is a public-safe placeholder. A result-bearing candidate is
+rendered only when both matching, allowlisted inputs pass validation. The
+generated `results/pilot_dashboard.html` remains gitignored, and a valid
+candidate is not authorized for public release until the owner grants that
+separate permission.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>

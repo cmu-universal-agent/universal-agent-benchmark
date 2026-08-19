@@ -32,10 +32,11 @@ class ToolResult:
     state_changed: bool = False
 ```
 
-The 15 canonical tool names (`calculate`, `cancel_pending_order`,
+The 16 canonical tool names (`calculate`, `cancel_pending_order`,
 `exchange_delivered_order_items`, `find_user_id_by_email`,
 `find_user_id_by_name_zip`, `get_item_details`, `get_order_details`,
-`get_product_details`, `get_user_details`, `modify_pending_order_address`,
+`get_product_details`, `get_user_details`, `list_all_product_types`,
+`modify_pending_order_address`,
 `modify_pending_order_items`, `modify_pending_order_payment`,
 `modify_user_address`, `return_delivered_order_items`,
 `transfer_to_human_agents`) and their input schemas live in
