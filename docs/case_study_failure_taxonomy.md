@@ -3,7 +3,6 @@
 Status: **Frozen for WS5 controlled-pilot failure analysis**
 Owner: Lanfang Hai
 Prepared: 2026-08-04; status updated 2026-08-18 (semantics unchanged since PR #25)
-Related: `docs/stress_failure_rubric.md` (stress-only; out of formal delivery scope)
 
 ## Purpose
 

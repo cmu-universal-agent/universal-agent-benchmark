@@ -7,8 +7,8 @@ Owner: Xiaoxia (WS3, shared core). Consumers: CrewAI (Mickey), LangGraph
 framework wrapper drives for the retail vertical. Tool names, the reset
 lifecycle, the structured error taxonomy, and the bounded state-evidence
 shape below are pinned by `tools/tau_retail_contract.json` /
-`docs/ws3_tau_retail_contract.md` (WS3 canonical contract, candidate for
-owner review) — do not rename, reshape, or add ad hoc fields without a
+`docs/ws3_tau_retail_contract.md` (frozen WS3 canonical contract) — do not
+rename, reshape, or add ad hoc fields without a
 contract-version update there first.
 
 ## Signatures
