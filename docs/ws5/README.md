@@ -19,8 +19,9 @@ Prepared: 2026-08-18; revised 2026-08-19
 Formal v2.0 execution and scoring are complete (228/228 logical runs; H5 30/30).
 Chloe approved C1–C6; C4 has a non-blocking phrasing reservation. Public
 aggregate release remains a separate final authorization. Mickey may now update
-tense and experiment ID per `limitations_deliverable.md` without publishing raw
-cases, gold, traces, run IDs, hashes, or private paths.
+tense and the public protocol/execution identity per `limitations_deliverable.md`
+without publishing the private experiment ID, raw cases, gold, traces, run IDs,
+hashes, or local paths.
 
 ## Lanfang next steps
 

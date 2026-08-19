@@ -23,7 +23,7 @@ record only).
 
 ---
 
-## Conditional exclusions (apply per row when triaging v2.0)
+## Conditional exclusions (apply per row or comparison when triaging v2.0)
 
 | Condition | Lanfang action |
 |---|---|
@@ -45,5 +45,7 @@ do not commit raw ledger excerpts.
 |---|---|---:|---:|---:|---|
 | See F1–F6 in `failure_taxonomy_adjudication_summary.md` | | | | Y/N per row | Adjudicated candidates only |
 
-**Target denominator for WS5 case studies:** subset of 228 controlled-pilot logical
-runs on v2.0 formal experiment ID, minus rows above.
+**Target pool for WS5 case studies:** eligible rows from the 228 controlled-pilot
+logical runs. An invalidated E5 sweep is excluded from framework-level comparative
+rates, but its non-error rows may remain clearly labeled individual failure
+examples. Other rows marked ineligible above do not enter case-study analysis.

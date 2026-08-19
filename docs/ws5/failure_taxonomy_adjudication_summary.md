@@ -109,13 +109,15 @@ shows a valid plan with wrong business outcome.
 
 ## Exclusions from WS5 numerators
 
-Do not classify or count toward pilot failure analysis:
+Do not count the following in aggregate comparative numerators. Classification
+for individual examples is allowed only where noted:
 
 - v1.x and preliminary engineering smoke (`technical_smoke_only`)
 - Readiness preflights (24 logical runs)
 - Illegal attempt-2 retries (non-infrastructure)
 - Rows on Chloe's QA exclusion list
-- Invalidated framework sweeps (E5 >5% error policy)
+- Invalidated E5 sweeps from framework-level comparative rates; non-error rows
+  may remain clearly labeled individual failure examples
 - Stress-test runs (out of formal delivery scope)
 
 ---

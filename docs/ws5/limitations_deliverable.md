@@ -11,10 +11,11 @@ overwrite the live scaffold's frozen-configuration table).
 
 **Mickey — tense rule:** Formal v2.0 controlled-pilot execution and scoring are
 complete (228/228 logical runs; H5 annotations 30/30), and Chloe approved C1–C6.
-Use past tense, insert the frozen formal experiment ID, and align numeric values
-with the scaffold **Frozen configuration** table (for example requested maximum
-output tokens `4096`, temperature `0`, requested seed `42`). Public release
-remains a separate final authorization.
+Use past tense and the public protocol label and formal execution commit recorded
+in the scaffold; keep the private experiment ID local. Align numeric values with
+the scaffold **Frozen configuration** table (for example requested maximum output
+tokens `4096`, temperature `0`, requested seed `42`). Public release remains a
+separate final authorization.
 
 ---
 
