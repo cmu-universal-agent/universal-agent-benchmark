@@ -48,6 +48,14 @@ AGGREGATE_ROW_FIELDS = {
 TARGETED_REPEAT_FIELDS = {
     "case_id", "task_id", "framework", "observations", "complete", "stable",
 }
+INTEGER_ROW_FIELDS = {
+    "n", "process_success", "schema_valid", "scored_n", "content_pass",
+    "e5_pass", "e5_fail", "e5_error", "h5_pending",
+}
+OPTIONAL_NUMBER_ROW_FIELDS = {
+    "mean_score", "avg_latency_seconds", "input_tokens", "output_tokens",
+    "estimated_cost_usd",
+}
 
 
 def _gate_status() -> str:
@@ -76,16 +84,45 @@ def _task_row(task: dict) -> dict:
 def _validate_aggregate(aggregate: dict, freeze: dict) -> None:
     if set(aggregate) != AGGREGATE_TOP_LEVEL_FIELDS:
         raise ValueError("aggregate top-level fields do not match the public allowlist")
-    if any(set(row) != AGGREGATE_ROW_FIELDS for row in aggregate["rows"]):
+    if not all(isinstance(value, list) for value in (aggregate["rows"], aggregate["targeted_repeats"])):
+        raise ValueError("aggregate rows and targeted repeats must be lists")
+    if any(
+        not isinstance(row, dict) or set(row) != AGGREGATE_ROW_FIELDS
+        for row in aggregate["rows"]
+    ):
         raise ValueError("aggregate row fields do not match the public allowlist")
-    if any(set(row) != TARGETED_REPEAT_FIELDS for row in aggregate["targeted_repeats"]):
+    if any(
+        not isinstance(row, dict) or set(row) != TARGETED_REPEAT_FIELDS
+        for row in aggregate["targeted_repeats"]
+    ):
         raise ValueError("targeted-repeat fields do not match the public allowlist")
+    if any(
+        any(type(row[field]) is not int for field in INTEGER_ROW_FIELDS)
+        or any(
+            row[field] is not None and type(row[field]) not in (int, float)
+            for field in OPTIONAL_NUMBER_ROW_FIELDS
+        )
+        or (row["e5_sweep_valid"] is not None and type(row["e5_sweep_valid"]) is not bool)
+        for row in aggregate["rows"]
+    ):
+        raise ValueError("aggregate result fields have invalid types")
+    if any(
+        type(row["complete"]) is not bool or type(row["stable"]) is not bool
+        for row in aggregate["targeted_repeats"]
+    ):
+        raise ValueError("targeted-repeat status fields must be boolean")
     if freeze.get("experiment_id") != aggregate.get("experiment_id"):
         raise ValueError("aggregate and freeze experiment IDs differ")
-    if not freeze.get("owner_confirmations", {}).get("privacy_boundary_confirmed"):
+    if freeze.get("owner_confirmations", {}).get("privacy_boundary_confirmed") is not True:
         raise ValueError("privacy boundary is not confirmed")
-    if freeze.get("privacy", {}).get("aggregate_forbidden_field_matches") != 0:
+    privacy = freeze.get("privacy", {})
+    if (
+        type(privacy.get("aggregate_forbidden_field_matches")) is not int
+        or privacy["aggregate_forbidden_field_matches"] != 0
+    ):
         raise ValueError("aggregate privacy scan did not pass")
+    if type(privacy.get("public_release_authorized")) is not bool:
+        raise ValueError("public_release_authorized must be boolean")
     expected_pairs = {
         (task["task_id"], framework)
         for task in WS4_TASKS for framework in KNOWN_FRAMEWORK_ORDER

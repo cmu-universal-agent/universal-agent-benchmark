@@ -8,8 +8,9 @@ evidence remain in the private execution record.
 ## Claim status
 
 - Experiment ID: assigned in the private frozen execution record
-- Formal experiment commit: the commit containing this report; exact SHA is
-  retained in the private frozen execution record
+- Formal execution commit: `f58baa77c7474ac2830113efa13ecc3abd63a2db`;
+  later report/dashboard commits are delivery revisions and do not change the
+  frozen experiment identity
 - Protocol version: `pilot-60-v2.0`, prospectively frozen before the formal
   controlled-pilot execution; all v1.x attempts remain excluded
   `technical_smoke_only` evidence

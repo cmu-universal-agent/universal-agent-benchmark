@@ -96,6 +96,20 @@ class GeneratePilotDashboardTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete or duplicated"):
             pilot_dashboard.build_payload(aggregate, freeze)
 
+    def test_aggregate_rejects_non_boolean_release_flag(self) -> None:
+        aggregate, freeze = self._aggregate()
+        freeze["privacy"]["public_release_authorized"] = "false"
+
+        with self.assertRaisesRegex(ValueError, "must be boolean"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
+    def test_aggregate_rejects_non_numeric_metric(self) -> None:
+        aggregate, freeze = self._aggregate()
+        aggregate["rows"][0]["schema_valid"] = "<private>"
+
+        with self.assertRaisesRegex(ValueError, "invalid types"):
+            pilot_dashboard.build_payload(aggregate, freeze)
+
 
 if __name__ == "__main__":
     unittest.main()
