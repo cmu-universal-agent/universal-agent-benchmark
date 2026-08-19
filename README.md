@@ -1,13 +1,11 @@
 # Universal Agent Benchmark
 
-Compare **LangGraph**, **CrewAI**, and **OpenAI Agents SDK** on the same tasks,
-model, and output contract across the healthcare and ecommerce benchmark
-verticals, plus a stateful **retail WS3 integration slice**. The benchmark asks
-**where each framework breaks**, while WS3 separately validates whether real
-framework wrappers can expose the same canonical tools, traces, and final
-state. All adapters share `adapter/` for task loading, result shape,
-evaluation, and JSONL logging so differences come from framework behavior, not
-from incompatible prompts or schemas.
+Compare **LangGraph**, **CrewAI**, and **OpenAI Agents SDK** under one controlled
+protocol across eight healthcare and ecommerce/retail task families. The
+benchmark asks **where each framework breaks** while holding the model,
+agent-visible cases, generation settings, run policy, result contract, and
+task-specific evaluation fixed. All adapters share `adapter/` for task loading,
+result shape, deterministic evaluation, attempt tracking, and JSONL logging.
 
 ## Current delivery status
 
@@ -29,32 +27,62 @@ artifacts remain private. The public repository contains implementation,
 schemas, sanitized fixtures, reproducibility documentation, and only
 privacy-reviewed aggregate candidates.
 
+## Benchmark at a glance
+
+| Dimension | Formal controlled pilot |
+|---|---|
+| Frameworks | OpenAI Agents SDK, LangGraph, CrewAI |
+| Task families | H1 answer/evidence/safety; H2 urgency/escalation; H4 extraction; H5 boundary/refusal; E1 trend; E2 recommendation; E3 policy; E5 stateful retail tools |
+| Cases | 60 frozen cases: 8 each for H1/H2/H4/H5/E1/E2/E3 and 4 for E5 |
+| Execution | 24 readiness preflights + 180 main logical runs + 48 targeted repeats |
+| Evaluation | Deterministic H1/H2/H4/E1/E2/E3 scoring; H5 human criterion annotation plus deterministic aggregation; E5 response-contract and local replay evaluation |
+| Reproducibility | Exact execution commit, three isolated Python 3.12 environments, append-only attempts, exact-repeat selection, 300-second timeout |
+| Publication boundary | Aggregate-safe documentation only; evaluator-only inputs and raw execution evidence remain local |
+
 **Requirements:** Python **3.10–3.13** (the pinned CrewAI 1.15.1 requires
 Python `<3.14`), network access for setup and model calls, and an
 OpenAI-compatible API key in `.env`.
 
 ---
 
-## 1. Background
+## 1. Benchmark scope and architecture
 
-| Dimension | Healthcare vertical | E-commerce vertical |
+| Dimension | Healthcare | Ecommerce / retail |
 |---|---|---|
-| Committed tasks | `verticals/medical_diagnostic/` — 10 PubMedQA literature-QA cases | `verticals/ecommerce_trend_research/` — 10 Amazon Reviews 2023 trend cases |
-| Pilot scope (local) | Eight task types: H1, H2, H4, H5 | E1, E2, E3, E5 — generated under `data/generated/core_pilot/` (not in Git) |
-| Stress axis | Evidence, triage, summarization, refusal | Trend synthesis, recommendations, policy, multi-step tools |
+| Formal task families | H1, H2, H4, H5 | E1, E2, E3, E5 |
+| Frozen formal cases | 32 | 28 |
+| Evaluation focus | Accuracy, evidence, confidence, urgency, escalation, extraction, refusal, safety | Trend, recommendations, constraints, policy, tool actions, response contract, replayed final state |
+| Stateful environment | None required for content tasks | E5 uses the shared 16-tool Retail environment |
 
-The repository ships **legacy task JSON** for a 20-case regression sweep (mostly
-H1/E1-shaped). The **eight-task core pilot** (60 review cases: seven tasks with
-eight cases plus four owner-approved E5 cases) is built locally
-from public datasets; see [Data preparation](#stage-2-data-preparation). Preliminary
-runs in `results/` are **engineering smoke**, not publishable benchmark scores.
+The public `verticals/` task JSON files are developer regression and synthetic
+fixtures. They are not substitutes for the frozen private 60-case manifest.
+The formal cases are built from public datasets but remain local with their
+evaluator-only gold; see [Data preparation](#stage-2-data-preparation).
+Preliminary runs in `results/` are engineering smoke, not formal benchmark
+scores.
 
-### Retail WS3 integration
+### Unified execution path
 
-WS3 adds a canonical 16-tool tau-retail contract, a deterministic shared
-`RetailEnv`, framework wrapper contracts, standardized traces/final state, and
-offline demo/dashboard tooling. This slice is designed to test whether
-framework integrations behave consistently against the same stateful tools.
+```text
+agent-visible case
+  -> shared loader and task/E5 routing
+  -> unified runner and isolated framework subprocess
+  -> normalized AgentRunResult + append-only attempt ledger
+  -> task-specific deterministic evaluator or local E5 replay
+  -> privacy-reviewed aggregate -> report/dashboard candidate
+```
+
+The runner uses one logical-run identity across frameworks, preserves every
+attempt, permits at most one documented infrastructure retry, and keeps cases,
+repeats, and retries distinct. A completed low score, wrong answer, invalid
+output, or evaluator failure is a frozen result and is never rerun for score.
+
+### Stateful E5 specialization
+
+E5 uses a canonical 16-tool tau-retail contract, deterministic shared
+`RetailEnv`, three framework-native wrappers, standardized traces/final state,
+and a local authoritative replay evaluator. This is one task family within the
+overall benchmark, not a separate benchmark result stream.
 
 Public code supports E5 evaluation and replay workflows, while formal E5 cases,
 gold, snapshots, hashes, raw traces, and evaluator output stay outside Git.
@@ -260,11 +288,14 @@ stale.
 
 ---
 
-## 4. Reading `framework_suitability_matrix.md`
+## 4. Legacy/smoke report interpretation
 
-Generated by `scripts/generate_suitability_matrix.py` from local JSONL. The
-committed copy may be **out of date** relative to your `.env` model; the header
-warns when results are not tagged with the current model.
+`framework_suitability_matrix.md` is a developer/legacy report generated by
+`scripts/generate_suitability_matrix.py` from local JSONL. It is not the formal
+r10 report or aggregate pipeline. The committed copy may be **out of date**
+relative to your `.env` model; the header warns when results are not tagged
+with the current model. For the controlled-pilot delivery, start with
+`docs/experiment_report_skeleton.md` and `docs/ws5/README.md`.
 
 **Structure:**
 
@@ -310,13 +341,13 @@ the matrix table).
 |---|---|
 | `adapter/` | Shared task loader, `BenchmarkTask` / `AgentRunResult`, evaluator, validation, JSONL writer |
 | `frameworks/` | Thin per-framework runners: `openai_agents_sdk/`, `langgraph_agent/`, `crewai_agent/` |
-| `verticals/` | Committed legacy task JSON + per-vertical mock `tools.py` |
+| `verticals/` | Public developer smoke/regression tasks and the synthetic Retail E5 fixture |
 | `schemas/` | Draft JSON Schemas: benchmark case, healthcare/ecommerce output, tool call, run log |
 | `scripts/` | Setup, dataset prep, benchmark orchestration, validation, reports |
 | `results/` | Committed reports (`framework_suitability_matrix.md`, …); **`results/metrics/` is gitignored** |
 | `evaluator_data/` | Evaluator-only gold/rubric templates — **never** passed to agents |
 | `data/` | Gitignored dataset caches and `generated/core_pilot/` outputs |
-| `docs/` | Project guides, dataset prep, stress testing, schema review |
+| `docs/` | Formal protocol/report, WS5 findings and limitations, methodology, dataset prep, historical design notes |
 | `tests/` | Unit tests and schema contract fixtures |
 | `mappings/`, `splits/`, `tools/` | Label mappings, split manifests, tool registry drafts |
 
@@ -413,9 +444,24 @@ Historical/design references include `docs/controlled_pilot_protocol.md`,
 `docs/stress_testing_README.md`. Stress testing is deferred and is not part of
 the formal controlled-pilot denominator.
 
-## Retail run consoles
+## 8. Dashboards and specialist tooling
 
-### Synthetic WS3 dashboard
+### Controlled-pilot dashboard
+
+```bash
+python3 scripts/generate_pilot_dashboard.py
+python3 scripts/generate_pilot_dashboard.py \
+  --aggregate path/to/privacy-reviewed-aggregate.json \
+  --freeze-confirmation path/to/matching-freeze-confirmation.json
+```
+
+The default output is a public-safe placeholder. A result-bearing candidate is
+rendered only when both matching, allowlisted inputs pass validation. The
+generated `results/pilot_dashboard.html` remains gitignored, and a valid
+candidate is not authorized for public release until the owner grants that
+separate permission.
+
+### Synthetic Retail/E5 integration dashboard
 
 ```bash
 python3 scripts/generate_dashboard.py --vertical retail   # writes results/dashboard.html
@@ -438,20 +484,5 @@ choose a merged wrapper, and run it locally with `OPENAI_API_KEY` configured.
 Live responses expose only the agent answer and an allowlisted trace; they are
 not written to `results/metrics`. The offline replay remains available without
 a model call.
-
-### Controlled-pilot dashboard
-
-```bash
-python3 scripts/generate_pilot_dashboard.py
-python3 scripts/generate_pilot_dashboard.py \
-  --aggregate path/to/privacy-reviewed-aggregate.json \
-  --freeze-confirmation path/to/matching-freeze-confirmation.json
-```
-
-The default output is a public-safe placeholder. A result-bearing candidate is
-rendered only when both matching, allowlisted inputs pass validation. The
-generated `results/pilot_dashboard.html` remains gitignored, and a valid
-candidate is not authorized for public release until the owner grants that
-separate permission.
 
 Official repository: <https://github.com/cmu-universal-agent/universal-agent-benchmark>
