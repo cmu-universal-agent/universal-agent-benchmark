@@ -399,11 +399,13 @@ Read in this order:
    execution counts, privacy boundary, and rerun policy.
 3. **`docs/experiment_report_skeleton.md`** — formal execution/scoring status
    and approved claims boundary.
-4. **`docs/representative_case_ids.md`** — approved representative IDs and
+4. **[WS5 delivery package](docs/ws5/README.md)** — owner-approved findings,
+   adjudicated failures, limitations, exclusions, and publication boundary.
+5. **`docs/representative_case_ids.md`** — approved representative IDs and
    logical-run arithmetic.
-5. **`docs/ws3_methodology_and_limitations.md`** — Retail/E5 methodology,
+6. **`docs/ws3_methodology_and_limitations.md`** — Retail/E5 methodology,
    exclusions, and limitations.
-6. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
+7. **`docs/core_pilot_data_preparation.md`** — eight-task dataset caches and
    `prepare_core_pilot.py` workflow (when you move beyond legacy 20 cases).
 
 Historical/design references include `docs/controlled_pilot_protocol.md`,
