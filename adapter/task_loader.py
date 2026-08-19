@@ -13,15 +13,7 @@ from typing import Any
 
 from adapter.schemas import BenchmarkTask
 from adapter.validation import validate_benchmark_case_constraints
-
-
-V1_TO_RUNTIME_VERTICAL = {
-    "healthcare": "medical_diagnostic",
-    "ecommerce": "ecommerce_trend_research",
-    "smoke_test": "smoke_test",
-    "retail": "retail",
-    "tau_retail": "retail",
-}
+from adapter.vertical_routing import resolve_runtime_vertical
 
 
 def _is_retail_case_file(data: dict[str, Any]) -> bool:
@@ -98,11 +90,7 @@ def task_from_dict(data: dict[str, Any]) -> BenchmarkTask:
 
         input_value = data["input"]
         schema_vertical = data["vertical"]
-        runtime_vertical = (
-            "retail"
-            if data["task_id"] == "E5"
-            else V1_TO_RUNTIME_VERTICAL.get(schema_vertical, schema_vertical)
-        )
+        runtime_vertical = resolve_runtime_vertical(data["task_id"], schema_vertical)
         metadata = dict(data.get("metadata", {}))
         metadata["schema_vertical"] = schema_vertical
         metadata["case_id"] = data["case_id"]

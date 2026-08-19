@@ -26,6 +26,7 @@ from adapter.runtime import (
 )
 from adapter.schemas import AgentRunResult, BenchmarkTask
 from adapter.task_loader import load_task
+from adapter.vertical_routing import select_vertical_tools
 from verticals.ecommerce_trend_research import tools as ecommerce_tools
 from verticals.medical_diagnostic import tools as medical_tools
 
@@ -59,11 +60,7 @@ TOOLS_BY_VERTICAL = {
 
 
 def _select_tools(vertical: str, allowed_tools: list[str] | None) -> list:
-    available = TOOLS_BY_VERTICAL.get(vertical, {})
-    if allowed_tools is None:
-        return list(available.values())
-    allowed = set(allowed_tools)
-    return [tool_value for name, tool_value in available.items() if name in allowed]
+    return select_vertical_tools(TOOLS_BY_VERTICAL, vertical, allowed_tools)
 
 
 def _extract_token_usage(messages: list[Any]) -> dict[str, int | None]:

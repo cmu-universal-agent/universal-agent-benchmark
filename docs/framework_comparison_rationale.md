@@ -98,6 +98,28 @@ The current comparison therefore remains:
 LangGraph vs. CrewAI vs. OpenAI Agents SDK
 ```
 
+## Vertical-Aware Adapter Contract
+
+The benchmark compares framework behavior without pretending that healthcare
+and e-commerce require identical tools. Every case first passes through the
+shared adapter layer:
+
+1. `adapter.task_loader` validates the agent-visible case and resolves its
+   runtime vertical.
+2. `adapter.vertical_routing` applies the same vertical and tool allow-list
+   rules for all three frameworks.
+3. Each framework's single `run.py` entry point registers its native wrapper
+   for the selected tools. E5 alone enters the stateful retail runtime; the
+   other seven tasks use their healthcare or e-commerce content path.
+4. `adapter.runtime` normalizes every execution to `AgentRunResult`; evaluators
+   run afterward and never expose gold or expected state to the agent.
+
+This is a vertical-aware adapter, not a different benchmark per framework:
+the case, model configuration, output contract, and evaluation rule remain
+fixed while only framework-native orchestration changes. Formal E5 uses the
+pinned private `TauRetailEnv`; public synthetic validation uses `RetailEnv`
+through the same environment interface.
+
 ## Comparison Dimensions
 
 | Dimension | What Is Being Compared | Example Measurements |
