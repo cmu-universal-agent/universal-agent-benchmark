@@ -53,12 +53,13 @@ OpenAI-compatible API key in `.env`.
 | Formal task families | H1, H2, H4, H5 | E1, E2, E3, E5 |
 | Frozen formal cases | 32 | 28 |
 | Evaluation focus | Accuracy, evidence, confidence, urgency, escalation, extraction, refusal, safety | Trend, recommendations, constraints, policy, tool actions, response contract, replayed final state |
-| Stateful environment | None required for content tasks | E5 uses the shared 16-tool Retail environment |
+| Stateful environment | None required for content tasks | E5 formal runs use the pinned private `TauRetailEnv`; public synthetic validation uses `RetailEnv` |
 
 The public `verticals/` task JSON files are developer regression and synthetic
 fixtures. They are not substitutes for the frozen private 60-case manifest.
-The formal cases are built from public datasets but remain local with their
-evaluator-only gold; see [Data preparation](#stage-2-data-preparation).
+The formal cases are primarily derived from public datasets; H5 also includes
+four owner-authored cases. All formal cases and evaluator-only gold remain
+local; see the [data-preparation workflow](docs/core_pilot_data_preparation.md).
 Preliminary runs in `results/` are engineering smoke, not formal benchmark
 scores.
 
@@ -80,10 +81,12 @@ output, or evaluator failure is a frozen result and is never rerun for score.
 
 ### Stateful E5 specialization
 
-E5 uses a canonical 16-tool tau-retail contract, deterministic shared
-`RetailEnv`, three framework-native wrappers, standardized traces/final state,
-and a local authoritative replay evaluator. This is one task family within the
-overall benchmark, not a separate benchmark result stream.
+E5 uses the canonical 16-tool contract through a shared environment interface:
+formal runs use the pinned private `TauRetailEnv`, while public synthetic
+validation uses `RetailEnv`. Three framework-native wrappers produce
+standardized traces/final state for the local authoritative replay evaluator.
+This is one task family within the overall benchmark, not a separate benchmark
+result stream.
 
 Public code supports E5 evaluation and replay workflows, while formal E5 cases,
 gold, snapshots, hashes, raw traces, and evaluator output stay outside Git.
