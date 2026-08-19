@@ -1,10 +1,10 @@
 # Controlled Pilot Execution Protocol
 
-Status: **Content complete; execution freeze pending**
+Status: **Historical v1.6 baseline; superseded for formal execution by v2.0**
 Owner: Mickey
 Prepared: 2026-08-15; integration status refreshed 2026-08-17
-Pilot protocol: `pilot-60-v1.6` candidate
-E5 session protocol: `1.6` candidate
+Pilot protocol: `pilot-60-v1.6` historical baseline
+E5 session protocol: `1.6` historical baseline
 
 ## Purpose and claim status
 
@@ -14,22 +14,22 @@ run identity, and privacy boundary. Analysis, framework comparisons, report
 chapter ownership, and final-deliverable terminology are Workstream 5 and are
 outside this protocol.
 
-The current gate status is `technical_smoke_only`. No run may be called a
-formal benchmark result until all readiness gates below pass against one exact
-merged commit and the private execution record is frozen.
+Runs governed by this v1.x protocol remain immutable `technical_smoke_only`
+evidence. Formal v2.0 execution is governed by
+`docs/formal_benchmark_protocol_v2.0.md` and does not relabel or reuse them.
 
-## Candidate baseline
+## Historical candidate baseline
 
 | Item | Candidate evidence | Freeze rule |
 |---|---|---|
 | Representative-case documentation | PR #25 merged as `9a2248c` | IDs and owner semantics must remain unchanged |
 | Preflight hardening | PR #26 merged as `8b8e5bb` on 2026-08-16 | Preserve the merged `main` commit |
 | E5 v1.6, run/attempt linkage, and exact-repeat selection | PR #27 merged as `464a0d5` on 2026-08-17 | Preserve the merged `main` commit |
-| Formal code commit | Integrated code baseline `464a0d5`; execution freeze pending | Pin one clean merged `main` commit before preflight |
+| Formal code commit | Integrated code baseline `464a0d5`; no v1.x formal freeze | Formal execution moved to v2.0 |
 
-The merged PR #27 commit is integration evidence, not yet a frozen execution
-commit. If `main` changes before freeze, repeat the applicable offline checks
-before recording the formal code commit.
+The merged PR #27 commit was integration evidence, not a formal execution
+commit. Formal execution later began under the independently frozen v2.0
+protocol and commit.
 
 ## Execution terms
 

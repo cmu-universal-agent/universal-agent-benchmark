@@ -8,17 +8,25 @@ evidence remain in the private execution record.
 ## Claim status
 
 - Experiment ID: assigned in the private frozen execution record
-- Formal experiment commit: the commit containing this report; exact SHA is
-  retained in the private frozen execution record
-- Protocol version: `pilot-60-v2.0` prospective formal controlled-pilot
-  candidate; all v1.x attempts remain excluded `technical_smoke_only` evidence
-- Gate status: `candidate_formal_preflight_pending`
-- Freeze timestamp and approver: data/evaluator package approved by Chloe on
-  2026-08-02/03 with final metric decisions on 2026-08-10; full Experiment
-  Ready gate remains open until all 24 preflights pass
+- Formal execution commit: `f58baa77c7474ac2830113efa13ecc3abd63a2db`;
+  later report/dashboard commits are delivery revisions and do not change the
+  frozen experiment identity
+- Protocol version: `pilot-60-v2.0`, prospectively frozen before the formal
+  controlled-pilot execution; all v1.x attempts remain excluded
+  `technical_smoke_only` evidence
+- Gate status: `formal_scoring_and_claims_review_complete_public_release_pending`
+- Freeze and review status: data/evaluator package approved by Chloe on
+  2026-08-02/03 with final metric decisions on 2026-08-10; 24/24 fresh
+  preflight and 228/228 formal result logical runs are complete. Chloe's 30 H5
+  annotations are applied, the privacy boundary is confirmed, and Chloe
+  approved C1–C6; C4 has a non-blocking phrasing reservation. Downstream
+  dashboard/report reconciliation and public-release authorization remain
+  pending.
 
-No result may be described as a formal benchmark unless the frozen-manifest,
-evaluator, environment, and 24-run preflight gates all passed before execution.
+The formal v2.0 execution passed the frozen-manifest, evaluator, environment,
+and 24-run preflight gates before its result matrix started. Scoring is
+complete and the aggregate claims are owner-approved; publication remains
+pending explicit public-release authorization.
 
 ## Frozen configuration
 
@@ -34,9 +42,9 @@ evaluator, environment, and 24-run preflight gates all passed before execution.
 | Output root | Private `local-only` metrics directory | Freeze record |
 | Rerun policy | One retry only for documented infrastructure failure; original attempt remains immutable | Attempt ledger |
 
-These are candidate execution values until the v2.0 code commit and 24 fresh
-preflights are frozen. No v1.x attempt may be reused in the v2.0 gate or result
-denominators. The evaluator semantics remain unchanged.
+These values were frozen for the v2.0 r10 execution. No v1.x attempt is reused
+in the v2.0 gate or result denominators. The evaluator semantics remain
+unchanged.
 
 ## Architecture and implementation
 
@@ -92,32 +100,42 @@ denominators. The evaluator semantics remain unchanged.
 
 | Task | OpenAI Agents SDK | LangGraph | CrewAI | Gate |
 |---|---|---|---|---|
-| H1 | | | | |
-| H2 | | | | |
-| H4 | | | | |
-| H5 | | | | |
-| E1 | | | | |
-| E2 | | | | |
-| E3 | | | | |
-| E5 | | | | |
+| H1 | complete | complete | complete | passed |
+| H2 | complete | complete | complete | passed |
+| H4 | complete | complete | complete | passed |
+| H5 | complete | complete | complete | passed |
+| E1 | complete | complete | complete | passed |
+| E2 | complete | complete | complete | passed |
+| E3 | complete | complete | complete | passed |
+| E5 | complete | complete | complete | passed |
 
-Expected attempts: 8 tasks × 3 frameworks = 24, excluding documented,
-policy-permitted infrastructure reruns.
+Completed preflight logical runs: 8 tasks × 3 frameworks = 24. Documented,
+policy-permitted infrastructure reruns remain separate attempts.
 
 ## Main experiment results
 
-- Planned runs:
-- Completed logical runs:
-- Errors and permitted reruns:
-- Exclusions:
-- Aggregate metrics:
-- Framework comparison:
+- Planned runs: 228 formal result logical runs.
+- Completed logical runs: 228 (180 main + 48 targeted repeats).
+- Errors and permitted reruns: retained in the private append-only evidence
+  under the confirmed privacy boundary.
+- Exclusions: all v1.x technical-smoke and v2.0 candidate-revision rows.
+- Aggregate metrics: frozen locally after H5 aggregation and owner-approved;
+  public release remains pending.
+- Framework comparison: limited to the owner-approved claims; no overall-winner
+  claim is permitted.
+- Figures: `scripts/generate_pilot_dashboard.py` defaults to a no-result
+  placeholder. It can render an ignored local candidate only when supplied a
+  matching allowlisted aggregate and privacy-confirmed freeze record; it
+  rejects extra fields and does not expose the private experiment ID. Claims
+  approval is complete; public-release authorization remains a separate gate.
 
 ## Targeted repeats
 
-- Selection rule and case IDs:
-- Planned/completed runs:
-- Repeat outcomes:
+- Selection rule and case IDs: the eight owner-approved representative IDs in
+  `docs/representative_case_ids.md`, with repeats 2 and 3 selected explicitly.
+- Planned/completed runs: 48/48 additional repeat logical runs.
+- Repeat outcomes: frozen locally and covered by the approved claim set;
+  publication remains pending public-release authorization.
 
 ## Deviations and rerun ledger
 
@@ -126,14 +144,32 @@ approval, and repeated preflight evidence. Original attempts remain immutable.
 
 | Timestamp | Logical run | Attempt | Reason | Disposition | Artifact |
 |---|---|---:|---|---|---|
-| | | | | | |
+| 2026-08-18 | Private formal E5 logical run | 2 | Attempt 1 reached the frozen user-simulator turn limit and was reviewed as infrastructure-eligible | Attempt 2 retained as the final row; it remained an error; no attempt 3 | Private append-only attempt ledger |
 
 ## Limitations and claim boundary
 
-- Protocol limitations:
-- Evaluator limitations:
-- Provider/model limitations:
-- External-validity limitations:
+- **Protocol limitations:** This is a controlled 60-case pilot rather than a
+  population benchmark. Only the eight owner-approved representative cases
+  receive two additional observations; the other cases have one observation
+  per framework. Stress testing and the deferred 400-case extension are not
+  part of the formal denominator.
+- **Evaluator limitations:** Metrics are task-specific and are not combined
+  into a composite. H5 requires owner-reviewed human criterion annotations
+  before deterministic aggregation. Exact full-case pass rules can obscure
+  partially correct component behavior, so component metrics must retain their
+  own definitions and denominators.
+- **Provider/model limitations:** One agent model and one frozen generation
+  configuration are used. The requested seed is recorded as unsupported where
+  the provider does not expose an effective seed, so the targeted repeats are
+  the observed stability evidence rather than proof of deterministic sampling.
+- **E5 limitation:** E5 requires both public response-contract and local
+  final-state replay criteria. The OpenAI Agents SDK E5 sweep is invalid under
+  the frozen error-rate rule and cannot support a strong comparative claim;
+  no attempt 3 or score rerun is permitted.
+- **External validity:** The selected healthcare and e-commerce cases,
+  provider, model, framework versions, and pinned retail simulator bound the
+  findings. The pilot does not establish an overall best framework, complete
+  robustness, production safety, or generalization to other models and tools.
 
 ## Technical-method appendix
 

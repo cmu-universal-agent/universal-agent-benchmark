@@ -1,6 +1,6 @@
 # Formal Controlled-Pilot Benchmark Protocol v2.0
 
-Status: **Revision r10 candidate freeze; no r10 provider call has started**
+Status: **Formal r10 scoring and claims review complete; public release pending**
 
 Execution owner: Jessica
 
@@ -49,12 +49,12 @@ The v1.0-v1.6 attempts remain immutable `technical_smoke_only` evidence. They
 may inform engineering checks and limitations, but they are excluded from the
 v2.0 readiness gate, result aggregates, repeats, claims, and denominators.
 
-## Candidate code baseline
+## Formal code baseline
 
-- GitHub `main` after PR #28: `56838d4c1f4743f61c457fee6fe2609fa52fed57`.
-- The final v2.0 execution commit is the merged commit containing this file.
-- No provider call may start until that exact commit passes every zero-call
-  gate and is recorded in the private freeze record.
+- Formal execution commit: `f58baa77c7474ac2830113efa13ecc3abd63a2db`.
+- The private freeze record binds the complete r10 configuration and evidence
+  to that exact commit.
+- Provider calls started only after every zero-call gate passed at that commit.
 - Any later code or configuration change creates a new protocol version and
   repeats every affected preflight.
 
