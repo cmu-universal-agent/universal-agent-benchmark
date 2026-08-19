@@ -170,10 +170,10 @@ release remains a separate final authorization.
 | Field | Adjudication |
 |---|---|
 | Symptom | Four `missing_required_action`, one `invalid_arguments` among valid final rows |
-| Root cause | Same mapping as F2: `model_capability` with `tool_plan_error` / `tool_arg_error` |
-| Secondary tags | `tool_plan_error`, `tool_arg_error` |
+| Root cause | `model_capability` for the four rows other than E5-004; E5-004 is excluded from this primary attribution and uses `model_formatting` in F5 |
+| Secondary tags | `tool_plan_error`, `tool_arg_error` describe semantic symptoms; they do not replace E5-004's F5 primary root cause |
 | Severity | P1 (isolated examples) |
-| Narrow claim | Individual OpenAI E5 rows may be cited as failure illustrations using the same E5 failure-class semantics as F2. |
+| Narrow claim | The five non-error rows may be counted by E5 semantic symptom, but each case study has one primary root cause; E5-004 follows the taxonomy precedence recorded in F5. |
 | Non-claim | **Do not** treat the OpenAI E5 sweep as valid for cross-framework comparison — one final row is an `error` under the frozen sweep rule (see F4 and claim C5). |
 
 ### F4 — E5-003 / OpenAI Agents SDK / repeat 1
@@ -196,7 +196,7 @@ release remains a separate final authorization.
 | Root cause | `model_formatting` |
 | Secondary tags | — |
 | Severity | P2 |
-| Narrow claim | These rows fail structural output checks separately from the E5 semantic failure classes in F2–F3; attribute to formatting unless a row also shows content gold mismatch on a scored non-E5 metric. |
+| Narrow claim | These rows fail structural output checks; under taxonomy precedence E5-004 has the single primary root cause `model_formatting` even though F3 also records its E5 semantic symptom. |
 | Non-claim | Do not merge schema-invalid counts into E5 action-plan failure numerators without Chloe's aggregate definitions. |
 
 ### F6 — H4 across all frameworks

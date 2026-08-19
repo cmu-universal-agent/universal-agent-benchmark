@@ -74,9 +74,12 @@ Select at most one traceable example per pattern in case-study text.
 ### F3 — E5 OpenAI Agents SDK rows (failure examples only)
 
 Among **OpenAI Agents SDK** E5 valid final rows: four **`missing_required_action`**,
-one **`invalid_arguments`**.
+one **`invalid_arguments`**. These counts describe semantic symptoms and include
+E5-004; they do not assign a second primary root cause to that row.
 
-Root cause: same as F2 (**`model_capability`** with tool-plan / tool-arg tags).
+Root cause: **`model_capability`** with tool-plan / tool-arg tags for the four
+rows other than E5-004. E5-004 is excluded from this primary attribution and
+uses **`model_formatting`** in F5, following the frozen taxonomy precedence.
 Narrow claim: individual rows may illustrate E5 failure-class semantics.
 **Non-claim:** the OpenAI E5 sweep is **invalid** for cross-framework comparison
 (one final **`error`** row — see F4 and claim C5).
@@ -98,8 +101,9 @@ Four schema-invalid final rows: **E1-REVIEW-003** (CrewAI), **E1-REVIEW-007**
 
 Symptom: evaluator-derived **`output_schema_invalid`** in the metrics layer.
 Root cause: **`model_formatting`**. Severity P2.
-Narrow claim: structural output failure separated from E5 semantic failure classes
-and from content gold mismatch unless a row also fails on scored content metrics.
+Narrow claim: structural output failure is the single primary attribution for
+E5-004 even though F3 also records its E5 semantic symptom; other rows remain
+separate from content gold mismatch unless they also fail scored content metrics.
 
 ### F6 — H4 exact-match interpretation boundary
 
