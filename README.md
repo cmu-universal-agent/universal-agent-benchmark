@@ -19,8 +19,9 @@ at commit `f58baa77c7474ac2830113efa13ecc3abd63a2db`.
 - Scoring, data QA, H5 aggregation, and C1–C6 claims review are complete; C4
   retains a non-blocking phrasing reservation.
 - Public aggregate release remains pending explicit owner authorization.
-- All v1.x attempts and superseded v2.0 candidates remain immutable, excluded
-  `technical_smoke_only` evidence.
+- All v1.x attempts remain immutable `technical_smoke_only` evidence;
+  superseded v2.0 candidate revisions remain immutable engineering evidence.
+  Both are excluded from formal analysis and denominators.
 
 Formal cases, gold, raw traces, run identifiers, hashes, and evaluator-only
 artifacts remain private. The public repository contains implementation,
