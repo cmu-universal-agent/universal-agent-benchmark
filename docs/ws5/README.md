@@ -3,9 +3,7 @@
 Owner: Lanfang Hai
 Prepared: 2026-08-18; revised 2026-08-19
 
-**Canonical deliverables for Mickey** live in this folder. The companion file
-`docs/failure_analysis_and_limitations_draft.md` is Lanfang's internal checklist
-only; do not treat it as the report paste source.
+**Canonical deliverables for Mickey** live in this folder.
 
 ## Files
 
@@ -14,8 +12,7 @@ only; do not treat it as the report paste source.
 | `limitations_deliverable.md` | **Ready to paste** | § Limitations and claim boundary (once; includes scope/claim boundary) |
 | `failure_taxonomy_adjudication_summary.md` | **Ready to paste** | Appendix § Failure taxonomy and adjudication (includes F1–F6 adjudication) |
 | `main_findings_deliverable.md` | **Adjudicated — hold until C1–C6** | Optional discussion bridge now; F1–F6 after claims approval |
-| `exclusion_list.md` | Living document | Local reference; share summary counts only |
-| `case_studies/CS-*_EXCLUDED.md` | Format illustration | **Never publish** — not v2.0 evidence |
+| `exclusion_list.md` | Exclusion policy | Use summary counts only; keep raw evidence local |
 
 ## Gate / tense
 
@@ -28,4 +25,4 @@ After claims approval, Mickey updates tense and experiment ID per note at top of
 
 1. Await Chloe C1–C6 claims approval
 2. Write 4–6 v2.0 case studies locally from `docs/case_study_template.md` (redacted)
-3. C1–C5 review per `docs/failure_analysis_and_limitations_draft.md`
+3. Complete the owner review cycle in `failure_taxonomy_adjudication_summary.md`

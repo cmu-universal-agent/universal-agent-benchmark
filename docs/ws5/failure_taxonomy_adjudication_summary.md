@@ -201,7 +201,7 @@ approves the corresponding aggregate claims (C1–C6).
 
 | Field | Adjudication |
 |---|---|
-| Symptom | 0/30 full-case passes (10 cases × 3 frameworks) |
+| Symptom | 0/30 full-case passes across 30 scored observations: 24 main observations (8 cases × 3 frameworks) plus 6 targeted-repeat observations (1 representative case × 3 frameworks × 2 additional repeats) |
 | Root cause | **Provisional** `evaluator_or_gold` — escalate to Chloe before strong causal attribution |
 | Secondary tags | `evaluator_borderline` until component precision/recall is reviewed |
 | Severity | P1 (pattern); case studies P2 until component review completes |

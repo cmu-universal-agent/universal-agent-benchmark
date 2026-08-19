@@ -1,4 +1,4 @@
-# WS5 Exclusion List — Lanfang (maintain locally)
+# WS5 Exclusion Policy — Lanfang
 
 Status: **Initial exclusions documented; v2.0 formal rows scored — triage on demand**
 Owner: Lanfang Hai
@@ -47,11 +47,3 @@ do not commit raw ledger excerpts.
 
 **Target denominator for WS5 case studies:** subset of 228 controlled-pilot logical
 runs on v2.0 formal experiment ID, minus rows above.
-
----
-
-## Illustrative case study excluded from report
-
-| File | Reason |
-|---|---|
-| `case_studies/CS-E3-001-openai-schema-format_EXCLUDED.md` | Derived from July 2026 technical smoke only; shows WS5 format, not v2.0 evidence |

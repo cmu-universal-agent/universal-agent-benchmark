@@ -103,7 +103,10 @@ and from content gold mismatch unless a row also fails on scored content metrics
 
 ### F6 — H4 full-case pass pattern (component review required)
 
-**H4** across all frameworks: **0/30** full-case passes (10 cases × 3 frameworks).
+**H4** across all frameworks: **0/30** full-case passes across 30 scored
+observations: 24 main observations (8 cases × 3 frameworks) plus 6
+targeted-repeat observations (1 representative case × 3 frameworks × 2
+additional repeats).
 
 Symptom: zero full-case pass under the frozen H4 metric.
 Root cause: **provisional `evaluator_or_gold`** — Chloe must review component
