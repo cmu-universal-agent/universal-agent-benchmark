@@ -29,12 +29,12 @@ class GeneratePilotDashboardTests(unittest.TestCase):
         ]
         aggregate = {
             "schema_version": "1.0", "generated_at": "now", "experiment_id": "exp",
-            "status": "candidate_pending_privacy_and_claims_review",
+            "status": "candidate_claims_approved_public_release_pending",
             "claim_boundary": "No overall winner.", "invalid_e5_frameworks": [],
             "rows": rows, "targeted_repeats": repeats,
         }
         freeze = {
-            "experiment_id": "exp", "status": "privacy_confirmed_claims_review_pending",
+            "experiment_id": "exp", "status": "privacy_and_claims_confirmed_public_release_pending",
             "owner_confirmations": {"privacy_boundary_confirmed": True},
             "privacy": {"aggregate_forbidden_field_matches": 0, "public_release_authorized": False},
         }
@@ -77,6 +77,7 @@ class GeneratePilotDashboardTests(unittest.TestCase):
         html = pilot_dashboard.render_html(pilot_dashboard.build_payload(aggregate, freeze))
 
         self.assertIn("Privacy-reviewed aggregate candidate", html)
+        self.assertIn("Claims approved", html)
         self.assertIn("public release is not authorized", html)
         self.assertIn("Targeted-repeat stability: 24/24", html)
         self.assertNotIn("experiment_id", html)

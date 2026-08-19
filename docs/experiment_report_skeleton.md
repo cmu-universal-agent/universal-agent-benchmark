@@ -13,16 +13,19 @@ evidence remain in the private execution record.
 - Protocol version: `pilot-60-v2.0`, prospectively frozen before the formal
   controlled-pilot execution; all v1.x attempts remain excluded
   `technical_smoke_only` evidence
-- Gate status: `formal_scoring_complete_claims_review_pending`
+- Gate status: `formal_scoring_and_claims_review_complete_public_release_pending`
 - Freeze and review status: data/evaluator package approved by Chloe on
   2026-08-02/03 with final metric decisions on 2026-08-10; 24/24 fresh
   preflight and 228/228 formal result logical runs are complete. Chloe's 30 H5
-  annotations are applied and the privacy boundary is confirmed. Claims review
-  and downstream dashboard/report reconciliation remain pending.
+  annotations are applied, the privacy boundary is confirmed, and Chloe
+  approved C1–C6; C4 has a non-blocking phrasing reservation. Downstream
+  dashboard/report reconciliation and public-release authorization remain
+  pending.
 
 The formal v2.0 execution passed the frozen-manifest, evaluator, environment,
 and 24-run preflight gates before its result matrix started. Scoring is
-complete; public aggregate tables and claims remain pending final review.
+complete and the aggregate claims are owner-approved; publication remains
+pending explicit public-release authorization.
 
 ## Frozen configuration
 
@@ -115,22 +118,23 @@ policy-permitted infrastructure reruns remain separate attempts.
 - Errors and permitted reruns: retained in the private append-only evidence
   under the confirmed privacy boundary.
 - Exclusions: all v1.x technical-smoke and v2.0 candidate-revision rows.
-- Aggregate metrics: frozen locally after H5 aggregation; public tables remain
-  pending claims review.
-- Framework comparison: pending; no overall-winner claim is permitted.
+- Aggregate metrics: frozen locally after H5 aggregation and owner-approved;
+  public release remains pending.
+- Framework comparison: limited to the owner-approved claims; no overall-winner
+  claim is permitted.
 - Figures: `scripts/generate_pilot_dashboard.py` defaults to a no-result
   placeholder. It can render an ignored local candidate only when supplied a
   matching allowlisted aggregate and privacy-confirmed freeze record; it
   rejects extra fields and does not expose the private experiment ID. Claims
-  approval and public-release authorization remain separate gates.
+  approval is complete; public-release authorization remains a separate gate.
 
 ## Targeted repeats
 
 - Selection rule and case IDs: the eight owner-approved representative IDs in
   `docs/representative_case_ids.md`, with repeats 2 and 3 selected explicitly.
 - Planned/completed runs: 48/48 additional repeat logical runs.
-- Repeat outcomes: frozen locally; public interpretation remains pending
-  claims review.
+- Repeat outcomes: frozen locally and covered by the approved claim set;
+  publication remains pending public-release authorization.
 
 ## Deviations and rerun ledger
 

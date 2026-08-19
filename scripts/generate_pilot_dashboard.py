@@ -232,7 +232,7 @@ def _results_html(payload: dict) -> str:
     return f"""
     <section>
       <h2>Privacy-reviewed aggregate candidate</h2>
-      <p class="hint">Claims review pending; public release is {release}. {escape(aggregate['claim_boundary'])}</p>
+      <p class="hint">Claims approved; public release is {release}. {escape(aggregate['claim_boundary'])}</p>
       <div class="table-wrap"><table><thead><tr><th>Task</th><th>Framework</th><th>N</th><th>Process success</th>
         <th>Schema valid</th><th>Task-specific result</th><th>Avg latency (s)</th><th>Est. cost (USD)</th>
       </tr></thead><tbody>{''.join(rows)}</tbody></table></div>
@@ -305,7 +305,7 @@ def render_html(payload: dict) -> str:
     banner_text = (
         'No result data is loaded; every status cell below is "pending" by construction, not a measured outcome.'
         if payload["aggregate"] is None
-        else "A privacy-reviewed aggregate candidate is loaded; claims review and public-release authorization remain separate gates."
+        else "A privacy-reviewed aggregate candidate is loaded; claims review is complete and public-release authorization remains a separate gate."
     )
     return HTML_TEMPLATE.format(
         generated_at=payload["generated_at"],
