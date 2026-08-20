@@ -22,6 +22,16 @@ OPENAI_AGENTS_AVAILABLE = importlib.util.find_spec("agents") is not None
 LANGGRAPH_AVAILABLE = importlib.util.find_spec("langgraph") is not None
 CREWAI_AVAILABLE = importlib.util.find_spec("crewai") is not None
 
+AVAILABLE_RUNNERS = tuple(
+    module_name
+    for available, module_name in (
+        (OPENAI_AGENTS_AVAILABLE, "frameworks.openai_agents_sdk.run"),
+        (LANGGRAPH_AVAILABLE, "frameworks.langgraph_agent.run"),
+        (CREWAI_AVAILABLE, "frameworks.crewai_agent.run"),
+    )
+    if available
+)
+
 
 def _task() -> BenchmarkTask:
     return BenchmarkTask(
@@ -50,6 +60,25 @@ def _import_runner(module_name: str):
         },
     ):
         return importlib.import_module(module_name)
+
+
+class VerticalAwareAdapterTests(unittest.TestCase):
+    def test_installed_frameworks_enforce_the_same_tool_boundaries(self):
+        for module_name in AVAILABLE_RUNNERS:
+            runner = _import_runner(module_name)
+            with self.subTest(framework=module_name):
+                selected = runner._select_tools("medical_diagnostic", None)
+                self.assertEqual(
+                    [tool_value.name for tool_value in selected],
+                    ["search_literature"],
+                )
+                self.assertEqual(
+                    runner._select_tools(
+                        "medical_diagnostic",
+                        ["get_review_history"],
+                    ),
+                    [],
+                )
 
 
 class SharedGenerationSettingsTests(unittest.TestCase):

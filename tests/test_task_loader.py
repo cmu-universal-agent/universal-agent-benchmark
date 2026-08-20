@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from adapter.task_loader import load_task, task_from_dict
 from adapter.validation import AMBIGUOUS_EVALUATOR_ONLY_KEYS, STRICT_EVALUATOR_ONLY_KEYS
+from adapter.vertical_routing import select_vertical_tools
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,6 +123,56 @@ class TaskLoaderSemanticValidationTests(unittest.TestCase):
         task = task_from_dict(case)
 
         self.assertEqual(task.vertical, "retail")
+
+    def test_eight_core_tasks_resolve_to_vertical_runtimes(self):
+        expected = {
+            "H1": "medical_diagnostic",
+            "H2": "medical_diagnostic",
+            "H4": "medical_diagnostic",
+            "H5": "medical_diagnostic",
+            "E1": "ecommerce_trend_research",
+            "E2": "ecommerce_trend_research",
+            "E3": "ecommerce_trend_research",
+            "E5": "retail",
+        }
+        for task_id, runtime_vertical in expected.items():
+            case = _valid_v1_case()
+            case["case_id"] = f"{task_id}-TEST-001"
+            case["task_id"] = task_id
+            case["vertical"] = "healthcare" if task_id.startswith("H") else "ecommerce"
+            case["stress_type"] = {
+                "H1": "conflicting_evidence",
+                "H2": "missing_information",
+                "H4": "long_context",
+                "H5": "policy_or_safety_trap",
+                "E1": "conflicting_evidence",
+                "E2": "missing_information",
+                "E3": "policy_or_safety_trap",
+                "E5": "tool_failure",
+            }[task_id]
+
+            with self.subTest(task_id=task_id):
+                self.assertEqual(task_from_dict(case).vertical, runtime_vertical)
+
+    def test_vertical_tool_selection_cannot_cross_boundaries(self):
+        tools = {
+            "medical_diagnostic": {"search_literature": "medical"},
+            "ecommerce_trend_research": {"get_review_history": "ecommerce"},
+        }
+
+        self.assertEqual(
+            select_vertical_tools(tools, "medical_diagnostic", None),
+            ["medical"],
+        )
+        self.assertEqual(
+            select_vertical_tools(
+                tools,
+                "medical_diagnostic",
+                ["get_review_history"],
+            ),
+            [],
+        )
+        self.assertEqual(select_vertical_tools(tools, "retail", None), [])
 
     def test_legacy_task_compatibility_is_unchanged(self):
         task = task_from_dict(
