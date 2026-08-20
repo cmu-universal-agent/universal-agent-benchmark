@@ -80,7 +80,25 @@ class GeneratePilotDashboardTests(unittest.TestCase):
         self.assertIn("Claims approved", html)
         self.assertIn("public release is not authorized", html)
         self.assertIn("Targeted-repeat stability: 24/24", html)
+        self.assertIn('id="vertical-filter"', html)
+        self.assertIn('id="task-filter"', html)
+        self.assertIn('id="metric-filter"', html)
+        self.assertIn('class="framework-toggle"', html)
+        self.assertIn("Framework suitability matrix", html)
+        self.assertIn("invalid sweep — not comparable", html)
+        self.assertIn('data-task="H1"', html)
         self.assertNotIn("experiment_id", html)
+
+    def test_primary_matrix_uses_evaluator_mean_not_strict_pass_count(self) -> None:
+        aggregate, freeze = self._aggregate()
+        row = next(item for item in aggregate["rows"] if item["task_id"] == "E2")
+        row["content_pass"] = 0
+        row["mean_score"] = 0.4
+
+        html = pilot_dashboard.render_html(pilot_dashboard.build_payload(aggregate, freeze))
+
+        self.assertIn('<span class="score score">40.0%</span>', html)
+        self.assertIn("Primary evaluator score", html)
 
     def test_aggregate_rejects_private_fields(self) -> None:
         aggregate, freeze = self._aggregate()

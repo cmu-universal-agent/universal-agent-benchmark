@@ -24,14 +24,14 @@ REPORT_PATH = ROOT / "docs" / "experiment_report_skeleton.md"
 
 # Frozen per docs/representative_case_ids.md and docs/experiment_report_skeleton.md.
 WS4_TASKS = [
-    {"task_id": "H1", "cases": 8, "representative_case_id": "H1-REVIEW-001"},
-    {"task_id": "H2", "cases": 8, "representative_case_id": "H2-REVIEW-001"},
-    {"task_id": "H4", "cases": 8, "representative_case_id": "H4-REVIEW-001"},
-    {"task_id": "H5", "cases": 8, "representative_case_id": "H5-REVIEW-001"},
-    {"task_id": "E1", "cases": 8, "representative_case_id": "E1-REVIEW-001"},
-    {"task_id": "E2", "cases": 8, "representative_case_id": "E2-REVIEW-001"},
-    {"task_id": "E3", "cases": 8, "representative_case_id": "E3-REVIEW-001"},
-    {"task_id": "E5", "cases": 4, "representative_case_id": "E5-001"},
+    {"task_id": "H1", "vertical": "Healthcare", "title": "Medical QA", "score_label": "Evaluator mean", "cases": 8, "representative_case_id": "H1-REVIEW-001"},
+    {"task_id": "H2", "vertical": "Healthcare", "title": "Triage safety", "score_label": "Evaluator mean", "cases": 8, "representative_case_id": "H2-REVIEW-001"},
+    {"task_id": "H4", "vertical": "Healthcare", "title": "Clinical extraction", "score_label": "Mean set-F1", "cases": 8, "representative_case_id": "H4-REVIEW-001"},
+    {"task_id": "H5", "vertical": "Healthcare", "title": "Boundary handling", "score_label": "Rubric mean", "cases": 8, "representative_case_id": "H5-REVIEW-001"},
+    {"task_id": "E1", "vertical": "E-commerce", "title": "Trend judgment", "score_label": "Evaluator mean", "cases": 8, "representative_case_id": "E1-REVIEW-001"},
+    {"task_id": "E2", "vertical": "E-commerce", "title": "Recommendation", "score_label": "Evaluator mean", "cases": 8, "representative_case_id": "E2-REVIEW-001"},
+    {"task_id": "E3", "vertical": "E-commerce", "title": "Policy decision", "score_label": "Evaluator mean", "cases": 8, "representative_case_id": "E3-REVIEW-001"},
+    {"task_id": "E5", "vertical": "E-commerce", "title": "Stateful tool use", "score_label": "Final-state pass rate", "cases": 4, "representative_case_id": "E5-001"},
 ]
 FRAMEWORKS_PER_TASK = 3
 REPEATS_PER_REPRESENTATIVE_CASE = 2  # additional targeted repeats, one representative case per task
@@ -80,6 +80,9 @@ def _task_row(task: dict) -> dict:
     repeats = REPEATS_PER_REPRESENTATIVE_CASE * FRAMEWORKS_PER_TASK
     return {
         "task_id": task["task_id"],
+        "vertical": task["vertical"],
+        "title": task["title"],
+        "score_label": task["score_label"],
         "cases": task["cases"],
         "representative_case_id": task["representative_case_id"],
         "preflights": preflights,
@@ -292,6 +295,44 @@ def _framework_headers_html(payload: dict) -> str:
     )
 
 
+def _control_rail_html(payload: dict) -> str:
+    disabled = "" if payload["aggregate"] is not None else " disabled"
+    task_options = "".join(
+        f'<option value="{task["task_id"]}" data-vertical="{task["vertical"]}">'
+        f'{task["task_id"]} · {task["title"]}</option>'
+        for task in payload["tasks"]
+    )
+    toggles = "".join(
+        f'<label class="framework-toggle"><input type="checkbox" data-framework="{fw["id"]}" checked{disabled}>'
+        f'<span style="background:{fw["color"]}"></span>{fw["label"]}</label>'
+        for fw in payload["frameworks"]
+    )
+    return f"""
+      <div class="control"><label for="vertical-filter">Vertical</label>
+        <select id="vertical-filter"{disabled}><option value="all">All verticals</option><option>Healthcare</option><option>E-commerce</option></select></div>
+      <div class="control"><label for="task-filter">Task</label><select id="task-filter"{disabled}>{task_options}</select></div>
+      <div class="control"><label for="metric-filter">Comparison metric</label><select id="metric-filter"{disabled}>
+        <option value="task_result">Primary evaluator score</option><option value="process_success">Process success</option>
+        <option value="schema_valid">Schema valid</option><option value="avg_latency_seconds">Average latency</option>
+        <option value="estimated_cost_usd">Estimated cost</option></select></div>
+      <div class="control"><span class="control-label">Frameworks</span><div class="framework-toggles">{toggles}</div></div>
+    """
+
+
+def _overview_html(payload: dict) -> str:
+    totals = payload["totals"]
+    cards = (
+        (totals["cases"], "frozen cases"),
+        (totals["controlled_total"], "formal result runs"),
+        (totals["preflights"], "formal preflights"),
+        (len(payload["frameworks"]), "frameworks"),
+    )
+    return "".join(
+        f'<div class="summary-card"><strong>{value}</strong><span>{label}</span></div>'
+        for value, label in cards
+    )
+
+
 def _figure_placeholders_html(payload: dict) -> str:
     bars = "".join(
         f'<div class="bar-row"><span class="mono">{fw["label"]}</span>'
@@ -319,6 +360,48 @@ def _metric(value: object, digits: int = 3) -> str:
     return str(value)
 
 
+def _primary_score(row: dict) -> tuple[str, str]:
+    if row["task_id"] == "E5":
+        if not row["e5_sweep_valid"]:
+            return "invalid sweep", "invalid"
+        return f'{row["e5_pass"] / row["n"]:.1%}', "score"
+    return f'{row["mean_score"]:.1%}', "score"
+
+
+def _suitability_matrix_html(payload: dict) -> str:
+    aggregate_rows = payload["aggregate"]["rows"]
+    rows = []
+    for task in payload["tasks"]:
+        scores = []
+        for framework in KNOWN_FRAMEWORK_ORDER:
+            row = next(
+                item for item in aggregate_rows
+                if item["task_id"] == task["task_id"] and item["framework"] == framework
+            )
+            value, css_class = _primary_score(row)
+            scores.append(
+                f'<td class="framework-cell" data-framework="{framework}">'
+                f'<span class="score {css_class}">{value}</span></td>'
+            )
+        rows.append(
+            f'<tr class="matrix-row" data-task="{task["task_id"]}" data-vertical="{task["vertical"]}">'
+            f'<td><span class="mono">{task["task_id"]}</span><br><span class="task-name">{task["title"]}</span></td>'
+            f'<td>{task["vertical"]}</td><td>{task["score_label"]}</td>{"".join(scores)}</tr>'
+        )
+    headers = "".join(
+        f'<th class="framework-cell" data-framework="{framework}">{FRAMEWORK_LABELS[framework]}</th>'
+        for framework in KNOWN_FRAMEWORK_ORDER
+    )
+    return f"""
+    <section>
+      <div class="section-head"><h2>Framework suitability matrix</h2><span>task-specific frozen scores · no composite ranking</span></div>
+      <div class="table-wrap"><table class="suitability-matrix"><thead><tr><th>Task</th><th>Vertical</th><th>Primary metric</th>{headers}</tr></thead>
+        <tbody>{''.join(rows)}</tbody></table></div>
+      <p class="hint">Non-E5 cells show the frozen evaluator mean. E5 shows final-state pass rate; an invalid sweep is excluded from cross-framework comparison.</p>
+    </section>
+    """
+
+
 def _results_html(payload: dict) -> str:
     aggregate = payload["aggregate"]
     if aggregate is None:
@@ -331,7 +414,8 @@ def _results_html(payload: dict) -> str:
             else f'{row["content_pass"]}/{row["scored_n"]}; mean={_metric(row["mean_score"])}'
         )
         rows.append(
-            f'<tr><td class="mono">{row["task_id"]}</td>'
+            f'<tr class="result-row" data-task="{row["task_id"]}" data-framework="{row["framework"]}">'
+            f'<td class="mono">{row["task_id"]}</td>'
             f'<td>{FRAMEWORK_LABELS[row["framework"]]}</td><td>{row["n"]}</td>'
             f'<td>{row["process_success"]}</td><td>{row["schema_valid"]}</td>'
             f'<td>{result}</td><td>{_metric(row["avg_latency_seconds"], 2)}</td>'
@@ -341,8 +425,16 @@ def _results_html(payload: dict) -> str:
     release = "authorized" if aggregate["public_release_authorized"] else "not authorized"
     return f"""
     <section>
-      <h2>Privacy-reviewed aggregate candidate</h2>
-      <p class="hint">Claims approved; public release is {release}. {escape(aggregate['claim_boundary'])}</p>
+      <div class="section-head"><h2>Task score comparison</h2><span>select a task and metric in the control rail</span></div>
+      <p class="hint">Privacy-reviewed aggregate candidate. Claims approved; public release is {release}. {escape(aggregate['claim_boundary'])}</p>
+      <div class="card comparison-card">
+        <div class="card-title" id="comparison-title">Task-specific framework comparison</div>
+        <div id="comparison-bars" aria-live="polite"></div>
+      </div>
+    </section>
+    {_suitability_matrix_html(payload)}
+    <section>
+      <div class="section-head"><h2>Operational detail</h2><span>filtered by the same controls</span></div>
       <div class="table-wrap"><table><thead><tr><th>Task</th><th>Framework</th><th>N</th><th>Process success</th>
         <th>Schema valid</th><th>Task-specific result</th><th>Avg latency (s)</th><th>Est. cost (USD)</th>
       </tr></thead><tbody>{''.join(rows)}</tbody></table></div>
@@ -351,61 +443,200 @@ def _results_html(payload: dict) -> str:
     """
 
 
+def _interaction_script(payload: dict) -> str:
+    aggregate = payload["aggregate"]
+    if aggregate is None:
+        return ""
+    data = json.dumps(
+        {
+            "rows": aggregate["rows"],
+            "labels": FRAMEWORK_LABELS,
+            "colors": FRAMEWORK_COLORS,
+            "taskVerticals": {task["task_id"]: task["vertical"] for task in payload["tasks"]},
+        },
+        separators=(",", ":"),
+    ).replace("</", "<\\/")
+    return f"""
+<script id="aggregate-data" type="application/json">{data}</script>
+<script>
+(() => {{
+  const data = JSON.parse(document.getElementById("aggregate-data").textContent);
+  const vertical = document.getElementById("vertical-filter");
+  const task = document.getElementById("task-filter");
+  const metric = document.getElementById("metric-filter");
+  const toggles = [...document.querySelectorAll(".framework-toggle input")];
+  const bars = document.getElementById("comparison-bars");
+  const title = document.getElementById("comparison-title");
+
+  const metricValue = (row) => {{
+    if (metric.value === "task_result") {{
+      if (row.task_id === "E5" && row.e5_sweep_valid === false) return {{value: null, label: "invalid sweep — not comparable", kind: "invalid"}};
+      if (row.task_id === "E5") {{
+        const value = row.n ? row.e5_pass / row.n : 0;
+        return {{value, label: `${{(value * 100).toFixed(1)}}% (${{row.e5_pass}}/${{row.n}})`}};
+      }}
+      return {{value: row.mean_score, label: `${{(row.mean_score * 100).toFixed(1)}}% mean`}};
+    }}
+    if (metric.value === "process_success" || metric.value === "schema_valid") {{
+      const value = row.n ? row[metric.value] / row.n : 0;
+      return {{value, label: `${{(value * 100).toFixed(1)}}% (${{row[metric.value]}}/${{row.n}})`}};
+    }}
+    const value = row[metric.value];
+    if (value === null) return {{value: null, label: "n/a", kind: "unavailable"}};
+    const label = metric.value === "avg_latency_seconds" ? `${{value.toFixed(2)}} s` : `$${{value.toFixed(6)}}`;
+    return {{value, label}};
+  }};
+
+  const render = () => {{
+    const active = new Set(toggles.filter((toggle) => toggle.checked).map((toggle) => toggle.dataset.framework));
+    document.querySelectorAll(".result-row").forEach((row) => {{
+      row.hidden = row.dataset.task !== task.value || !active.has(row.dataset.framework);
+    }});
+    document.querySelectorAll(".matrix-row").forEach((row) => {{
+      row.hidden = vertical.value !== "all" && row.dataset.vertical !== vertical.value;
+    }});
+    document.querySelectorAll(".framework-cell").forEach((cell) => {{
+      cell.hidden = !active.has(cell.dataset.framework);
+    }});
+    const selected = data.rows.filter((row) => row.task_id === task.value && active.has(row.framework));
+    if (!selected.length) {{
+      title.textContent = `${{task.value}} · no framework selected`;
+      bars.innerHTML = '<p class="empty">Select at least one framework.</p>';
+      return;
+    }}
+    const values = selected.map(metricValue);
+    const relativeMetric = metric.value === "avg_latency_seconds" || metric.value === "estimated_cost_usd";
+    const max = relativeMetric ? Math.max(...values.map((item) => item.value || 0), 1e-12) : 1;
+    title.textContent = `${{task.value}} · ${{metric.options[metric.selectedIndex].text}}`;
+    bars.innerHTML = selected.map((row, index) => {{
+      const item = values[index];
+      const width = item.value === null ? 0 : Math.max(0, Math.min(100, item.value / max * 100));
+      const state = item.kind ? ` ${{item.kind}}` : "";
+      return `<div class="comparison-row${{state}}"><span class="mono">${{data.labels[row.framework]}}</span>` +
+        `<div class="bar-track"><div class="bar-fill" style="width:${{width}}%;background:${{data.colors[row.framework]}}"></div></div>` +
+        `<strong class="mono">${{item.label}}</strong></div>`;
+    }}).join("");
+  }};
+
+  const syncTasks = () => {{
+    const eligible = [...task.options].filter((option) => vertical.value === "all" || option.dataset.vertical === vertical.value);
+    [...task.options].forEach((option) => {{ option.hidden = !eligible.includes(option); }});
+    if (!eligible.includes(task.selectedOptions[0])) task.value = eligible[0].value;
+    render();
+  }};
+  vertical.addEventListener("change", syncTasks);
+  [task, metric, ...toggles].forEach((control) => control.addEventListener("change", render));
+  task.value = "H1";
+  syncTasks();
+}})();
+</script>
+"""
+
+
 HTML_TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>WS4 Controlled Pilot Dashboard</title>
+<title>Universal Agent Benchmark · Formal Controlled Pilot</title>
 <style>
-  body {{ font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 24px 30px 60px; background: #E7EAF0; color: #14171C; }}
+  :root {{ --bg:#E7EAF0; --surface:#FFFFFF; --surface-2:#F4F6F9; --ink:#14171C; --muted:#5A6472; --faint:#8B94A3; --line:#D9DEE6; --accent:#3B4CC0; --ok:#12875A; --fail:#CF3A54; }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; }}
   .mono {{ font-family: ui-monospace, "SF Mono", Menlo, monospace; }}
-  .faint {{ color: #8B94A3; }}
-  h1 {{ font-size: 20px; margin: 0 0 6px; }}
-  h2 {{ font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #5A6472; margin: 0 0 8px; }}
-  .hint {{ color: #5A6472; font-size: 12.5px; margin: 0 0 14px; }}
-  .banner {{ margin: 14px 0 22px; padding: 12px 14px; border: 1px solid #EBD79A; border-radius: 8px; background: #FAF0D2; color: #735900; font-weight: 600; font-size: 12.5px; }}
-  section {{ margin-bottom: 28px; }}
-  .table-wrap {{ overflow-x: auto; border-radius: 8px; }}
-  table {{ border-collapse: collapse; width: 100%; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 8px; overflow: hidden; }}
-  th, td {{ padding: 8px 12px; border-bottom: 1px solid #D9DEE6; text-align: left; font-size: 12.5px; }}
-  th {{ background: #F4F6F9; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; color: #5A6472; }}
+  .app {{ display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }}
+  .rail {{ position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 20px 18px; background: var(--surface); border-right: 1px solid var(--line); }}
+  .brand {{ font-weight: 750; font-size: 15px; }}
+  .brand-version {{ margin-left: 6px; color: var(--faint); font: 11px ui-monospace, monospace; }}
+  .rail-sub, .rail-note {{ color: var(--muted); font-size: 12px; }}
+  .rail-sub {{ margin: 2px 0 22px; }}
+  .rail-note {{ border-top: 1px solid var(--line); margin-top: 20px; padding-top: 14px; }}
+  .control {{ margin-bottom: 20px; }}
+  .control > label, .control-label {{ display: block; margin-bottom: 8px; color: var(--faint); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }}
+  select {{ width: 100%; padding: 8px 9px; border: 1px solid #C3CAD5; border-radius: 8px; background: var(--surface-2); color: var(--ink); font: 12px ui-monospace, monospace; }}
+  select:focus-visible, input:focus-visible {{ outline: 2px solid var(--accent); outline-offset: 2px; }}
+  .framework-toggles {{ display: grid; gap: 7px; }}
+  .framework-toggle {{ display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: 12px ui-monospace, monospace; }}
+  .framework-toggle span {{ width: 9px; height: 9px; border-radius: 2px; }}
+  main {{ width: 100%; max-width: 1280px; padding: 24px 30px 60px; }}
+  .head {{ display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }}
+  h1 {{ font-size: 21px; margin: 0 0 4px; }}
+  .head p, .meta, .hint {{ color: var(--muted); font-size: 12px; }}
+  .head p {{ margin: 0; }}
+  .meta {{ text-align: right; font-family: ui-monospace, monospace; }}
+  .banner {{ margin-bottom: 20px; padding: 11px 14px; border: 1px solid #EBD79A; border-radius: 9px; background: #FAF0D2; color: #735900; font: 700 11.5px ui-monospace, monospace; }}
+  .summary {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }}
+  .summary-card, .card {{ background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 5px 18px rgba(20,23,28,.05); }}
+  .summary-card {{ padding: 14px 16px; }}
+  .summary-card strong {{ display: block; font: 700 22px ui-monospace, monospace; }}
+  .summary-card span {{ color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }}
+  section {{ margin-bottom: 30px; }}
+  .section-head {{ display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }}
+  h2 {{ margin: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }}
+  .section-head span {{ color: var(--faint); font-size: 12px; }}
+  .hint {{ margin: 0 0 13px; }}
+  .table-wrap {{ overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }}
+  table {{ border-collapse: collapse; width: 100%; }}
+  th, td {{ padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; font-size: 12px; }}
+  th {{ background: var(--surface-2); color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }}
   tr:last-child td {{ border-bottom: none; }}
-  tr.totals td {{ font-weight: 700; background: #F4F6F9; }}
-  td.cell.pending {{ color: #98A2B1; font-family: ui-monospace, monospace; }}
-  td.cell.complete {{ color: #276749; font-family: ui-monospace, monospace; }}
-  td.cell.error {{ color: #B42318; font-family: ui-monospace, monospace; }}
-  .card {{ background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 8px; padding: 14px 16px; }}
-  .card-title {{ font-size: 12px; color: #5A6472; margin-bottom: 10px; }}
+  tr.totals td {{ font-weight: 700; background: var(--surface-2); }}
+  td.cell.pending {{ color: var(--faint); font-family: ui-monospace, monospace; }}
+  td.cell.complete {{ color: var(--ok); font-family: ui-monospace, monospace; }}
+  td.cell.error {{ color: var(--fail); font-family: ui-monospace, monospace; }}
+  .card {{ padding: 15px 16px; }}
+  .card-title {{ color: var(--muted); font-size: 12px; margin-bottom: 10px; }}
+  .comparison-card {{ margin-bottom: 14px; }}
+  .comparison-row {{ display: grid; grid-template-columns: minmax(150px, 190px) minmax(180px, 1fr) minmax(145px, auto); align-items: center; gap: 12px; margin: 10px 0; font-size: 12px; }}
+  .comparison-row.invalid {{ color: #7A271A; }}
+  .comparison-row.invalid .bar-track {{ background: repeating-linear-gradient(135deg, #FEE4E2, #FEE4E2 6px, #FFF 6px, #FFF 12px); }}
+  .comparison-row.unavailable {{ color: #5A6472; }}
+  .empty {{ margin: 4px 0; color: #5A6472; font-size: 12px; }}
   .bar-row {{ display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }}
-  .bar-track {{ height: 10px; border-radius: 4px; background: #F4F6F9; border: 1px solid #D9DEE6; overflow: hidden; }}
+  .bar-track {{ height: 10px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }}
   .bar-fill {{ height: 100%; }}
+  .task-name {{ color: var(--muted); font-size: 11px; }}
+  .suitability-matrix th.framework-cell, .suitability-matrix td.framework-cell {{ text-align: center; }}
+  .score {{ display: inline-block; min-width: 54px; padding: 4px 7px; border-radius: 7px; font: 700 12px ui-monospace, monospace; }}
+  .score.score {{ color: var(--ok); background: #DBF0E7; }}
+  .score.invalid {{ color: #7A271A; background: #FEE4E2; }}
+  details {{ margin-top: 8px; }}
+  summary {{ cursor: pointer; color: var(--muted); font-weight: 700; margin-bottom: 12px; }}
+  [hidden] {{ display: none !important; }}
+  @media (max-width: 860px) {{
+    .app {{ grid-template-columns: 1fr; }}
+    .rail {{ position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }}
+    main {{ padding: 20px 14px 40px; }}
+    .summary {{ grid-template-columns: repeat(2, 1fr); }}
+    .comparison-row {{ grid-template-columns: 1fr; gap: 5px; }}
+  }}
 </style>
 </head>
 <body>
-  <h1>WS4 controlled-pilot dashboard</h1>
-  <p class="hint">Generated {generated_at}.</p>
-  <div class="banner">Gate status: {gate_status}. {banner_text}</div>
-
-  <section>
-    <h2>Frozen run matrix</h2>
-    <p class="hint">Counts are frozen per docs/representative_case_ids.md and docs/experiment_report_skeleton.md.</p>
-    <div class="table-wrap"><table>
-      <thead><tr>
-        <th>Task</th><th>Cases</th><th>Preflights</th><th>Main runs</th>
-        <th>Representative case</th><th>Repeats</th><th>Controlled total</th>
-        {framework_headers}
-      </tr></thead>
-      <tbody>
-        {task_rows}
-        <tr class="totals"><td>Total</td><td>{total_cases}</td><td>{total_preflights}</td>
-          <td>{total_main_runs}</td><td>8 IDs</td><td>{total_repeats}</td><td>{total_controlled}</td>
-          <td colspan="{framework_count}"></td></tr>
-      </tbody>
-    </table></div>
-  </section>
-
-  {results}
+  <div class="app">
+    <aside class="rail">
+      <div class="brand">Universal Agent<span class="brand-version">formal v2.0</span></div>
+      <p class="rail-sub">Cross-vertical framework evaluation</p>
+      {control_rail}
+      <p class="rail-note">Healthcare and E-commerce share one frozen adapter/evaluator pipeline. Gold, prompts, traces, run IDs, hashes, and private environments remain local.</p>
+    </aside>
+    <main>
+      <div class="head"><div><h1>Formal benchmark dashboard</h1><p>LangGraph · CrewAI · OpenAI Agents SDK across two verticals and eight tasks.</p></div>
+        <div class="meta">Generated {generated_at}<br>Gate: {gate_status}</div></div>
+      <div class="banner">{banner_text}</div>
+      <div class="summary">{overview}</div>
+      {results}
+      <details><summary>Frozen execution matrix and representative-case counts</summary>
+        <p class="hint">Counts are frozen per docs/representative_case_ids.md and docs/experiment_report_skeleton.md.</p>
+        <div class="table-wrap"><table><thead><tr><th>Task</th><th>Cases</th><th>Preflights</th><th>Main runs</th>
+          <th>Representative case</th><th>Repeats</th><th>Controlled total</th>{framework_headers}</tr></thead>
+          <tbody>{task_rows}<tr class="totals"><td>Total</td><td>{total_cases}</td><td>{total_preflights}</td>
+          <td>{total_main_runs}</td><td>8 IDs</td><td>{total_repeats}</td><td>{total_controlled}</td><td colspan="{framework_count}"></td></tr></tbody>
+        </table></div>
+      </details>
+    </main>
+  </div>
+  {interaction_script}
 </body>
 </html>
 """
@@ -421,6 +652,8 @@ def render_html(payload: dict) -> str:
         generated_at=payload["generated_at"],
         gate_status=payload["gate_status"],
         banner_text=banner_text,
+        control_rail=_control_rail_html(payload),
+        overview=_overview_html(payload),
         framework_headers=_framework_headers_html(payload),
         task_rows=_task_rows_html(payload),
         total_cases=payload["totals"]["cases"],
@@ -430,6 +663,7 @@ def render_html(payload: dict) -> str:
         total_controlled=payload["totals"]["controlled_total"],
         framework_count=len(payload["frameworks"]),
         results=_results_html(payload),
+        interaction_script=_interaction_script(payload),
     )
 
 

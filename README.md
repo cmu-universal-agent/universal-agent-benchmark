@@ -464,7 +464,13 @@ The default output is a public-safe placeholder. A result-bearing candidate is
 rendered only when both matching, allowlisted inputs pass validation. The
 generated `results/pilot_dashboard.html` remains gitignored, and a valid
 candidate is not authorized for public release until the owner grants that
-separate permission.
+separate permission. This is the formal proposal-aligned results view: it
+filters by vertical, task, framework, and metric; displays task-specific frozen
+scores and a Framework Suitability Matrix; and keeps process success, schema
+validity, latency, and cost as separate comparison dimensions. Non-E5 primary
+scores use the frozen evaluator mean. E5 uses final-state pass rate, and an
+invalid sweep is visibly excluded from cross-framework comparison. The
+dashboard does not manufacture a composite score or overall winner.
 
 ### Synthetic Retail/E5 integration dashboard
 
@@ -482,6 +488,8 @@ synthetic technical validation, not benchmark scoring: it publishes sanitized
 trace summaries and aggregate final-state verdicts only. `results/dashboard.html`
 is generated (gitignored), so it isn't checked in or viewable on GitHub —
 regenerate it locally and open the file to view it.
+This historical WS3 page is a specialist Retail/E5 playground, not the final
+cross-vertical benchmark dashboard.
 Use `--synthetic-walkthrough` for the meeting-ready public case input and
 sanitized contract-validation output; it does not create framework scores.
 Use `serve_ws3_playground.py` for the interactive meeting page: enter a request,
